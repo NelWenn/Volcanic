@@ -1,0 +1,3 @@
+# External client tick callbacks that may fail non-fatally after their own initialization failed.
+# Java code stays generic; this data file can be extended without adding mod-named production classes.
+org.orecruncher.dsurround.

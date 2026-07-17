@@ -1,0 +1,13 @@
+{
+    "samplers": [
+        { "name": "Sampler0" }
+    ],
+    "UBOs": [
+        { "type": "fragment", "binding": 0, "fields": [
+            { "name": "CgExposure",    "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "CgContrast",    "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "CgSaturation",  "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "CgTemperature", "type": "float", "count": 1, "values": [ 0.0 ] }
+        ] }
+    ]
+}

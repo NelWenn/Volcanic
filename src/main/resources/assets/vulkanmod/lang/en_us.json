@@ -1,0 +1,112 @@
+{
+  "vulkanmod.options.unknown": "Unknown",
+
+  "vulkanmod.options.pages.video": "Video",
+  "vulkanmod.options.pages.lighting": "Lighting",
+  "vulkanmod.options.pages.graphics": "Graphics",
+  "vulkanmod.options.pages.optimizations": "Optimizations",
+  "vulkanmod.options.pages.other": "Other",
+
+  "vulkanmod.options.buttons.apply": "Apply",
+  "vulkanmod.options.buttons.undo": "Undo",
+  "vulkanmod.options.buttons.kofi": "Support me",
+  "vulkanmod.options.buttons.update_available": "Update available!",
+
+  "vulkanmod.options.searchFieldPlaceholder": "Search Graphics Settings",
+
+  "vulkanmod.options.performanceImpact": "Performance impact: %s",
+  "vulkanmod.options.performanceImpact.low": "Low",
+  "vulkanmod.options.performanceImpact.medium": "Medium",
+  "vulkanmod.options.performanceImpact.high": "High",
+
+  "vulkanmod.options.windowMode": "Window Mode",
+  "vulkanmod.options.windowMode.windowed": "Windowed",
+  "vulkanmod.options.windowMode.windowedFullscreen": "Windowed Fullscreen",
+
+  "vulkanmod.options.performancePreset": "Performance Preset",
+  "vulkanmod.options.performancePreset.tooltip": "Applies a group of Minecraft and VulkanMod settings for the selected performance target.",
+  "vulkanmod.options.performancePreset.custom": "Custom",
+  "vulkanmod.options.performancePreset.potato": "Potato",
+  "vulkanmod.options.performancePreset.balanced": "Balanced",
+  "vulkanmod.options.performancePreset.quality": "Quality",
+
+  "vulkanmod.options.advCulling": "Advanced Chunk Culling",
+  "vulkanmod.options.advCulling.aggressive": "Aggressive",
+  "vulkanmod.options.advCulling.conservative": "Conservative",
+  "vulkanmod.options.advCulling.normal": "Normal",
+  "vulkanmod.options.advCulling.tooltip": "Use a culling algorithm that might improve performance by reducing the number of non visible chunk sections rendered.",
+
+  "vulkanmod.options.ao.subBlock": "ON (Sub-block)",
+  "vulkanmod.options.ao.subBlock.tooltip": "ON (Sub-block): Enables smooth lighting for non full block (experimental).",
+
+  "vulkanmod.options.deviceSelector": "Device selector",
+  "vulkanmod.options.deviceSelector.auto": "Auto",
+  "vulkanmod.options.deviceSelector.tooltip": "Current device",
+
+  "vulkanmod.options.entityCulling": "Entity Culling",
+  "vulkanmod.options.entityCulling.tooltip": "Enables culling for entities on not visible sections.",
+
+  "vulkanmod.options.frameQueue": "Render queue size",
+  "vulkanmod.options.frameQueue.tooltip": "Higher values might help stabilize frametime but will increase input lag.",
+
+  "vulkanmod.options.indirectDraw": "Indirect Draw",
+  "vulkanmod.options.indirectDraw.tooltip": "Reduces CPU overhead but increases GPU overhead. Enabling it might help in CPU limited systems.",
+  "vulkanmod.options.adaptiveChunkUploads": "Adaptive Chunk Uploads",
+  "vulkanmod.options.adaptiveChunkUploads.tooltip": "Adjusts chunk upload work from recent frame time to reduce stutter while moving or flying.",
+
+  "vulkanmod.options.refreshRate": "Refresh Rate",
+
+  "vulkanmod.options.uniqueOpaqueLayer": "Unique opaque layer",
+  "vulkanmod.options.uniqueOpaqueLayer.tooltip": "Use a unique render layer for opaque terrain to improve performance.",
+
+  "vulkanmod.options.windowedFullscreen": "Windowed Fullscreen",
+  "vulkanmod.options.particleCulling": "Particle Culling",
+  "vulkanmod.options.particleCulling.quality": "Quality",
+  "vulkanmod.options.particleCulling.balanced": "Balanced",
+  "vulkanmod.options.particleCulling.performance": "Performance",
+  "vulkanmod.options.particleCulling.tooltip": "Cull redundant particles based on distance, player FOV, and maximum same-type count budgets.",
+  "vulkanmod.options.blockEntityCulling": "Block Entity Culling",
+  "vulkanmod.options.blockEntityCulling.tooltip": "Cull block entities (chests, signs, spawners, etc.) that are outside the camera frustum or further than 96 blocks.",
+  "vulkanmod.options.leavesCulling": "Leaves Culling",
+  "vulkanmod.options.leavesCulling.tooltip": "Cull adjacent interior faces of leaf blocks to significantly improve performance in forests.",
+  "vulkanmod.options.textureAnimations": "Texture Animations",
+  "vulkanmod.options.renderScale": "Render Scale",
+  "vulkanmod.options.renderScale.tooltip": "Renders Minecraft at a lower internal resolution, then scales it back to the current window or fullscreen size.",
+
+  "vulkanmod.options.pages.shaders": "Shaders",
+  "vulkanmod.options.shadersEnabled": "Enable Shaders",
+  "vulkanmod.options.shadersEnabled.tooltip": "Enable Volcanic's native Vulkan post-processing effects.",
+  "vulkanmod.options.selectedShader": "Shader",
+  "vulkanmod.options.shader.off": "Off",
+  "vulkanmod.options.shader.color_grade": "Color Grading",
+  "vulkanmod.options.shader.fog": "Camille-Visual - dev-v0.1",
+  "vulkanmod.options.category.general": "General",
+  "vulkanmod.options.category.fog": "Fog",
+  "vulkanmod.options.category.godrays": "God-rays",
+  "vulkanmod.options.category.shadows": "Shadows",
+  "vulkanmod.options.category.colorGrade": "Color Grading",
+  "vulkanmod.options.category.shaderPack": "Shader Pack",
+  "vulkanmod.options.shaderSettings": "Shader Settings",
+  "vulkanmod.options.cgExposure": "Exposure",
+  "vulkanmod.options.cgContrast": "Contrast",
+  "vulkanmod.options.cgSaturation": "Saturation",
+  "vulkanmod.options.cgTemperature": "Temperature",
+  "vulkanmod.options.fogDensity": "Fog Density",
+  "vulkanmod.options.fogHeight": "Fog Height",
+  "vulkanmod.options.shadowsEnabled": "Sun Shadows",
+  "vulkanmod.options.taaEnabled": "TAA (Temporal Smoothing)",
+  "vulkanmod.options.shadowQuality": "Shadow Definition",
+  "vulkanmod.options.shadowDistance": "Shadow Distance",
+
+  "vulkanmod.options.customLightmap": "Custom Lightmap",
+  "vulkanmod.options.lightBrightness": "Brightness",
+  "vulkanmod.options.nightDarkness": "Night Darkness",
+  "vulkanmod.options.torchIntensity": "Torch Light",
+  "vulkanmod.options.caveAmbient": "Cave Ambient",
+  "vulkanmod.options.glowStrength": "Emissive Glow",
+  "vulkanmod.options.pointLights": "Point Lights",
+  "vulkanmod.options.pointLightStrength": "Point Light Strength",
+
+  "vulkanmod.options.disableHiDPI": "Reduce Resolution (HiDPI)",
+  "vulkanmod.options.disableHiDPI.tooltip": "macOS: render at the display's logical resolution instead of the full Retina resolution. Much faster, slightly softer image. Requires restart."
+}

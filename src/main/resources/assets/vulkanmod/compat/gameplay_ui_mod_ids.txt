@@ -1,0 +1,24 @@
+# Popular gameplay and UI mods that may draw overlays, item widgets, or config screens.
+create
+jei
+emi
+rei
+jade
+theoneprobe
+appleskin
+xaerominimap
+xaeroworldmap
+journeymap
+ftbchunks
+ftblibrary
+configured
+controlling
+mouse_tweaks
+inventorysorter
+autohud
+emotecraft
+notenoughanimations
+bettercombat
+firstperson
+customplayermodels
+physicsmod

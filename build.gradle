@@ -1,0 +1,272 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.141'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    accessTransformers.from("src/main/resources/META-INF/accesstransformer.cfg")
+
+    runs {
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'fml.earlydisplay', 'true'
+            systemProperty 'org.lwjgl.util.Debug', 'false'
+            systemProperty 'org.lwjgl.util.DebugAllocator', 'false'
+            systemProperty 'vulkanmod.compat.externalLod', System.getProperty('vulkanmod.compat.externalLod', 'off')
+            systemProperty 'vulkanmod.compat.externalLod.draw', System.getProperty('vulkanmod.compat.externalLod.draw', 'true')
+            systemProperty 'vulkanmod.compat.externalLod.debugDraw', System.getProperty('vulkanmod.compat.externalLod.debugDraw', 'false')
+            jvmArguments.add('-ea')
+            jvmArguments.add('-XX:+UseZGC')
+            jvmArguments.add('-XX:SoftMaxHeapSize=1536m')
+            if (System.getProperty("os.name").toLowerCase().contains("mac")) {
+                // GLFW on macOS must run on the first thread
+                jvmArguments.add('-XstartOnFirstThread')
+
+                // Load the vendored MoltenVK 1.4.1 (Metal 4) instead of the old one bundled with
+                // LWJGL 3.3.3. LWJGL loads the Vulkan implementation from this absolute path directly,
+                // bypassing classpath extraction, so dev runs use the same driver as the shipped jar.
+                def _arch = System.getProperty("os.arch").toLowerCase()
+                def _mvkDir = (_arch.contains("aarch64") || _arch.contains("arm")) ? "macos-arm64" : "macos-x64"
+                def _mvkLib = file("libs/moltenvk/${_mvkDir}/libMoltenVK.dylib")
+                if (_mvkLib.exists()) {
+                    systemProperty 'org.lwjgl.vulkan.libname', _mvkLib.absolutePath
+                }
+            }
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        data {
+            data()
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+    }
+
+    mods {
+        vulkanmod {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+project.ext.lwjglVersion = "3.3.3"
+project.ext.winNatives = "natives-windows"
+
+// Native classifier for the CURRENT machine, so dev runs (runClient) work cross-platform.
+// macOS needs MoltenVK shipped via lwjgl-vulkan natives; Windows/Linux get Vulkan from the system loader.
+def _osName = System.getProperty("os.name").toLowerCase()
+def _osArch = System.getProperty("os.arch").toLowerCase()
+if (_osName.contains("win")) {
+    project.ext.devNatives = "natives-windows"
+} else if (_osName.contains("mac") || _osName.contains("darwin")) {
+    project.ext.devNatives = (_osArch.contains("aarch64") || _osArch.contains("arm")) ? "natives-macos-arm64" : "natives-macos"
+} else {
+    project.ext.devNatives = _osArch.contains("aarch64") ? "natives-linux-arm64" : "natives-linux"
+}
+project.ext.isMacDev = _osName.contains("mac") || _osName.contains("darwin")
+logger.lifecycle("VulkanMod dev natives classifier: ${project.ext.devNatives}")
+
+dependencies {
+    // Standard LWJGL for Vulkan
+    implementation "org.lwjgl:lwjgl-vulkan:$lwjglVersion"
+    implementation "org.lwjgl:lwjgl-shaderc:$lwjglVersion"
+    implementation "org.lwjgl:lwjgl-vma:$lwjglVersion"
+
+    runtimeOnly "org.lwjgl:lwjgl-shaderc:$lwjglVersion:$winNatives"
+    runtimeOnly "org.lwjgl:lwjgl-vma:$lwjglVersion:$winNatives"
+
+    // Add to runtime classpath for Dev Runs
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-vulkan:$lwjglVersion"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-shaderc:$lwjglVersion"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-vma:$lwjglVersion"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-shaderc:$lwjglVersion:$winNatives"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-vma:$lwjglVersion:$winNatives"
+
+    // Current-machine natives so `runClient` works on this OS (macOS/Linux dev; Windows already added above).
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-shaderc:$lwjglVersion:$devNatives"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-vma:$lwjglVersion:$devNatives"
+    if (project.ext.isMacDev) {
+        // lwjgl-vulkan natives = MoltenVK, published only for macOS
+        additionalRuntimeClasspath "org.lwjgl:lwjgl-vulkan:$lwjglVersion:$devNatives"
+    }
+
+    // Bundle LWJGL Vulkan/shaderc/vma into the mod jar for production, for ALL desktop platforms so a
+    // single jar works everywhere. The `jar` doLast below strips module-info from the embedded jars and
+    // makes the JarJar identifiers unique per native classifier.
+    // shaderc/vma ship desktop natives per OS; lwjgl-vulkan ships natives only for macOS (MoltenVK) —
+    // on Windows/Linux the system Vulkan loader is used instead.
+    def desktopNatives = ["natives-windows", "natives-linux", "natives-macos", "natives-macos-arm64"]
+    jarJar "org.lwjgl:lwjgl-vulkan:$lwjglVersion"
+    jarJar "org.lwjgl:lwjgl-shaderc:$lwjglVersion"
+    jarJar "org.lwjgl:lwjgl-vma:$lwjglVersion"
+    desktopNatives.each { n ->
+        jarJar "org.lwjgl:lwjgl-shaderc:$lwjglVersion:$n"
+        jarJar "org.lwjgl:lwjgl-vma:$lwjglVersion:$n"
+    }
+    jarJar "org.lwjgl:lwjgl-vulkan:$lwjglVersion:natives-macos"
+    jarJar "org.lwjgl:lwjgl-vulkan:$lwjglVersion:natives-macos-arm64"
+
+    // Flywheel backend SPI (runtime ships inside Create's jar-in-jar; compile against the same version)
+    compileOnly files("libs/flywheel-neoforge-1.21.1-1.0.6.jar")
+
+    // Unit tests (JUnit 5)
+    testImplementation platform("org.junit:junit-bom:5.10.2")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+// Ensure JarJar only contains what we want
+configurations.jarJar {
+    exclude group: 'org.lwjgl', module: 'lwjgl'
+    exclude group: 'org.lwjgl', module: 'lwjgl-glfw'
+    exclude group: 'org.lwjgl', module: 'lwjgl-opengl'
+    exclude group: 'org.lwjgl', module: 'lwjgl-stb'
+}
+
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("META-INF/neoforge.mods.toml") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+
+java {
+    withSourcesJar()
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}"}
+    }
+    from("COPYING") {
+        rename { "${it}_${project.base.archivesName.get()}"}
+    }
+    from("NOTICE") {
+        rename { "${it}_${project.base.archivesName.get()}"}
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            artifactId = project.archives_base_name
+            from components.java
+        }
+    }
+}
+
+// Post-process: strip module-info.class from embedded LWJGL JarJar jars.
+// Without this, lwjgl-vulkan ends up in its own JPMS module layer,
+// invisible to org.lwjgl.glfw in the boot layer, causing:
+//   NoClassDefFoundError: org/lwjgl/vulkan/VkInstance
+tasks.named('jar') {
+    doLast {
+        def jarFile = archiveFile.get().asFile
+        def tmpDir = new File(temporaryDir, "repack")
+
+        // Extract the fat jar
+        tmpDir.deleteDir()
+        tmpDir.mkdirs()
+        ant.unzip(src: jarFile, dest: tmpDir)
+
+        // Strip module-info.class from each embedded LWJGL jar
+        def jarjarDir = new File(tmpDir, "META-INF/jarjar")
+        if (jarjarDir.exists()) {
+            jarjarDir.listFiles().findAll { it.name.endsWith('.jar') && it.name.startsWith('lwjgl-') }.each { embeddedJar ->
+                def stripped = new File(temporaryDir, "stripped-${embeddedJar.name}")
+                ant.zip(destfile: stripped) {
+                    zipfileset(src: embeddedJar) {
+                        exclude(name: 'module-info.class')
+                        exclude(name: 'META-INF/versions/*/module-info.class')
+                    }
+                }
+                embeddedJar.delete()
+                stripped.renameTo(embeddedJar)
+            }
+
+            // Swap the MoltenVK driver bundled by LWJGL 3.3.3 for the vendored MoltenVK 1.4.1 (Metal 4).
+            // We keep LWJGL 3.3.3 Java bindings (required for compatibility with the LWJGL the game loads)
+            // but ship a newer Vulkan->Metal driver. The .sha1 sidecar is LWJGL's extraction-cache key,
+            // so it MUST be updated to the new binary's hash or LWJGL would reuse a stale extraction.
+            jarjarDir.listFiles().findAll {
+                it.name.startsWith('lwjgl-vulkan-') && (it.name.endsWith('natives-macos.jar') || it.name.endsWith('natives-macos-arm64.jar'))
+            }.each { nativesJar ->
+                def isArm = nativesJar.name.endsWith('natives-macos-arm64.jar')
+                def arch = isArm ? 'arm64' : 'x64'
+                def vendored = file("libs/moltenvk/${isArm ? 'macos-arm64' : 'macos-x64'}/libMoltenVK.dylib")
+                if (!vendored.exists()) {
+                    logger.warn("MoltenVK swap: ${vendored} missing, shipping the LWJGL-bundled driver for ${arch}")
+                    return
+                }
+                def exploded = new File(temporaryDir, "mvk-${nativesJar.name}")
+                exploded.deleteDir(); exploded.mkdirs()
+                ant.unzip(src: nativesJar, dest: exploded)
+
+                def dylib = new File(exploded, "macos/${arch}/org/lwjgl/vulkan/libMoltenVK.dylib")
+                dylib.bytes = vendored.bytes
+
+                def newSha1 = java.security.MessageDigest.getInstance("SHA-1").digest(vendored.bytes)
+                        .collect { String.format('%02x', it) }.join('')
+                def sha1File = new File(exploded, "META-INF/macos/${arch}/org/lwjgl/vulkan/libMoltenVK.dylib.sha1")
+                if (sha1File.exists()) sha1File.text = newSha1
+
+                nativesJar.delete()
+                ant.zip(destfile: nativesJar, basedir: exploded)
+                logger.lifecycle("MoltenVK swap: ${arch} -> vendored 1.4.1 (sha1 ${newSha1})")
+            }
+
+            // Fix metadata.json because NeoForge JarJar generates duplicate identifiers for natives
+            def metadataFile = new File(jarjarDir, "metadata.json")
+            if (metadataFile.exists()) {
+                def slurper = new groovy.json.JsonSlurper()
+                def metadata = slurper.parseText(metadataFile.text)
+                metadata.jars.each { jarEntry ->
+                    // Multiple native classifiers of one artifact would collide on a single identifier;
+                    // append the classifier (e.g. "-natives-macos-arm64") so each embedded jar is unique.
+                    def m = (jarEntry.path =~ /-(natives-[a-z0-9_-]+)\.jar$/)
+                    if (m.find()) {
+                        jarEntry.identifier.artifact += "-" + m.group(1)
+                    }
+                }
+                metadataFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(metadata))
+            }
+        }
+
+        // Repack
+        jarFile.delete()
+        ant.zip(destfile: jarFile, basedir: tmpDir)
+    }
+}

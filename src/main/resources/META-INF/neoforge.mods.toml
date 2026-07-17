@@ -1,0 +1,30 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="LGPL-3.0"
+
+[[mods]]
+modId="vulkanmod"
+version="${version}"
+displayName="Volcanic"
+logoFile="assets/vulkanmod/volcanic.png"
+authors="NelWenn"
+credits="xCollateral (original VulkanMod), Rindw / TrulyRin (VulkanMod Reforged NeoForge port)"
+description='''
+Volcanic — a Vulkan renderer for Minecraft, native on macOS. Replaces the OpenGL renderer with Vulkan (via MoltenVK on Apple Silicon & Intel Macs) and adds native post-process shaders, sun/moon shadow mapping, TAA and render-scale upscaling. Fork of VulkanMod Reforged.
+'''
+
+[[mixins]]
+config="vulkanmod.mixins.json"
+
+[[dependencies.vulkanmod]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21,)"
+    ordering="NONE"
+    side="BOTH"
+[[dependencies.vulkanmod]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"

@@ -1,0 +1,15 @@
+# Library and framework mods. These are safe to detect/report, but should not
+# receive renderer-level compatibility patches unless a concrete crash requires it.
+geckolib
+playeranimator
+architectury
+cloth_config
+curios
+accessories
+patchouli
+balm
+bookshelf
+citadel
+kotlinforforge
+configured
+catalogue

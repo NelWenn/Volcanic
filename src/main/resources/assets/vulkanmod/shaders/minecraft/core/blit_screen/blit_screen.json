@@ -1,0 +1,19 @@
+{
+    "blend": {
+        "func": "add",
+        "srcrgb": "srcalpha",
+        "dstrgb": "1-srcalpha"
+    },
+    "vertex": "blit_screen",
+    "fragment": "blit_screen",
+    "attributes": [
+        "Position",
+        "UV",
+        "Color"
+    ],
+    "samplers": [
+        { "name": "DiffuseSampler" }
+    ],
+    "uniforms": [],
+    "UBOs": []
+}

@@ -1,0 +1,2 @@
+# Extra one-off report IDs. The main library, gameplay/UI, and renderer
+# categories are loaded from their dedicated files.

@@ -1,0 +1,43 @@
+Volcanic — Unofficial Fork
+
+This project is an unofficial, modified fork of VulkanMod.
+
+Lineage (all licensed under LGPL-3.0-only):
+  - Original VulkanMod: xCollateral and VulkanMod contributors
+      https://github.com/xCollateral/VulkanMod
+  - NeoForge port "VulkanMod Reforged": Rindw (TrulyRin)
+      https://github.com/TrulyRin/VulkanMod-Reforged
+  - This fork "Volcanic": NelWenn
+      https://github.com/NelWenn/Volcanic
+
+Modifications made by this fork (2026) relative to VulkanMod Reforged:
+
+  Platform / macOS:
+  - Fixed the macOS / Apple Silicon startup crash on NeoForge. VulkanMod Reforged crashed with
+    "NoClassDefFoundError: org.lwjgl.vulkan.VK" at org.lwjgl.glfw.GLFWVulkan because the bundled
+    lwjgl-vulkan is loaded into the game module layer while GLFWVulkan lives in the boot layer, which
+    cannot read it. This fork obtains the required Vulkan instance extensions and creates the window
+    surface without referencing GLFWVulkan (new class net.vulkanmod.vulkan.VkSurfaceUtil).
+  - Added a macOS surface path: CAMetalLayer + VK_EXT_metal_surface (MoltenVK), including the Retina
+    contentsScale. Added Windows/Linux (Win32/Xlib/Wayland) surface paths for completeness.
+  - Bundled the LWJGL Vulkan/shaderc/vma natives for all desktop platforms (Windows, Linux, macOS
+    x86-64 and Apple Silicon) into a single jar.
+  - Fixed a case-sensitive shader resource load (terrain_Z.fsh -> terrain_z.fsh).
+
+  Rendering features:
+  - Native Vulkan post-process shader pipeline (color grading, volumetric height fog, screen-space
+    god-rays) rendered directly in the Vulkan renderer.
+  - Sun and moon shadow mapping: a second camera-relative terrain pass into a depth texture, sampled
+    by the post-process pass with Vogel-disk PCF and slope-scaled bias; a resolution quality slider.
+  - Temporal accumulation (TAA) to smooth shadow shimmer.
+  - Render-scale upscaling (render below native resolution, upscale to the swapchain).
+  - GPU frame timing (Vulkan timestamp queries) and additional culling paths.
+
+Prior fork modification (VulkanMod Reforged, by Rindw, 2026-06-19): Minecraft 1.21.1 NeoForge
+compatibility, release metadata cleanup, and local compatibility fixes.
+
+Original authorship and contribution credit belongs to xCollateral and VulkanMod contributors.
+
+This fork is not endorsed by or affiliated with the upstream VulkanMod maintainers or the Reforged
+maintainer. The VulkanMod name, logo, and related project branding may be subject to rights outside
+the LGPLv3 code license.
