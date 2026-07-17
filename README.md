@@ -22,11 +22,11 @@
 <a href="https://discord.gg/fXTbnFhumY"><img src="https://img.shields.io/badge/Discord-Join_the_community-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"/></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-LGPL--3.0-3DA639?style=for-the-badge&logo=gnu&logoColor=white" alt="License LGPL-3.0"/></a>
 <a href="https://github.com/NelWenn/Volcanic/stargazers"><img src="https://img.shields.io/github/stars/NelWenn/Volcanic?style=for-the-badge&color=B23A34&logo=github" alt="Stars"/></a>
-<a href="https://github.com/NelWenn/Volcanic/releases/latest"><img src="https://img.shields.io/github/v/release/NelWenn/Volcanic?style=for-the-badge&color=B23A34&label=Download" alt="Latest release"/></a>
+<a href="https://github.com/NelWenn/Volcanic/releases"><img src="https://img.shields.io/github/v/release/NelWenn/Volcanic?include_prereleases&style=for-the-badge&color=B23A34&label=Download" alt="Latest release"/></a>
 
 <br/>
 
-**[⬇ Download](https://github.com/NelWenn/Volcanic/releases/latest) · [✨ Features](#-features) · [💾 Install](#-install) · [⚙️ Configuration](#️-configuration) · [🛠 Build](#-build-from-source) · [💬 Discord](https://discord.gg/fXTbnFhumY)**
+**[⬇ Download](https://github.com/NelWenn/Volcanic/releases) · [✨ Features](#-features) · [💾 Install](#-install) · [⚙️ Configuration](#️-configuration) · [🛠 Build](#-build-from-source) · [💬 Discord](https://discord.gg/fXTbnFhumY)**
 
 </div>
 
@@ -147,7 +147,7 @@ Built-in **Vulkan timestamp** GPU timing so you can see where frame time actuall
 > (`vulkanmod`) and will conflict. Volcanic already contains the whole renderer plus the macOS fixes.
 
 1. Install [NeoForge](https://neoforged.net/) for Minecraft **1.21.1**.
-2. Download the latest `Volcanic-<version>.jar` from the [**Releases**](https://github.com/NelWenn/Volcanic/releases/latest) page.
+2. Download the latest `Volcanic-<version>.jar` from the [**Releases**](https://github.com/NelWenn/Volcanic/releases) page (currently an **alpha** pre-release).
 3. Drop it into your instance's `mods/` folder (and remove any other VulkanMod / Reforged jar).
 4. Launch. Volcanic *replaces* the renderer — don't combine it with other renderer-replacing mods
    (Sodium / Embeddium, etc.).
