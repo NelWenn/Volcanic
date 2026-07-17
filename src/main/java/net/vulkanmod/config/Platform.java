@@ -7,7 +7,7 @@ import static net.vulkanmod.Initializer.LOGGER;
 import static org.lwjgl.glfw.GLFW.*;
 
 public abstract class Platform {
-    private static final int activePlat = getSupportedPlat();
+    private static int activePlat = getSupportedPlat();
     private static final String activeDE = determineDE();
 
     public static void init() {
@@ -15,6 +15,9 @@ public abstract class Platform {
         LOGGER.info("Selecting Platform: {}", getStringFromPlat(activePlat));
         LOGGER.info("GLFW: {}", GLFW.glfwGetVersionString());
         GLFW.glfwInit();
+        // early GLFW init by FML
+        activePlat = GLFW.glfwGetPlatform();
+        LOGGER.info("Actual GLFW platform: {}", getStringFromPlat(activePlat));
     }
 
     //Actually detect the currently active Display Server (if both Wayland and X11 are present on the system and/or GLFW is compiled to support both)
