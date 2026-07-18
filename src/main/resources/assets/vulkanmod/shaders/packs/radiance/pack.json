@@ -1,6 +1,6 @@
 {
     "name": "Camille Radiance",
-    "version": 16,
+    "version": 17,
     "targets": [
         { "name": "light",    "format": "RGBA16F", "scale": 0.5,  "clear": 1.0 },
         { "name": "scenblur", "format": "RGBA16F", "scale": 0.25 }

@@ -10,8 +10,6 @@ layout(binding = 0) uniform UBO {
     vec3 FogShadowCameraPos;
 };
 
-const float AoRadius = 2.6;
-
 layout(binding = 1) uniform sampler2D Sampler0;
 layout(binding = 2) uniform sampler2D Sampler1;
 layout(binding = 3) uniform sampler2D Sampler2;
@@ -71,30 +69,6 @@ float shadowLit(vec3 rel, vec3 N, out float interior) {
     return sum / 32.0;
 }
 
-float ambientOcclusion(vec3 p, vec3 N, float dist) {
-    vec2 fullResSize = vec2(textureSize(Sampler0, 0));
-    float aspect = fullResSize.x / fullResSize.y;
-    float rUV = clamp(0.5 / (dist + 1.0), 0.003, 0.011);
-    vec2 radiusUV = vec2(rUV / aspect, rUV);
-
-    float occ = 0.0;
-    float samples = 0.0;
-    const int N_AO = 12;
-    for (int i = 0; i < N_AO; i++) {
-        vec2 uv = texCoord + vogel(i, N_AO, 0.0) * radiusUV;
-        float sd = min(texture(Sampler0, uv).r, texture(Sampler1, uv).r);
-        vec3 sp = reconstruct(uv, sd);
-        vec3 v = sp - p;
-        float len = length(v);
-        if (len < 0.05) continue;
-        float range = 1.0 - smoothstep(AoRadius * 0.5, AoRadius, len);
-        occ += smoothstep(0.25, 0.6, dot(v / len, N)) * range;
-        samples += 1.0;
-    }
-    occ = samples > 0.0 ? occ / samples : 0.0;
-    return clamp(1.0 - occ * 1.6, 0.0, 1.0);
-}
-
 void main() {
     ivec2 fullResTexel = ivec2(gl_FragCoord.xy) * 2;
     vec2 fullResSize = vec2(textureSize(Sampler0, 0));
@@ -117,7 +91,5 @@ void main() {
         shadowTerm = (1.0 - lit) * FogShadowIntensity;
     }
 
-    float ao = ambientOcclusion(p, N, dist);
-
-    fragColor = vec4(shadowTerm, ao, interior, dist);
+    fragColor = vec4(shadowTerm, 1.0, interior, dist);
 }
