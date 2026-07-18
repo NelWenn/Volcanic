@@ -59,7 +59,7 @@ float shadowLit(vec3 rel, vec3 N, out float interior) {
     if (blockers <= 0.0) return 1.0;
 
     float gap = max(0.0, d - blockerSum / blockers);
-    float penumbra = clamp(gap * 260.0, 1.2, 22.0) * FogShadowTexel;
+    float penumbra = clamp(gap * 260.0, 2.5, 24.0) * FogShadowTexel;
 
     float sum = 0.0;
     for (int i = 0; i < 32; i++) {
@@ -70,10 +70,10 @@ float shadowLit(vec3 rel, vec3 N, out float interior) {
 }
 
 void main() {
-    ivec2 fullResTexel = ivec2(gl_FragCoord.xy) * 2;
-    vec2 fullResSize = vec2(textureSize(Sampler0, 0));
-    float depth = min(texelFetch(Sampler0, fullResTexel, 0).r, texelFetch(Sampler1, fullResTexel, 0).r);
-    vec2 fullUV = (vec2(fullResTexel) + 0.5) / fullResSize;
+    vec2 dSize = vec2(textureSize(Sampler0, 0));
+    ivec2 dTexel = ivec2(texCoord * dSize);
+    float depth = min(texelFetch(Sampler0, dTexel, 0).r, texelFetch(Sampler1, dTexel, 0).r);
+    vec2 fullUV = (vec2(dTexel) + 0.5) / dSize;
 
     if (depth >= 0.9999) {
         fragColor = vec4(0.0, 1.0, 0.0, 4096.0);
