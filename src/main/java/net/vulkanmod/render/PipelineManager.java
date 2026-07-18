@@ -23,7 +23,7 @@ public abstract class PipelineManager {
     }
 
     static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline;
-    static GraphicsPipeline colorGradePipeline, fogPipeline, fogTermsPipeline, fogCompositePipeline;
+    static GraphicsPipeline colorGradePipeline, fogPipeline, fogTermsPipeline, fogCompositePipeline, fogExposurePipeline;
     static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline;
 
     private static Function<TerrainRenderType, GraphicsPipeline> shaderGetter;
@@ -48,6 +48,7 @@ public abstract class PipelineManager {
         fogPipeline = createPipeline("post_fog", "post_fog", "post_fog", CustomVertexFormat.NONE);
         fogTermsPipeline = createPipeline("post_fog_terms", "post_fog_terms", "post_fog_terms", CustomVertexFormat.NONE);
         fogCompositePipeline = createPipeline("post_fog_composite", "post_fog_composite", "post_fog_composite", CustomVertexFormat.NONE);
+        fogExposurePipeline = createPipeline("post_exposure", "post_exposure", "post_exposure", CustomVertexFormat.NONE);
         shadowTerrainSolidPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_solid", TERRAIN_VERTEX_FORMAT);
         shadowTerrainCutoutPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_cutout", TERRAIN_VERTEX_FORMAT);
         if (ExternalRenderPathSupport.shouldCreateExternalLodPipeline()) {
@@ -74,7 +75,6 @@ public abstract class PipelineManager {
         return shaderGetter.apply(renderType);
     }
 
-    // depth-only shadow-map pipelines; cutout variant keeps the terrain shader's alpha-test discards
     public static GraphicsPipeline getShadowTerrainShader(TerrainRenderType renderType) {
         return renderType == TerrainRenderType.SOLID ? shadowTerrainSolidPipeline : shadowTerrainCutoutPipeline;
     }
@@ -107,6 +107,8 @@ public abstract class PipelineManager {
 
     public static GraphicsPipeline getFogCompositePipeline() { return fogCompositePipeline; }
 
+    public static GraphicsPipeline getFogExposurePipeline() { return fogExposurePipeline; }
+
     public static GraphicsPipeline getExternalLodPipeline() { return externalLodPipeline; }
 
     public static void destroyPipelines() {
@@ -125,6 +127,9 @@ public abstract class PipelineManager {
         }
         if (fogCompositePipeline != null) {
             fogCompositePipeline.cleanUp();
+        }
+        if (fogExposurePipeline != null) {
+            fogExposurePipeline.cleanUp();
         }
         if (externalLodPipeline != null) {
             externalLodPipeline.cleanUp();

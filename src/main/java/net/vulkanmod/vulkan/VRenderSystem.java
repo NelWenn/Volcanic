@@ -66,7 +66,6 @@ public abstract class VRenderSystem {
     private static final Matrix4f scratchModelView = new Matrix4f();
     private static final Matrix4f scratchMVP = new Matrix4f();
 
-    // inverse projection: reconstructs view-space position from screen UV + depth for post effects
     public static final MappedBuffer inverseProjectionMatrix = new MappedBuffer(16 * 4);
     private static final FloatBuffer inverseProjectionFloatView = inverseProjectionMatrix.buffer.asFloatBuffer();
     private static final Matrix4f scratchInvProj = new Matrix4f();
@@ -77,13 +76,10 @@ public abstract class VRenderSystem {
         return inverseProjectionMatrix;
     }
 
-    // world projection inverse snapshot; post shaders resolve after the GUI switched to ortho, so
-    // they need this rather than the live inverse
     public static final MappedBuffer capturedInverseProjectionMatrix = new MappedBuffer(16 * 4);
     private static final FloatBuffer capturedInverseProjFloatView = capturedInverseProjectionMatrix.buffer.asFloatBuffer();
     private static final Matrix4f scratchCapturedInvProj = new Matrix4f();
 
-    /** Snapshot the current projection's inverse. Call while the world perspective is active. */
     public static void captureInverseProjectionMatrix() {
         vulkanProjectionMatrix.invert(scratchCapturedInvProj);
         scratchCapturedInvProj.get(capturedInverseProjFloatView);
@@ -93,25 +89,27 @@ public abstract class VRenderSystem {
         return capturedInverseProjectionMatrix;
     }
 
-    // inverse world MVP; invMVP * ndc reconstructs a pixel's camera-relative world position from depth
     public static final MappedBuffer capturedInverseMVP = new MappedBuffer(16 * 4);
     private static final FloatBuffer capturedInvMVPView = capturedInverseMVP.buffer.asFloatBuffer();
     private static final Matrix4f scratchCapMVP = new Matrix4f();
     private static final Matrix4f scratchCapInvMVP = new Matrix4f();
 
     public static final MappedBuffer capturedCameraPos = new MappedBuffer(3 * 4);
+    public static final float SUN_TILT = 0.5f;
+    public static final float SUN_TILT_COS = (float) Math.cos(SUN_TILT);
+    public static final float SUN_TILT_SIN = (float) Math.sin(SUN_TILT);
+
     public static final MappedBuffer capturedSunDir = new MappedBuffer(3 * 4);
     public static final MappedBuffer capturedSunScreenUV = new MappedBuffer(2 * 4);
-    public static float capturedDayTime = 0.0f;    // 0..1 time of day
-    public static float capturedSunVisible = 0.0f; // 1 if the sun is on-screen
+    public static float capturedDayTime = 0.0f;
+    public static float capturedSunVisible = 0.0f;
     private static final Vector4f scratchSun = new Vector4f();
 
-    /** Snapshot the world view, camera pos, sun direction and sun screen position while terrain renders. */
     public static void captureWorldViewMatrix(Matrix4f cameraView, double cx, double cy, double cz) {
         scratchCapMVP.set(vulkanProjectionMatrix);
-        scratchCapMVP.mul(cameraView);                  // MVP = proj * view
-        scratchCapMVP.get(capturedMVPForwardView);      // forward MVP for TAA reprojection
-        scratchCapMVP.invert(scratchCapInvMVP);         // invert into a separate matrix, MVP preserved
+        scratchCapMVP.mul(cameraView);
+        scratchCapMVP.get(capturedMVPForwardView);
+        scratchCapMVP.invert(scratchCapInvMVP);
         scratchCapInvMVP.get(capturedInvMVPView);
 
         long cp = capturedCameraPos.ptr;
@@ -123,21 +121,21 @@ public abstract class VRenderSystem {
             Minecraft mc = Minecraft.getInstance();
             if (mc.level != null) {
                 capturedDayTime = mc.level.getTimeOfDay(1.0f);
-                // sun sweeps the world X-Y plane: low at dawn/dusk, high at noon
                 float a = capturedDayTime * ((float) Math.PI * 2.0f);
                 float sx = -(float) Math.sin(a);
-                float sy = (float) Math.cos(a);
+                float sh = (float) Math.cos(a);
+                float sy = sh * SUN_TILT_COS;
+                float sz = sh * SUN_TILT_SIN;
                 long sp = capturedSunDir.ptr;
                 VUtil.UNSAFE.putFloat(sp, sx);
                 VUtil.UNSAFE.putFloat(sp + 4, sy);
-                VUtil.UNSAFE.putFloat(sp + 8, 0.0f);
+                VUtil.UNSAFE.putFloat(sp + 8, sz);
 
-                // screen-space god-rays converge on the sun; fade out as it drops below the horizon
                 float horizon = smoothstep(-0.15f, 0.15f, sy);
                 float uvx = 0.5f, uvy = 0.5f, visible = 0.0f;
-                scratchSun.set(sx, sy, 0.0f, 0.0f);
-                scratchCapMVP.transform(scratchSun);             // clip = MVP * sunDir
-                if (scratchSun.w > 1e-4f) {                      // sun in front of the camera
+                scratchSun.set(sx, sy, sz, 0.0f);
+                scratchCapMVP.transform(scratchSun);
+                if (scratchSun.w > 1e-4f) {
                     float ndcx = scratchSun.x / scratchSun.w;
                     float ndcy = scratchSun.y / scratchSun.w;
                     uvx = ndcx * 0.5f + 0.5f;
@@ -150,11 +148,9 @@ public abstract class VRenderSystem {
                 VUtil.UNSAFE.putFloat(su + 4, uvy);
                 capturedSunVisible = visible;
 
-                // shadow intensity fades to 0 at the horizon so the day/night light swap is seamless
                 float lightUp = smoothstep(0.02f, 0.18f, Math.abs(sy));
                 float strength;
                 if (sy < 0.0f) {
-                    // night: faint moonlight scaled by the moon phase (0 at new moon)
                     strength = 0.30f * mc.level.getMoonBrightness();
                 } else {
                     strength = 1.0f;
@@ -167,13 +163,19 @@ public abstract class VRenderSystem {
 
     public static float capturedShadowIntensity = 0.0f;
     public static float getCapturedShadowIntensity() {
-        // with shadows off the shadow map isn't rendered, so keep the shadow term and god-rays off
         if (!net.vulkanmod.Initializer.CONFIG.shadowsEnabled) return 0.0f;
         return capturedShadowIntensity;
     }
 
     public static void captureWorldReconstruction() {
         captureInverseProjectionMatrix();
+    }
+
+    public static float getWindTime() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) return 0.0f;
+        long ticks = mc.level.getGameTime() % 72000L;
+        return ticks / 20.0f;
     }
 
     private static float smoothstep(float edge0, float edge1, float x) {
@@ -188,6 +190,7 @@ public abstract class VRenderSystem {
     public static float getCapturedSunVisible() {
         return capturedSunVisible;
     }
+
 
     public static MappedBuffer getCapturedInverseMVP() {
         return capturedInverseMVP;
@@ -205,7 +208,6 @@ public abstract class VRenderSystem {
         return capturedDayTime;
     }
 
-    // sun MVP snapshotted after the shadow map is rendered; post shaders project through it to sample the map
     public static final MappedBuffer capturedShadowMVP = new MappedBuffer(16 * 4);
 
     public static void captureShadowMVP() {
@@ -216,7 +218,6 @@ public abstract class VRenderSystem {
         return capturedShadowMVP;
     }
 
-    // camera pos the shadow map was rendered from; lags the fog camera by up to a frame, corrected in-shader
     public static final MappedBuffer capturedShadowCameraPos = new MappedBuffer(3 * 4);
 
     public static void captureShadowCameraPos(double x, double y, double z) {
@@ -230,16 +231,30 @@ public abstract class VRenderSystem {
         return capturedShadowCameraPos;
     }
 
-    // TAA reprojection: forward world MVP and camera pos of this frame + previous, to fetch temporal history
     public static final MappedBuffer capturedMVPForward = new MappedBuffer(16 * 4);
     private static final FloatBuffer capturedMVPForwardView = capturedMVPForward.buffer.asFloatBuffer();
     public static final MappedBuffer prevMVPForward = new MappedBuffer(16 * 4);
     public static final MappedBuffer prevCameraPos = new MappedBuffer(3 * 4);
 
-    /** Roll this frame's forward MVP + camera position into the "previous" slots. Call at frame start. */
     public static void advanceTaaFrame() {
         MemoryUtil.memCopy(capturedMVPForward.ptr, prevMVPForward.ptr, 64L);
         MemoryUtil.memCopy(capturedCameraPos.ptr, prevCameraPos.ptr, 12L);
+        updateFrameDelta();
+    }
+
+    private static long lastFrameNanos = 0L;
+    private static float frameDelta = 0.016f;
+
+    private static void updateFrameDelta() {
+        long now = System.nanoTime();
+        if (lastFrameNanos != 0L) {
+            frameDelta = Math.max(0.0f, Math.min(0.1f, (now - lastFrameNanos) / 1.0e9f));
+        }
+        lastFrameNanos = now;
+    }
+
+    public static float getFrameDelta() {
+        return frameDelta;
     }
 
     public static MappedBuffer getPrevMVPForward() {

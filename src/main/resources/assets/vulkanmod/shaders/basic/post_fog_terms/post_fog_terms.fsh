@@ -1,44 +1,42 @@
 #version 450
 
-// Half-res terms pass: shadow/fog/god-ray amounts into RGBA16F.
-//   r = shadow term (post-TAA)   g = fog amount   b = god-ray amount   a = interiorness
-// One exact full-res depth texel per half-res pixel (no depth blending) so the composite can match by depth.
-
 layout(binding = 0) uniform UBO {
-    mat4 FogInvProjMat;   // inverse world projection (kept for compatibility)
-    mat4 FogInvMVPMat;    // inverse world MVP: reconstructs camera-relative world position from depth
-    mat4 FogShadowMVP;    // sun view-projection: projects a camera-relative world point into shadow space
-    mat4 FogPrevMVP;      // previous frame's world MVP (for TAA reprojection)
-    vec4 FogColor;        // game fog colour (follows time of day / biome)
-    vec3 FogCameraPos;    // camera world position
-    float FogDayTime;     // 0..1 time of day
-    vec3 FogSunDir;       // world-space sun direction
-    float FogDensity;     // 0 .. 0.30 (UI slider)
-    float FogHeight;      // world Y ceiling (UI slider): fog dense below, fades above
-    float FogSunVisible;  // 1 if the sun is on-screen (enables god-rays)
-    vec2 FogSunScreenUV;  // sun position in screen UV
-    vec3 FogPrevCameraPos;// previous frame's camera world position (for TAA reprojection)
-    float FogTaaStrength; // 0 = TAA off, ~0.88 = history blend weight
-    float FogShadowTexel; // 1 / shadow-map resolution (for resolution-independent PCF)
-    float FogShadowIntensity; // 0 at night-horizon .. 1 sun .. ~0.35 moon (drives shadow darkness)
-    vec3 FogShadowCameraPos;  // camera pos the shadow map was rendered from (corrects camera lag/flash)
-    float FogGlowStrength;    // emissive bloom around torches / lava / bright warm sources (0..2)
-    float PointLightCount;    // number of active per-pixel point lights (0..32)
-    float PointLightStrength; // per-pixel point light intensity (0..2, 0 = disabled)
-    vec4 PointLightPosR[32];  // xyz = light position relative to FogCameraPos, w = radius (blocks)
-    vec4 PointLightColor[32]; // rgb = light colour, a = intensity (emission / 15)
+    mat4 FogInvProjMat;
+    mat4 FogInvMVPMat;
+    mat4 FogShadowMVP;
+    mat4 FogPrevMVP;
+    vec4 FogColor;
+    vec3 FogCameraPos;
+    float FogDayTime;
+    vec3 FogSunDir;
+    float FogDensity;
+    float FogHeight;
+    float FogSunVisible;
+    vec2 FogSunScreenUV;
+    vec3 FogPrevCameraPos;
+    float FogTaaStrength;
+    float FogShadowTexel;
+    float FogShadowIntensity;
+    vec3 FogShadowCameraPos;
+    float FogGlowStrength;
+    float PointLightCount;
+    float PointLightStrength;
+    vec4 PointLightPosR[32];
+    vec4 PointLightColor[32];
+    float AutoExposureEnabled;
+    float ExposureStrength;
+    float FrameDelta;
 };
 
-layout(binding = 1) uniform sampler2D Sampler0;  // world color (unused here; bound for layout symmetry)
-layout(binding = 2) uniform sampler2D Sampler1;  // captured world depth (no first-person hand)
-layout(binding = 3) uniform sampler2D Sampler2;  // foreground depth (includes the hand)
-layout(binding = 4) uniform sampler2D Sampler3;  // sun shadow map (depth from the sun's POV)
-layout(binding = 5) uniform sampler2D Sampler4;  // terms history (previous frame's half-res output)
+layout(binding = 1) uniform sampler2D Sampler0;
+layout(binding = 2) uniform sampler2D Sampler1;
+layout(binding = 3) uniform sampler2D Sampler2;
+layout(binding = 4) uniform sampler2D Sampler3;
+layout(binding = 5) uniform sampler2D Sampler4;
 
-float hash(vec3 p);   // defined below (noise helpers)
-float noise(vec3 x);  // defined below
+float hash(vec3 p);
+float noise(vec3 x);
 
-// Vogel-disk offsets, rotated per pixel by phi (one sin/cos per fragment).
 const vec2 VOGEL16[16] = vec2[](
     vec2(0.1767767, 0.0000000),
     vec2(-0.2257721, 0.2068259),
@@ -58,33 +56,28 @@ const vec2 VOGEL16[16] = vec2[](
     vec2(-0.1264901, -0.9760893)
 );
 
-// Returns (lit fraction, interiorness) via Vogel-disk PCF. Interiorness rises when the occluder is far
-// above the surface (deep cave/interior) — there the projected sun shadow is released to the lightmap.
 vec2 sunlight(vec3 relPos, float bias, float radiusScale) {
-    // Shift into the shadow map's camera-relative space (rendered at frame start, not mid-frame).
     vec3 shadowRel = relPos + (FogCameraPos - FogShadowCameraPos);
     vec4 sc = FogShadowMVP * vec4(shadowRel, 1.0);
     if (sc.w <= 0.0) return vec2(1.0, 0.0);
     vec3 ndc = sc.xyz / sc.w;
-    vec2 uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);   // negative-height viewport Y flip
+    vec2 uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
     if (ndc.z < 0.0 || ndc.z > 1.0) return vec2(1.0, 0.0);
 
     float d = ndc.z - bias;
 
-    // Occluder gap in blocks (sun ortho depth spans 240 blocks over z 0..1); big gap = interior.
     float centerOccluder = texture(Sampler3, uv).r;
-    float gapBlocks = max(0.0, d - centerOccluder) * 240.0;
-    float interior = smoothstep(8.0, 22.0, gapBlocks);
-    if (gapBlocks >= 22.0) return vec2(1.0, 1.0);   // fully interior, skip PCF
+    float verticalGap = max(0.0, d - centerOccluder) * 240.0 * abs(FogSunDir.y);
+    float interior = smoothstep(22.0, 42.0, verticalGap);
+    if (verticalGap >= 42.0) return vec2(1.0, 1.0);
 
-    // Fade to lit at the shadow-box border (wide, no hard edge)
     float edge = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
     if (edge <= 0.0) return vec2(1.0, interior);
 
     float phi = hash(vec3(gl_FragCoord.xy, 7.3)) * 6.2831853;
     float s = sin(phi), c = cos(phi);
     const int N = 16;
-    float radius = 1.3 * FogShadowTexel * radiusScale;   // widened with distance
+    float radius = 2.0 * FogShadowTexel * radiusScale;
 
     float sum = 0.0;
     for (int i = 0; i < N; i++) {
@@ -98,19 +91,15 @@ vec2 sunlight(vec3 relPos, float bias, float radiusScale) {
     return vec2(mix(shaded, 1.0, interior), interior);
 }
 
-// Single-tap sun visibility for a point already in shadow clip space: 1 = lit, 0 = shadowed.
 float shadowLitAtClip(vec4 sc) {
     if (sc.w <= 0.0) return 1.0;
     vec3 ndc = sc.xyz / sc.w;
     if (ndc.z < 0.0 || ndc.z > 1.0) return 1.0;
     vec2 uv = vec2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 1.0;   // outside box: assume lit
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 1.0;
     return (ndc.z - 0.0009) > texture(Sampler3, uv).r ? 0.0 : 1.0;
 }
 
-// Volumetric fog + god-rays in one ray march (shared ray). Density is a drifting Perlin field in a
-// height band around the surface; Beer-Lambert gives fog coverage, shadow-tested sun gives the god-ray.
-// Returns: .x = fog coverage (0..1), .y = in-scattered god-ray amount.
 vec2 volumetricFogGodrays(vec3 rayDir, float maxL, float dither, bool doShadow, float dayF, float duskDawn) {
     const int STEPS = 16;
     float L = min(maxL, 130.0);
@@ -118,11 +107,9 @@ vec2 volumetricFogGodrays(vec3 rayDir, float maxL, float dither, bool doShadow, 
     float t = stepLen * dither;
     vec3 drift = vec3(FogDayTime * 4.0, FogDayTime * 0.7, -FogDayTime * 3.0);
 
-    // Time-of-day density: clear at noon, thick at dawn/dusk, moderate at night.
     float timeDensity = 0.40 + 1.00 * duskDawn + 0.45 * (1.0 - dayF);
     float densScale = FogDensity * 0.13 * timeDensity;
 
-    // Shadow clip position is affine in t: scBase + t * scStep, so no per-step matrix multiply.
     vec4 scBase = FogShadowMVP * vec4(FogCameraPos - FogShadowCameraPos, 1.0);
     vec4 scStep = FogShadowMVP * vec4(rayDir, 0.0);
 
@@ -130,13 +117,11 @@ vec2 volumetricFogGodrays(vec3 rayDir, float maxL, float dither, bool doShadow, 
     float godLit = 0.0, godW = 0.0;
     for (int i = 0; i < STEPS; i++) {
         vec3 p = FogCameraPos + rayDir * t;
-        // Height band: dense at the surface, wide upper fade into the sky, caves fog-free.
         float band = smoothstep(FogHeight + 100.0, FogHeight - 15.0, p.y)
                    * smoothstep(FogHeight - 60.0, FogHeight - 28.0, p.y);
-        if (band <= 0.0) { t += stepLen; continue; }   // outside band, skip noise + shadow tap
+        if (band <= 0.0) { t += stepLen; continue; }
         float n = noise(p * 0.022 + drift);
         od += band * (0.42 + 1.15 * n * n);
-        // God-ray = average in-band sun visibility, decoupled from fog density.
         float lit = doShadow ? shadowLitAtClip(scBase + t * scStep) : 1.0;
         godLit += lit * band;
         godW   += band;
@@ -167,13 +152,11 @@ float noise(vec3 x) {
 }
 
 void main() {
-    // One exact full-res depth texel per half-res pixel (no depth blending).
     ivec2 fullResTexel = ivec2(gl_FragCoord.xy) * 2;
     vec2 fullResSize = vec2(textureSize(Sampler1, 0));
     float depth = min(texelFetch(Sampler1, fullResTexel, 0).r, texelFetch(Sampler2, fullResTexel, 0).r);
     vec2 fullUV = (vec2(fullResTexel) + 0.5) / fullResSize;
 
-    // Reconstruct camera-relative world position (Y flipped: negative-height viewport).
     vec4 ndc = vec4(fullUV.x * 2.0 - 1.0, 1.0 - fullUV.y * 2.0, depth, 1.0);
     vec4 rel = FogInvMVPMat * ndc;
     rel.xyz /= rel.w;
@@ -183,29 +166,24 @@ void main() {
     vec3 rayDir = rel.xyz / max(dist, 1e-4);
     float L = isSky ? 900.0 : min(dist, 1024.0);
 
-    // Screen-space normal for the slope-scaled shadow bias. lightDir = sun by day, moon by night.
     vec3 surfN = normalize(cross(dFdx(rel.xyz), dFdy(rel.xyz)));
-    vec3 lightDir = FogSunDir.y >= 0.0 ? FogSunDir : -FogSunDir;   // up-light: sun by day, moon by night
+    vec3 lightDir = FogSunDir.y >= 0.0 ? FogSunDir : -FogSunDir;
     float sunH = FogSunDir.y;
     float dayFactor = clamp(sunH * 1.2 + 0.2, 0.0, 1.0);
     float duskDawn = 1.0 - abs(sunH);
-    float ndl = max(abs(dot(surfN, lightDir)), 0.08);   // abs: screen-space normal sign is ambiguous
+    float ndl = max(abs(dot(surfN, lightDir)), 0.08);
     float shadowBias = clamp(0.0004 / ndl, 0.0004, 0.0025);
 
-    // Distance factor: 0 near, 1 far. Far surfaces shimmer most, so soften/stabilise harder with distance.
     float df = smoothstep(25.0, 90.0, dist);
 
-    // Shadow computed as a term (not applied) so TAA can smooth just the shadow, not the scene.
     float shadowTerm = 0.0;
-    float sunInterior = 0.0;   // 1 = deep cave/interior: no projected sun shadow, no sun ground-light
+    float sunInterior = 0.0;
     if (!isSky && FogShadowIntensity > 0.0) {
         vec2 sunVis = sunlight(rel.xyz, shadowBias * mix(1.0, 2.2, df), mix(1.0, 2.8, df));
         shadowTerm = (1.0 - sunVis.x) * FogShadowIntensity;
         sunInterior = sunVis.y;
     }
 
-    // TAA on the shadow term only: reproject and blend the history red channel. Difference-rejection
-    // kills ghosting where motion reveals/hides shadow, loosened with distance to blend far shimmer.
     if (FogTaaStrength > 0.0) {
         vec3 prevRel = rel.xyz + (FogCameraPos - FogPrevCameraPos);
         vec4 prevClip = FogPrevMVP * vec4(prevRel, 1.0);
@@ -215,15 +193,14 @@ void main() {
             if (prevUV.x > 0.0 && prevUV.x < 1.0 && prevUV.y > 0.0 && prevUV.y < 1.0) {
                 float histShadow = texture(Sampler4, prevUV).r;
                 float diff = abs(shadowTerm - histShadow);
-                float rLo = mix(0.05, 0.30, df);   // loosen rejection with distance
-                float rHi = mix(0.35, 0.95, df);
+                float rLo = mix(0.12, 0.30, df);
+                float rHi = mix(0.80, 0.95, df);
                 float w = min(0.97, FogTaaStrength * (1.0 + 0.10 * df)) * (1.0 - smoothstep(rLo, rHi, diff));
                 shadowTerm = mix(shadowTerm, histShadow, w);
             }
         }
     }
 
-    // Volumetric fog + god-rays (skip the march when neither fog nor shadow is on).
     bool doShadow = FogShadowIntensity > 0.0;
     vec2 vf = vec2(0.0);
     if (doShadow || FogDensity > 0.0001) {
@@ -232,10 +209,8 @@ void main() {
     }
     float godAmt = vf.y;
 
-    // Fade the fog layer out as the camera climbs above it.
     float layerPresence = smoothstep(FogHeight + 130.0, FogHeight + 40.0, FogCameraPos.y);
     float fog = clamp(vf.x, 0.0, 1.0) * layerPresence;
 
-    // Amounts only; red doubles as next frame's shadow TAA history.
     fragColor = vec4(shadowTerm, fog, godAmt, sunInterior);
 }

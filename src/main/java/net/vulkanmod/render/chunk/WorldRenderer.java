@@ -210,7 +210,9 @@ public class WorldRenderer {
         this.minecraft.getProfiler().push("upload");
 
         try {
-            this.taskDispatcher.updateSections();
+            if (this.taskDispatcher.updateSections()) {
+                this.scheduleGraphUpdate();
+            }
         } catch (Exception e) {
 
             Initializer.LOGGER.error("Failed to upload chunk sections; resetting renderer", e);

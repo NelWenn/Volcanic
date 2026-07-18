@@ -25,13 +25,10 @@ import java.util.stream.IntStream;
 public abstract class Options {
     public static boolean fullscreenDirty = false;
 
-    // null = main shader list, otherwise the selected shader's id
     public static String shaderNav = null;
-    // null = category buttons, otherwise the category id whose params are shown
     public static String shaderCat = null;
     public static Runnable shaderNavRebuild = null;
 
-    // cached so pending edits survive navigation instead of rebuilding from config
     private static boolean shaderOptsBuilt = false;
     private static Option<Boolean> enabledOpt;
     private static ShaderEntryOption fogEntryOpt;
@@ -47,6 +44,7 @@ public abstract class Options {
     private static RangeOption saturationOpt;
     private static RangeOption temperatureOpt;
     private static Option<?>[] lightingOptsCache;
+    private static Option<?>[] cameraOptsCache;
 
     static Config config = Initializer.CONFIG;
     static Minecraft minecraft = Minecraft.getInstance();
@@ -83,14 +81,12 @@ public abstract class Options {
         return optionPages;
     }
 
-    // called when the settings screen opens
     public static void resetShaderNav() {
         shaderNav = null;
         shaderCat = null;
         shaderOptsBuilt = false;
     }
 
-    // keeps nav position; forces options to refresh from config after Apply/Undo/preset
     public static void invalidateShaderOptsCache() {
         shaderOptsBuilt = false;
     }
@@ -187,6 +183,7 @@ public abstract class Options {
         fogHeightOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
 
         lightingOptsCache = buildLightingOptions();
+        cameraOptsCache = buildCameraOptions();
 
         shaderOptsBuilt = true;
     }
@@ -194,7 +191,6 @@ public abstract class Options {
     public static OptionBlock[] getShaderOpts() {
         buildShaderOptionsIfNeeded();
 
-        // editable options are the cached instances; back rows and category buttons are built inline
         if ("fog".equals(shaderNav)) {
             if ("fog".equals(shaderCat)) {
                 return new OptionBlock[]{
@@ -217,6 +213,14 @@ public abstract class Options {
                         new OptionBlock("", new Option<?>[]{ backTo(() -> shaderCat = null) }),
                         new OptionBlock(Component.translatable("vulkanmod.options.pages.lighting").getString(),
                                 lightingOptsCache)
+                };
+            }
+
+            if ("camera".equals(shaderCat)) {
+                return new OptionBlock[]{
+                        new OptionBlock("", new Option<?>[]{ backTo(() -> shaderCat = null) }),
+                        new OptionBlock(Component.translatable("vulkanmod.options.category.camera").getString(),
+                                cameraOptsCache)
                 };
             }
 
@@ -244,10 +248,18 @@ public abstract class Options {
                         if (shaderNavRebuild != null) shaderNavRebuild.run();
                     }).setFullButton(true);
 
+            ActionOption cameraCat = new ActionOption(
+                    Component.translatable("vulkanmod.options.category.camera"),
+                    Component.translatable("vulkanmod.options.category.camera"),
+                    () -> {
+                        shaderCat = "camera";
+                        if (shaderNavRebuild != null) shaderNavRebuild.run();
+                    }).setFullButton(true);
+
             return new OptionBlock[]{
                     new OptionBlock("", new Option<?>[]{ backTo(() -> { shaderNav = null; shaderCat = null; }) }),
                     new OptionBlock(Component.translatable("vulkanmod.options.category.general").getString(),
-                            new Option<?>[]{ fogCat, shadowsCat, lightingCat })
+                            new Option<?>[]{ fogCat, shadowsCat, lightingCat, cameraCat })
             };
         }
 
@@ -259,7 +271,6 @@ public abstract class Options {
             };
         }
 
-        // master toggle + one row per shader
         return new OptionBlock[]{
                 new OptionBlock("", new Option<?>[]{ enabledOpt }),
                 new OptionBlock(Component.translatable("vulkanmod.options.category.shaderPack").getString(),
@@ -340,7 +351,6 @@ public abstract class Options {
             RefreshRate.setNewValue(newRefreshRates[newRefreshRates.length - 1]);
         });
 
-        // fullscreen=true -> exclusive; else windowedFullscreen flag -> borderless
         var windowModeOption = new CyclingOption<>(Component.translatable("vulkanmod.options.windowMode"),
                 WindowMode.values(),
                 value -> {
@@ -486,6 +496,19 @@ public abstract class Options {
         pointLightStrength.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader)
                 && config.pointLightsEnabled);
 
+        SwitchOption wind = new SwitchOption(
+                Component.translatable("vulkanmod.options.wind"),
+                value -> config.windEnabled = value,
+                () -> config.windEnabled);
+
+        RangeOption windStrength = new RangeOption(
+                Component.translatable("vulkanmod.options.windStrength"),
+                0, 200, 10,
+                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
+                value -> config.windStrength = value / 100.0f,
+                () -> Math.round(config.windStrength * 100.0f));
+        windStrength.setActivationFn(() -> config.windEnabled);
+
         return new Option<?>[]{
                 customLightmap,
                 brightness,
@@ -494,7 +517,31 @@ public abstract class Options {
                 caveAmbient,
                 glowStrength,
                 pointLights,
-                pointLightStrength
+                pointLightStrength,
+                wind,
+                windStrength
+        };
+    }
+
+    private static Option<?>[] buildCameraOptions() {
+        SwitchOption autoExposure = new SwitchOption(
+                Component.translatable("vulkanmod.options.autoExposure"),
+                value -> config.autoExposure = value,
+                () -> config.autoExposure);
+        autoExposure.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+
+        RangeOption exposureStrength = new RangeOption(
+                Component.translatable("vulkanmod.options.exposureStrength"),
+                0, 150, 10,
+                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
+                value -> config.exposureStrength = value / 100.0f,
+                () -> Math.round(config.exposureStrength * 100.0f));
+        exposureStrength.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader)
+                && config.autoExposure);
+
+        return new Option<?>[]{
+                autoExposure,
+                exposureStrength
         };
     }
 
