@@ -16,8 +16,8 @@ layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
 
 const float GOLDEN = 2.39996323;
-const float GI_STRENGTH = 0.35;
-const float AO_STRENGTH = 0.85;
+const float GI_STRENGTH = 0.25;
+const float AO_STRENGTH = 0.55;
 const float HIGHLIGHT = 0.28;
 
 vec2 vogel(int i, int n) {
@@ -32,7 +32,7 @@ vec4 upsampleLight(float dist) {
     float wSum = 1.0;
     for (int i = 0; i < 16; i++) {
         vec4 t = texture(Sampler3, texCoord + vogel(i, 16) * ht);
-        float w = 1.0 / (1.0 + 7.0 * abs(dist - t.a) / max(dist, 1.0));
+        float w = 1.0 / (1.0 + 40.0 * abs(dist - t.a) / max(dist, 1.0));
         sum += t * w;
         wSum += w;
     }

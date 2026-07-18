@@ -73,22 +73,26 @@ float shadowLit(vec3 rel, vec3 N, out float interior) {
 
 float ambientOcclusion(vec3 p, vec3 N, float dist) {
     vec2 fullResSize = vec2(textureSize(Sampler0, 0));
-    float tanScale = AoRadius / max(dist, 1.0);
-    vec2 radiusUV = min(vec2(tanScale) * vec2(fullResSize.y / fullResSize.x, 1.0), vec2(0.08));
+    float aspect = fullResSize.x / fullResSize.y;
+    float rUV = clamp(0.6 / (dist + 1.0), 0.003, 0.014);
+    vec2 radiusUV = vec2(rUV / aspect, rUV);
 
     float occ = 0.0;
-    const int N_AO = 16;
+    float samples = 0.0;
+    const int N_AO = 12;
     for (int i = 0; i < N_AO; i++) {
-        vec2 o = vogel(i, N_AO, 0.0) * radiusUV;
-        vec2 uv = texCoord + o;
+        vec2 uv = texCoord + vogel(i, N_AO, 0.0) * radiusUV;
         float sd = min(texture(Sampler0, uv).r, texture(Sampler1, uv).r);
         vec3 sp = reconstruct(uv, sd);
         vec3 v = sp - p;
         float len = length(v);
-        if (len < 0.05 || len > AoRadius * 1.5) continue;
-        occ += max(0.0, dot(v / len, N) - 0.15) / (1.0 + len * len);
+        if (len < 0.02) continue;
+        float range = 1.0 - smoothstep(AoRadius * 0.7, AoRadius * 1.5, len);
+        occ += max(0.0, dot(v / len, N) - 0.1) * range;
+        samples += 1.0;
     }
-    return clamp(1.0 - occ * (2.4 / float(N_AO)) * AoRadius, 0.0, 1.0);
+    occ = samples > 0.0 ? occ / samples : 0.0;
+    return clamp(1.0 - occ * 2.0, 0.0, 1.0);
 }
 
 void main() {
