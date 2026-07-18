@@ -34,3 +34,4 @@ run/
 
 # local agent worktrees
 .worktrees/
+*.spv

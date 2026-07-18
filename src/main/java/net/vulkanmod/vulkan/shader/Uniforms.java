@@ -21,7 +21,6 @@ public class Uniforms {
 
     public static Object2ReferenceOpenHashMap<String, Supplier<MappedBuffer>> mat4f_uniformMap = new Object2ReferenceOpenHashMap<>();
 
-    // vec4-array-style float blocks, copied whole like mat4
     public static Object2ReferenceOpenHashMap<String, Supplier<MappedBuffer>> floatArr_uniformMap = new Object2ReferenceOpenHashMap<>();
 
     public static void setupDefaultUniforms() {
@@ -44,7 +43,6 @@ public class Uniforms {
         vec1f_uniformMap.put("GlintAlpha", RenderSystem::getShaderGlintAlpha);
         vec1f_uniformMap.put("AlphaCutout", () -> VRenderSystem.alphaCutout);
 
-        // post-process shader params, fed from config
         vec1f_uniformMap.put("CgExposure", () -> net.vulkanmod.Initializer.CONFIG.cgExposure);
         vec1f_uniformMap.put("CgContrast", () -> net.vulkanmod.Initializer.CONFIG.cgContrast);
         vec1f_uniformMap.put("CgSaturation", () -> net.vulkanmod.Initializer.CONFIG.cgSaturation);
@@ -67,15 +65,22 @@ public class Uniforms {
         vec2f_uniformMap.put("FogSunScreenUV", VRenderSystem::getCapturedSunScreenUV);
         vec1f_uniformMap.put("FogSunVisible", VRenderSystem::getCapturedSunVisible);
 
-        // per-pixel point lights (torches, lava, glowstone)
+        vec1f_uniformMap.put("AutoExposureEnabled", () -> net.vulkanmod.Initializer.CONFIG.autoExposure ? 1.0f : 0.0f);
+        vec1f_uniformMap.put("ExposureStrength", () -> net.vulkanmod.Initializer.CONFIG.exposureStrength);
+        vec1f_uniformMap.put("FrameDelta", VRenderSystem::getFrameDelta);
+
         vec1f_uniformMap.put("PointLightCount", PointLights::getCount);
         vec1f_uniformMap.put("PointLightStrength", () -> net.vulkanmod.Initializer.CONFIG.pointLightStrength
                 * (net.vulkanmod.Initializer.CONFIG.pointLightsEnabled ? 1.0f : 0.0f));
         floatArr_uniformMap.put("PointLightPosR", PointLights::getPosRadiusBuffer);
         floatArr_uniformMap.put("PointLightColor", PointLights::getColorBuffer);
 
-        // handheld dynamic light: block-light boost in the terrain vertex shader
         vec1f_uniformMap.put("HeldLightLevel", PointLights::getHeldLightLevel);
+
+        vec1f_uniformMap.put("WindTime", VRenderSystem::getWindTime);
+        vec1f_uniformMap.put("WindStrength", () -> net.vulkanmod.Initializer.CONFIG.windEnabled
+                ? net.vulkanmod.Initializer.CONFIG.windStrength : 0.0f);
+        vec3f_uniformMap.put("CameraWorldPos", VRenderSystem::getCapturedCameraPos);
 
         vec2f_uniformMap.put("ScreenSize", VRenderSystem::getScreenSize);
 

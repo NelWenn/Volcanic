@@ -12,8 +12,20 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BushBlock;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.DoublePlantBlock;
+import net.minecraft.world.level.block.FlowerBlock;
 import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.MushroomBlock;
+import net.minecraft.world.level.block.NetherWartBlock;
+import net.minecraft.world.level.block.SaplingBlock;
+import net.minecraft.world.level.block.StemBlock;
+import net.minecraft.world.level.block.SugarCaneBlock;
+import net.minecraft.world.level.block.SweetBerryBushBlock;
+import net.minecraft.world.level.block.TallGrassBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -42,14 +54,39 @@ public class BlockRenderer {
     Vector3f pos;
     BlockPos blockPos;
     BlockPos.MutableBlockPos mutableBlockPos = new BlockPos.MutableBlockPos();
-    final BlockPos.MutableBlockPos leafScanPos = new BlockPos.MutableBlockPos();
 
     BuilderResources resources;
 
     BlockState blockState;
 
+    int waveCode;
+    float blockBaseY;
+    boolean upperHalf;
+
     public void setResources(BuilderResources resources) {
         this.resources = resources;
+    }
+
+    static int waveCode(BlockState state) {
+        Block block = state.getBlock();
+        if (block instanceof LeavesBlock) {
+            return 2;
+        }
+        if (block instanceof FlowerBlock
+                || block instanceof TallGrassBlock
+                || block instanceof DoublePlantBlock
+                || block instanceof CropBlock
+                || block instanceof StemBlock
+                || block instanceof SugarCaneBlock
+                || block instanceof SweetBerryBushBlock
+                || block instanceof SaplingBlock
+                || block instanceof NetherWartBlock) {
+            return 1;
+        }
+        if (block instanceof BushBlock && !(block instanceof MushroomBlock)) {
+            return 1;
+        }
+        return 0;
     }
 
     final Object2ByteLinkedOpenHashMap<Block.BlockStatePairKey> occlusionCache = new Object2ByteLinkedOpenHashMap<>(2048, 0.25F) {
@@ -81,6 +118,11 @@ public class BlockRenderer {
         Vec3 offset = blockState.getOffset(resources.region, blockPos);
 
         pos.add((float) offset.x, (float) offset.y, (float) offset.z);
+
+        this.waveCode = waveCode(blockState);
+        this.blockBaseY = blockPos.getY() & 15;
+        this.upperHalf = blockState.hasProperty(DoublePlantBlock.HALF)
+                && blockState.getValue(DoublePlantBlock.HALF) == DoubleBlockHalf.UPPER;
 
         TriState ambientOcclusion = bakedModel.useAmbientOcclusion(blockState, modelData, renderType);
         boolean modelUsesAO = ambientOcclusion.isDefault() ? bakedModel.useAmbientOcclusion() : ambientOcclusion.isTrue();
@@ -132,10 +174,10 @@ public class BlockRenderer {
             b = 1.0F;
         }
 
-        putQuadData(bufferBuilder, pos, quadView, quadLightData, r, g, b);
+        putQuadData(bufferBuilder, pos, quadView, quadLightData, r, g, b, this.waveCode, this.blockBaseY, this.upperHalf);
     }
 
-    public static void putQuadData(TerrainBufferBuilder bufferBuilder, Vector3f pos, QuadView quad, QuadLightData quadLightData, float red, float green, float blue) {
+    public static void putQuadData(TerrainBufferBuilder bufferBuilder, Vector3f pos, QuadView quad, QuadLightData quadLightData, float red, float green, float blue, int waveCode, float blockBaseY, boolean upperHalf) {
         Vec3i normal = quad.getFacingDirection().getNormal();
         int packedNormal = VertexUtil.packNormal(normal.getX(), normal.getY(), normal.getZ());
 
@@ -165,7 +207,13 @@ public class BlockRenderer {
             b = quadB * brightness * blue;
 
             final int color = ColorUtil.RGBA.pack(r, g, b, 1.0f);
-            final int light = lights[idx];
+            int light = (lights[idx] & ~0xF) | waveCode;
+            if (waveCode != 0) {
+                float localHeight = y - blockBaseY;
+                float weight = upperHalf ? (1.0f + localHeight) * 0.5f : localHeight;
+                weight = weight < 0.0f ? 0.0f : (weight > 1.0f ? 1.0f : weight);
+                light = (light & ~0xF0000) | (Math.round(weight * 15.0f) << 16);
+            }
             final float u = quad.getU(idx);
             final float v = quad.getV(idx);
 
@@ -180,10 +228,8 @@ public class BlockRenderer {
         BlockGetter blockGetter = resources.region;
         BlockState adjBlockState = blockGetter.getBlockState(adjPos);
 
-        // cull only leaf faces fully enclosed by other leaves (hidden tree core)
         if (net.vulkanmod.Initializer.CONFIG.leavesCulling
-                && blockState.getBlock() instanceof LeavesBlock && adjBlockState.getBlock() instanceof LeavesBlock
-                && isEnclosedByLeaves(blockPos)) {
+                && blockState.getBlock() instanceof LeavesBlock && adjBlockState.getBlock() instanceof LeavesBlock) {
             return false;
         }
 
@@ -226,16 +272,5 @@ public class BlockRenderer {
         return true;
     }
 
-    // true if surrounded by leaves on all 6 faces
-    private boolean isEnclosedByLeaves(BlockPos pos) {
-        BlockGetter blockGetter = resources.region;
-        for (int i = 0; i < DIRECTIONS.length; i++) {
-            this.leafScanPos.setWithOffset(pos, DIRECTIONS[i]);
-            if (!(blockGetter.getBlockState(this.leafScanPos).getBlock() instanceof LeavesBlock)) {
-                return false;
-            }
-        }
-        return true;
-    }
 }
 

@@ -4,7 +4,8 @@
         { "name": "Sampler1" },
         { "name": "Sampler2" },
         { "name": "Sampler3" },
-        { "name": "Sampler4" }
+        { "name": "Sampler4" },
+        { "name": "Sampler5" }
     ],
     "UBOs": [
         { "type": "fragment", "binding": 0, "fields": [
@@ -29,7 +30,10 @@
             { "name": "PointLightCount", "type": "float", "count": 1, "values": [ 0.0 ] },
             { "name": "PointLightStrength", "type": "float", "count": 1, "values": [ 1.0 ] },
             { "name": "PointLightPosR", "type": "float", "count": 128, "values": [ 0.0 ] },
-            { "name": "PointLightColor", "type": "float", "count": 128, "values": [ 0.0 ] }
+            { "name": "PointLightColor", "type": "float", "count": 128, "values": [ 0.0 ] },
+            { "name": "AutoExposureEnabled", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "ExposureStrength", "type": "float", "count": 1, "values": [ 1.0 ] },
+            { "name": "FrameDelta", "type": "float", "count": 1, "values": [ 0.016 ] }
         ] }
     ]
 }

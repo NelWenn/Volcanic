@@ -21,7 +21,6 @@ public class Config {
     public boolean adaptiveChunkUploads = true;
     public int renderScale = RenderScale.DEFAULT;
 
-    // macOS only: render at logical (1x) resolution instead of the Retina backing store (2x)
     public boolean disableHiDPI = false;
 
     public int advCulling = 2;
@@ -45,21 +44,27 @@ public class Config {
     public float cgSaturation = 1.0f;
     public float cgTemperature = 0.0f;
     public float fogDensity = 0.06f;
-    public float fogHeight = 80.0f;            // world Y ceiling: dense below, fades above
+    public float fogHeight = 80.0f;
     public boolean shadowsEnabled = true;
     public boolean taaEnabled = true;
-    public boolean halfResTerms = true;        // false = legacy full-res single pass
-    public int shadowQuality = 2;              // resolution index: 0=1024 .. 4=6144
-    public int shadowDistance = 48;            // coverage radius in blocks
+    public boolean halfResTerms = true;
+    public int shadowQuality = 2;
+    public int shadowDistance = 48;
 
     public boolean customLightmap = true;
     public float lightBrightness = 1.0f;
     public float nightDarkness = 0.7f;
     public float torchIntensity = 1.0f;
-    public float caveAmbient = 0.02f;          // floor so caves aren't pure black
+    public float caveAmbient = 0.02f;
     public float glowStrength = 1.0f;
     public boolean pointLightsEnabled = true;
     public float pointLightStrength = 1.0f;
+
+    public boolean windEnabled = true;
+    public float windStrength = 1.0f;
+
+    public boolean autoExposure = true;
+    public float exposureStrength = 1.0f;
 
     public void write() {
 
