@@ -36,18 +36,18 @@ public class DefaultMainPass implements MainPass {
     private Framebuffer mainFramebuffer;
     private Framebuffer scaledFramebuffer;
 
-    private VulkanImage capturedWorldDepth;        // world depth, before the hand's clear
-    private VulkanImage capturedForegroundDepth;   // hand depth, before the pre-GUI clear
+    private VulkanImage capturedWorldDepth;
+    private VulkanImage capturedForegroundDepth;
     private int scaledDepthClears;
-    // pre-GUI clear suppressed: live depth still holds world+hand, sample it directly
     private boolean liveDepthIsForeground;
 
     private final ShadowMap shadowMap = new ShadowMap();
 
-    private static final double SHADOW_MOVE_THRESHOLD_SQ = 0.35 * 0.35;   // blocks² since last render
+    private static final double SHADOW_MOVE_THRESHOLD_SQ = 0.35 * 0.35;
     private static final float SHADOW_DRIFT_TOLERANCE = 1.15f;
     private double lastShadowCamX, lastShadowCamY, lastShadowCamZ;
-    private float lastShadowLx, lastShadowLy;
+    private float lastShadowLx, lastShadowLy, lastShadowLz;
+    private int windShadowCounter;
     private int lastShadowGeometryVersion = -1;
     private int lastShadowQuality = -1, lastShadowDistance = -1;
     private boolean shadowRenderedOnce;
@@ -56,11 +56,14 @@ public class DefaultMainPass implements MainPass {
     private RenderPass auxRenderPass;
     private RenderPass presentRenderPass;
 
-    // half-res terms ping-pong (RGBA16F); one target renders while the other is sampled as history
     private final Framebuffer[] termsFramebuffers = new Framebuffer[2];
     private final RenderPass[] termsRenderPasses = new RenderPass[2];
     private int termsIndex;
     private int termsW = -1, termsH = -1;
+
+    private final Framebuffer[] exposureFramebuffers = new Framebuffer[2];
+    private final RenderPass[] exposureRenderPasses = new RenderPass[2];
+    private int exposureIndex;
 
     private int scaledFramebufferWidth = -1;
     private int scaledFramebufferHeight = -1;
@@ -99,7 +102,6 @@ public class DefaultMainPass implements MainPass {
         RenderPass.Builder builder = RenderPass.builder(this.swapChain);
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
-        // clear swapchain depth: the GUI depth-tests in this pass and its depth is otherwise never cleared
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE);
 
         this.presentRenderPass = builder.build();
@@ -141,7 +143,6 @@ public class DefaultMainPass implements MainPass {
 
             this.scaledFramebuffer = Framebuffer.builder(scaledWidth, scaledHeight, 1, true)
                     .setLinearFiltering(true)
-                    // depth-only format (no stencil) so post shaders can sample it as a sampler2D
                     .setDepthFormat(org.lwjgl.vulkan.VK10.VK_FORMAT_D32_SFLOAT)
                     .build();
             this.scaledColorAttachmentGlId = GlTexture.genTextureId();
@@ -164,11 +165,9 @@ public class DefaultMainPass implements MainPass {
                 && !this.renderScaleResolvedThisFrame
                 && minecraft.level != null;
 
-        // post shader needs an offscreen color target; keep it on with a GUI open too
         if (postShaderActive())
             return base;
 
-        // only downscale the world in-game (crisp menus)
         return RenderScale.isScaled(scale) && base && minecraft.screen == null;
     }
 
@@ -218,7 +217,6 @@ public class DefaultMainPass implements MainPass {
         this.scaledDepthClears = 0;
         this.liveDepthIsForeground = false;
 
-        // roll current frame matrices into "previous" before the world render updates them
         if (postShaderActive()) {
             net.vulkanmod.vulkan.VRenderSystem.advanceTaaFrame();
             net.vulkanmod.render.PointLights.tick();
@@ -226,7 +224,6 @@ public class DefaultMainPass implements MainPass {
 
         ensureMainFramebuffer();
 
-        // shadow map at frame start, before the world render — doing it in the GUI resolve breaks the GUI on MoltenVK
         renderShadowMap(commandBuffer, stack);
 
         VulkanImage colorAttachment = this.mainFramebuffer.getColorAttachment();
@@ -273,7 +270,6 @@ public class DefaultMainPass implements MainPass {
             return;
         }
 
-        // resolve the world to the swapchain before the GUI, then the GUI draws into the present pass
         VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
         Renderer.getInstance().endRenderPass(commandBuffer);
         resolveScaledFramebufferToSwapchain(commandBuffer, true);
@@ -286,14 +282,14 @@ public class DefaultMainPass implements MainPass {
         if (!Initializer.CONFIG.shadowsEnabled || !postShaderActive() || mc.level == null) {
             return;
         }
-        // shadow light = sun by day, moon (opposite) by night — whichever is above the horizon
         float a = mc.level.getTimeOfDay(1.0f) * ((float) Math.PI * 2.0f);
         float lx = -(float) Math.sin(a);
-        float ly = (float) Math.cos(a);
-        if (ly < 0.0f) { lx = -lx; ly = -ly; }
+        float lh = (float) Math.cos(a);
+        float ly = lh * net.vulkanmod.vulkan.VRenderSystem.SUN_TILT_COS;
+        float lz = lh * net.vulkanmod.vulkan.VRenderSystem.SUN_TILT_SIN;
+        if (ly < 0.0f) { lx = -lx; ly = -ly; lz = -lz; }
 
         if (ly <= 0.02f) {
-            // below the horizon: no shadow, force a fresh render at next dawn
             this.shadowRenderedOnce = false;
             return;
         }
@@ -304,18 +300,21 @@ public class DefaultMainPass implements MainPass {
         double dz = camPos.z - this.lastShadowCamZ;
         double movedSq = dx * dx + dy * dy + dz * dz;
 
-        // light drift vs the rotation that shifts the shadow by one texel: threshold angle = 2/res radians
         float dlx = lx - this.lastShadowLx;
         float dly = ly - this.lastShadowLy;
-        float drift = (float) Math.sqrt(dlx * dlx + dly * dly);
+        float dlz = lz - this.lastShadowLz;
+        float drift = (float) Math.sqrt(dlx * dlx + dly * dly + dlz * dlz);
         float driftThreshold = SHADOW_DRIFT_TOLERANCE * 2.0f / ShadowMap.currentResolution();
 
         int geometryVersion = net.vulkanmod.render.chunk.WorldRenderer.getGeometryVersion();
         int shadowQuality = Initializer.CONFIG.shadowQuality;
         int shadowDistance = Initializer.CONFIG.shadowDistance;
 
-        // re-render only when the last capture was invalidated; otherwise reuse the depth texture as-is
+        boolean windDue = Initializer.CONFIG.windEnabled && ++this.windShadowCounter >= 2;
+        if (windDue) this.windShadowCounter = 0;
+
         boolean due = !this.shadowRenderedOnce
+                || windDue
                 || drift > driftThreshold
                 || movedSq > SHADOW_MOVE_THRESHOLD_SQ
                 || geometryVersion != this.lastShadowGeometryVersion
@@ -325,12 +324,13 @@ public class DefaultMainPass implements MainPass {
             return;
         }
 
-        this.shadowMap.render(commandBuffer, stack, lx, ly, 0.0f);
+        this.shadowMap.render(commandBuffer, stack, lx, ly, lz);
         this.lastShadowCamX = camPos.x;
         this.lastShadowCamY = camPos.y;
         this.lastShadowCamZ = camPos.z;
         this.lastShadowLx = lx;
         this.lastShadowLy = ly;
+        this.lastShadowLz = lz;
         this.lastShadowGeometryVersion = geometryVersion;
         this.lastShadowQuality = shadowQuality;
         this.lastShadowDistance = shadowDistance;
@@ -346,7 +346,6 @@ public class DefaultMainPass implements MainPass {
                 return;
             }
 
-            // no post shader: upscale-blit into the present pass, left open for the GUI when requested
             this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             this.swapChain.beginRenderPass(commandBuffer, this.presentRenderPass, stack);
             Renderer.clearViewportScale();
@@ -360,19 +359,14 @@ public class DefaultMainPass implements MainPass {
         }
     }
 
-    /** Post-shader resolve. The fog shader runs half-res terms + full-res composite (resolveFogTwoPass);
-     *  everything else renders directly into the swapchain present pass. */
     private void resolvePostShader(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering) {
-        // depth shaders sample world depth + a foreground depth (with the hand); shader takes min() so the hand isn't fogged
         VulkanImage worldDepth = null;
         VulkanImage fgDepth = null;
         if (this.capturedWorldDepth != null) {
             worldDepth = this.capturedWorldDepth;
             if (this.liveDepthIsForeground) {
-                // pre-GUI wipe suppressed: live depth still holds world+hand, sample it directly
                 fgDepth = this.scaledFramebuffer.getDepthAttachment();
             } else {
-                // clear #3 never fired (e.g. GUI hidden): fall back to the snapshot
                 fgDepth = this.capturedForegroundDepth != null ? this.capturedForegroundDepth : this.capturedWorldDepth;
             }
         }
@@ -385,6 +379,7 @@ public class DefaultMainPass implements MainPass {
         boolean fogShader = "fog".equals(Initializer.CONFIG.selectedShader);
         if (fogShader) {
             ensureTermsTargets(commandBuffer, stack);
+            ensureExposureTargets(commandBuffer, stack);
         }
         boolean termsReady = this.termsFramebuffers[0] != null;
 
@@ -393,7 +388,6 @@ public class DefaultMainPass implements MainPass {
             return;
         }
 
-        // single-pass path: render straight into the present pass, left open for the GUI when requested
         this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         this.swapChain.beginRenderPass(commandBuffer, this.presentRenderPass, stack);
         Renderer.clearViewportScale();
@@ -403,11 +397,9 @@ public class DefaultMainPass implements MainPass {
         if (depthShader) {
             VTextureSelector.bindTexture(1, worldDepth);
             VTextureSelector.bindTexture(2, fgDepth);
-            // shadow map, or world depth when shadows are off so the sampler is always bound
             VulkanImage shadow = (Initializer.CONFIG.shadowsEnabled && this.shadowMap.isReady())
                     ? this.shadowMap.getDepthImage() : worldDepth;
             VTextureSelector.bindTexture(3, shadow);
-            // fog-fallback TAA history = the previous terms target; non-fog shaders ignore it
             VTextureSelector.bindTexture(4, termsReady
                     ? this.termsFramebuffers[this.termsIndex ^ 1].getColorAttachment() : worldDepth);
         }
@@ -417,18 +409,13 @@ public class DefaultMainPass implements MainPass {
         }
     }
 
-    /** Two-pass fog resolve: 1) the fog/shadow/god-ray amounts render at half res into the current terms
-     *  target (sampling the other as TAA history), 2) the composite upsamples them and does the colour
-     *  work at full res, straight into the swapchain present pass. */
     private void resolveFogTwoPass(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
                                    VulkanImage worldDepth, VulkanImage fgDepth) {
         Framebuffer target = this.termsFramebuffers[this.termsIndex];
         Framebuffer history = this.termsFramebuffers[this.termsIndex ^ 1];
-        // shadow map, or world depth when shadows are off so the sampler is always bound
         VulkanImage shadow = (Initializer.CONFIG.shadowsEnabled && this.shadowMap.isReady())
                 ? this.shadowMap.getDepthImage() : worldDepth;
 
-        // 1) half-res terms pass. clear the viewport scale first so the terms FBO's own viewport isn't rescaled
         target.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         Renderer.clearViewportScale();
         target.beginRenderPass(commandBuffer, this.termsRenderPasses[this.termsIndex], stack);
@@ -436,13 +423,25 @@ public class DefaultMainPass implements MainPass {
         VTextureSelector.bindTexture(1, worldDepth);
         VTextureSelector.bindTexture(2, fgDepth);
         VTextureSelector.bindTexture(3, shadow);
-        // TAA history = the other terms target (last frame's amounts); ignored when TAA is off
         VTextureSelector.bindTexture(4, history.getColorAttachment());
         DrawUtil.blit(net.vulkanmod.render.PipelineManager.getFogTermsPipeline());
         Renderer.getInstance().endRenderPass(commandBuffer);
         target.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-        // 2) full-res composite straight into the present pass, left open for the GUI when requested
+        Framebuffer expTarget = this.exposureFramebuffers[this.exposureIndex];
+        Framebuffer expHistory = this.exposureFramebuffers[this.exposureIndex ^ 1];
+        expTarget.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        Renderer.clearViewportScale();
+        expTarget.beginRenderPass(commandBuffer, this.exposureRenderPasses[this.exposureIndex], stack);
+        VTextureSelector.bindTexture(0, this.mainFramebuffer.getColorAttachment());
+        VTextureSelector.bindTexture(1, worldDepth);
+        VTextureSelector.bindTexture(2, fgDepth);
+        VTextureSelector.bindTexture(3, shadow);
+        VTextureSelector.bindTexture(4, expHistory.getColorAttachment());
+        DrawUtil.blit(net.vulkanmod.render.PipelineManager.getFogExposurePipeline());
+        Renderer.getInstance().endRenderPass(commandBuffer);
+        expTarget.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
         this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         this.swapChain.beginRenderPass(commandBuffer, this.presentRenderPass, stack);
         Renderer.clearViewportScale();
@@ -453,19 +452,17 @@ public class DefaultMainPass implements MainPass {
         VTextureSelector.bindTexture(2, fgDepth);
         VTextureSelector.bindTexture(3, target.getColorAttachment());
         VTextureSelector.bindTexture(4, history.getColorAttachment());
+        VTextureSelector.bindTexture(5, expTarget.getColorAttachment());
         DrawUtil.blit(net.vulkanmod.render.PipelineManager.getFogCompositePipeline());
         if (!keepRendering) {
             Renderer.getInstance().endRenderPass(commandBuffer);
         }
 
-        // ping-pong: this frame's terms become next frame's history
         this.termsIndex ^= 1;
+        this.exposureIndex ^= 1;
     }
 
-    /** Create (or resize) the two half-res ping-pong terms targets (RGBA16F), cleared to black once at
-     *  creation so the first frame's history read is defined. Must be called outside a render pass. */
     private void ensureTermsTargets(VkCommandBuffer commandBuffer, MemoryStack stack) {
-        // half the world render resolution; the 2:1 ratio must hold even under a render scale
         int w = Math.max(1, this.mainFramebuffer.getWidth() / 2);
         int h = Math.max(1, this.mainFramebuffer.getHeight() / 2);
         if (this.termsFramebuffers[0] != null && this.termsW == w && this.termsH == h) {
@@ -480,13 +477,11 @@ public class DefaultMainPass implements MainPass {
             VulkanImage image = VulkanImage.builder(w, h)
                     .setFormat(VK_FORMAT_R16G16B16A16_SFLOAT)
                     .setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-                    // nearest: the composite texelFetches the terms and the history read is fine with nearest
                     .setLinearFiltering(false)
                     .setClamp(true)
                     .createVulkanImage();
             this.termsFramebuffers[i] = Framebuffer.builder(image, null).build();
 
-            // full-overwrite pass, no depth attachment; transitioned to SHADER_READ_ONLY after endRenderPass
             RenderPass.Builder builder = RenderPass.builder(this.termsFramebuffers[i]);
             builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
@@ -520,14 +515,54 @@ public class DefaultMainPass implements MainPass {
         this.termsH = -1;
     }
 
+    private void ensureExposureTargets(VkCommandBuffer commandBuffer, MemoryStack stack) {
+        if (this.exposureFramebuffers[0] != null) {
+            return;
+        }
+        for (int i = 0; i < 2; i++) {
+            VulkanImage image = VulkanImage.builder(1, 1)
+                    .setFormat(VK_FORMAT_R16_SFLOAT)
+                    .setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                    .setLinearFiltering(false)
+                    .setClamp(true)
+                    .createVulkanImage();
+            this.exposureFramebuffers[i] = Framebuffer.builder(image, null).build();
+
+            RenderPass.Builder builder = RenderPass.builder(this.exposureFramebuffers[i]);
+            builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
+            this.exposureRenderPasses[i] = builder.build();
+
+            image.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            VkClearColorValue clearColor = VkClearColorValue.calloc(stack);
+            clearColor.float32(0, 1.0f);
+            VkImageSubresourceRange.Buffer range = VkImageSubresourceRange.calloc(1, stack);
+            range.aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).baseMipLevel(0).levelCount(1).baseArrayLayer(0).layerCount(1);
+            vkCmdClearColorImage(commandBuffer, image.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, clearColor, range);
+            image.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+        this.exposureIndex = 0;
+    }
+
+    private void disposeExposureTargets() {
+        for (int i = 0; i < 2; i++) {
+            if (this.exposureRenderPasses[i] != null) {
+                this.exposureRenderPasses[i].cleanUp();
+                this.exposureRenderPasses[i] = null;
+            }
+            if (this.exposureFramebuffers[i] != null) {
+                this.exposureFramebuffers[i].cleanUp();
+                this.exposureFramebuffers[i] = null;
+            }
+        }
+    }
+
     @Override
     public void onDepthClear(Framebuffer framebuffer) {
-        // only the offscreen FBO clears matter, and only while a depth post shader is active
         if (!postShaderActive() || framebuffer != this.scaledFramebuffer || !isUsingScaledFramebuffer()) {
             return;
         }
         this.scaledDepthClears++;
-        // #2 = pre-hand clear: snapshot world depth. #3 = pre-GUI clear: mark live depth as the foreground
         if (this.scaledDepthClears == 2) {
             net.vulkanmod.vulkan.VRenderSystem.captureWorldReconstruction();
             this.capturedWorldDepth = snapshotScaledDepth(this.capturedWorldDepth);
@@ -538,15 +573,12 @@ public class DefaultMainPass implements MainPass {
 
     @Override
     public boolean suppressDepthClear(Framebuffer framebuffer) {
-        // #1 and #2 proceed; #3 (pre-GUI) and later are skipped so the resolve can sample world+hand live
         return postShaderActive()
                 && isUsingScaledFramebuffer()
                 && framebuffer == this.scaledFramebuffer
                 && this.scaledDepthClears >= 3;
     }
 
-    /** Copy the live offscreen depth into a persistent samplable image, bracketed by ending and
-     *  re-opening the world render pass since a copy can't run inside one. */
     private VulkanImage snapshotScaledDepth(VulkanImage target) {
         VulkanImage src = this.scaledFramebuffer.getDepthAttachment();
         int w = src.width;
@@ -581,7 +613,6 @@ public class DefaultMainPass implements MainPass {
             target.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             src.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-            // re-open the world pass so the pending clear and later draws continue
             this.scaledFramebuffer.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
             Renderer.setViewportScale(this.swapChain.getWidth(), this.swapChain.getHeight());
         }

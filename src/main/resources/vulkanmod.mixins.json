@@ -71,6 +71,7 @@
     "render.RenderSystemAccessor",
     "render.RenderTypeM",
     "render.ShaderInstanceM",
+    "render.SkySunMixin",
     "render.entity.EntityRenderDispatcherM",
     "render.entity.EntityRendererM",
     "render.entity.ItemRendererM",

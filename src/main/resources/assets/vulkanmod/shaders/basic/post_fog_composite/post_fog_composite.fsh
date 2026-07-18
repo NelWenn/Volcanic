@@ -1,39 +1,39 @@
 #version 450
 
-// Full-res composite pass: bilateral-upsamples the half-res terms (r=shadow, g=fog, b=god, a=interior)
-// and applies every colour effect — shadow tint, sun ground-light, point lights, fog/god-ray colour,
-// bloom, sun disc and filmic roll-off. Renders straight into the swapchain.
-
 layout(binding = 0) uniform UBO {
-    mat4 FogInvProjMat;   // inverse world projection (kept for compatibility)
-    mat4 FogInvMVPMat;    // inverse world MVP: reconstructs camera-relative world position from depth
-    mat4 FogShadowMVP;    // sun view-projection: projects a camera-relative world point into shadow space
-    mat4 FogPrevMVP;      // previous frame's world MVP (for TAA reprojection)
-    vec4 FogColor;        // game fog colour (follows time of day / biome)
-    vec3 FogCameraPos;    // camera world position
-    float FogDayTime;     // 0..1 time of day
-    vec3 FogSunDir;       // world-space sun direction
-    float FogDensity;     // 0 .. 0.30 (UI slider)
-    float FogHeight;      // world Y ceiling (UI slider): fog dense below, fades above
-    float FogSunVisible;  // 1 if the sun is on-screen (enables god-rays)
-    vec2 FogSunScreenUV;  // sun position in screen UV
-    vec3 FogPrevCameraPos;// previous frame's camera world position (for TAA reprojection)
-    float FogTaaStrength; // 0 = TAA off, ~0.88 = history blend weight
-    float FogShadowTexel; // 1 / shadow-map resolution (for resolution-independent PCF)
-    float FogShadowIntensity; // 0 at night-horizon .. 1 sun .. ~0.35 moon (drives shadow darkness)
-    vec3 FogShadowCameraPos;  // camera pos the shadow map was rendered from (corrects camera lag/flash)
-    float FogGlowStrength;    // emissive bloom around torches / lava / bright warm sources (0..2)
-    float PointLightCount;    // number of active per-pixel point lights (0..32)
-    float PointLightStrength; // per-pixel point light intensity (0..2, 0 = disabled)
-    vec4 PointLightPosR[32];  // xyz = light position relative to FogCameraPos, w = radius (blocks)
-    vec4 PointLightColor[32]; // rgb = light colour, a = intensity (emission / 15)
+    mat4 FogInvProjMat;
+    mat4 FogInvMVPMat;
+    mat4 FogShadowMVP;
+    mat4 FogPrevMVP;
+    vec4 FogColor;
+    vec3 FogCameraPos;
+    float FogDayTime;
+    vec3 FogSunDir;
+    float FogDensity;
+    float FogHeight;
+    float FogSunVisible;
+    vec2 FogSunScreenUV;
+    vec3 FogPrevCameraPos;
+    float FogTaaStrength;
+    float FogShadowTexel;
+    float FogShadowIntensity;
+    vec3 FogShadowCameraPos;
+    float FogGlowStrength;
+    float PointLightCount;
+    float PointLightStrength;
+    vec4 PointLightPosR[32];
+    vec4 PointLightColor[32];
+    float AutoExposureEnabled;
+    float ExposureStrength;
+    float FrameDelta;
 };
 
-layout(binding = 1) uniform sampler2D Sampler0;  // world color
-layout(binding = 2) uniform sampler2D Sampler1;  // captured world depth (no first-person hand)
-layout(binding = 3) uniform sampler2D Sampler2;  // foreground depth (includes the hand)
-layout(binding = 4) uniform sampler2D Sampler3;  // half-res terms (r=shadow, g=fog, b=god, a=interior)
-layout(binding = 5) uniform sampler2D Sampler4;  // terms history (unused; bound for layout symmetry)
+layout(binding = 1) uniform sampler2D Sampler0;
+layout(binding = 2) uniform sampler2D Sampler1;
+layout(binding = 3) uniform sampler2D Sampler2;
+layout(binding = 4) uniform sampler2D Sampler3;
+layout(binding = 5) uniform sampler2D Sampler4;
+layout(binding = 6) uniform sampler2D Sampler5;
 
 const vec2 VOGEL12[12] = vec2[](
     vec2(0.2041241, 0.0000000),
@@ -59,8 +59,6 @@ float hash(vec3 p) {
     return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
-// Bilateral upsample of the half-res terms: 4 nearest texels weighted by bilinear x depth similarity
-// 1/(eps + |dz|), so terms don't smear across silhouettes. If the total weight collapses, the best texel wins.
 vec4 upsampleTerms(float depth) {
     vec2 halfSize = vec2(textureSize(Sampler3, 0));
     vec2 hPos = texCoord * halfSize - 0.5;
@@ -90,7 +88,7 @@ void main() {
     vec3 color = texture(Sampler0, texCoord).rgb;
     float depth = min(texture(Sampler1, texCoord).r, texture(Sampler2, texCoord).r);
 
-    // Reconstruct camera-relative world position (Y flipped: negative-height viewport).
+    // Y flipped: negative-height viewport
     vec4 ndc = vec4(texCoord.x * 2.0 - 1.0, 1.0 - texCoord.y * 2.0, depth, 1.0);
     vec4 rel = FogInvMVPMat * ndc;
     rel.xyz /= rel.w;
@@ -99,35 +97,30 @@ void main() {
     float dist = length(rel.xyz);
     vec3 rayDir = rel.xyz / max(dist, 1e-4);
 
-    // Screen-space normal, shared by the sun ground-light and the point lights.
     vec3 surfN = normalize(cross(dFdx(rel.xyz), dFdy(rel.xyz)));
-    vec3 lightDir = FogSunDir.y >= 0.0 ? FogSunDir : -FogSunDir;   // up-light: sun by day, moon by night
+    vec3 lightDir = FogSunDir.y >= 0.0 ? FogSunDir : -FogSunDir;
     vec3 lightDirN = normalize(lightDir + vec3(1e-4));
-    vec3 lightCol = FogSunDir.y >= 0.0 ? vec3(1.0, 0.92, 0.75) : vec3(0.58, 0.68, 1.0);   // warm sun / cool moon
+    vec3 lightCol = FogSunDir.y >= 0.0 ? vec3(1.0, 0.92, 0.75) : vec3(0.58, 0.68, 1.0);
     float sunH = FogSunDir.y;
     float dayFactor = clamp(sunH * 1.2 + 0.2, 0.0, 1.0);
     float duskDawn = 1.0 - abs(sunH);
 
     vec4 terms = upsampleTerms(depth);
     float shadowTerm = terms.r;
-    float fog = terms.g;         // already includes layerPresence
+    float fog = terms.g;
     float godAmt = terms.b;
-    float sunInterior = terms.a; // 1 = deep cave/interior: no projected sun shadow, no sun ground-light
+    float sunInterior = terms.a;
 
-    // Apply the shadow; shadowed areas keep cool ambient fill, not black.
     color *= mix(vec3(1.0), vec3(0.60, 0.65, 0.80), shadowTerm);
 
-    vec3 nrm = dot(surfN, rayDir) > 0.0 ? -surfN : surfN;   // face the camera (screen-space sign is ambiguous)
+    vec3 nrm = dot(surfN, rayDir) > 0.0 ? -surfN : surfN;
 
-    // Sun ground-light: warm directional light on lit faces facing the sun.
     if (!isSky && FogShadowIntensity > 0.0) {
         float ndlLight = max(dot(nrm, lightDirN), 0.0);
-        // FogShadowIntensity carries day/moon-phase/horizon; killed in interiors.
-        float hiTime = mix(0.16, 0.42, duskDawn);   // neutral at noon, warm at golden hour
+        float hiTime = mix(0.16, 0.42, duskDawn);
         color += color * lightCol * (1.0 - shadowTerm) * (1.0 - sunInterior) * ndlLight * FogShadowIntensity * hiTime;
     }
 
-    // Per-pixel point lights (torches, lava, glowstone). Max-blended, not summed: strongest source wins.
     if (!isSky && PointLightStrength > 0.001 && PointLightCount > 0.5) {
         vec3 addLight = vec3(0.0);
         int cnt = int(PointLightCount + 0.5);
@@ -140,50 +133,41 @@ void main() {
             float invD = inversesqrt(max(d2, 1e-6));
             float d = d2 * invD;
             float x = 1.0 - d / radius;
-            float att = x * x / (1.0 + d2 * 0.08);             // radial falloff
-            float ndl = clamp(dot(nrm, toL * invD) * 0.6 + 0.4, 0.0, 1.0);   // wrapped diffuse
+            float att = x * x / (1.0 + d2 * 0.08);
+            float ndl = clamp(dot(nrm, toL * invD) * 0.6 + 0.4, 0.0, 1.0);
             addLight = max(addLight, PointLightColor[i].rgb * (att * ndl * PointLightColor[i].a));
         }
         addLight = min(addLight, vec3(1.1));
 
-        // Pull hue toward neutral so lit ground isn't oversaturated.
         float aLum = dot(addLight, vec3(0.35, 0.45, 0.20));
         addLight = mix(vec3(aLum), addLight, 0.62);
 
         float dayGate = mix(1.0, 0.4, dayFactor);
         addLight *= PointLightStrength * dayGate;
 
-        // Hybrid multiply + add: multiply alone can't light black pixels, so add a bounded relight of
-        // the amplitude-normalized colour (approx albedo). Capped to avoid amplifying quantisation noise.
         float sceneLum = dot(color, vec3(0.299, 0.587, 0.114));
         vec3 albedoApprox = color / max(sceneLum, 0.09);
         color = color * (1.0 + addLight * 0.55) + albedoApprox * addLight * 0.33;
     }
 
-    // Fog + god-ray colour (amounts come from the half-res march).
-    float cosT = dot(rayDir, lightDirN);   // toward the up-light: sun by day, moon by night
-    float cosP = max(cosT, 0.0);           // Mie forward-scattering lobe cos^6
+    float cosT = dot(rayDir, lightDirN);
+    float cosP = max(cosT, 0.0);
     float cos2 = cosP * cosP;
     float cos6 = cos2 * cos2 * cos2;
 
-    // Fade the fog layer out as the camera climbs above it.
     float layerPresence = smoothstep(FogHeight + 130.0, FogHeight + 40.0, FogCameraPos.y);
 
-    // Fog colour: game fog colour, nudged cooler and brightened toward the sun (Mie).
     float phaseFog = 0.40 + 0.60 * cos6;
     vec3 fogCol = mix(FogColor.rgb, vec3(0.74, 0.78, 0.82), 0.12) * (0.92 + 0.08 * phaseFog * dayFactor);
     color = mix(color, fogCol, fog);
 
-    // God-rays: in-scattered sunlight, weighted by fog amount and layerPresence. FogShadowIntensity
-    // scales day/moon/new-moon, lightCol tints warm/cool. No dayFactor gate, so moonlit shafts stay faint.
     if (FogShadowIntensity > 0.0) {
         float phaseGR = 0.25 + 0.75 * cos6;
-        float grTime = 0.45 + 0.55 * duskDawn;   // subtle at noon, dramatic at golden hour
+        float grTime = 0.45 + 0.55 * duskDawn;
         float strength = godAmt * phaseGR * FogShadowIntensity * (0.45 + 0.55 * fog) * layerPresence * grTime * 1.25;
         color += lightCol * min(strength, 0.45);
     }
 
-    // Emissive glow (bloom): bright warm pixels bleed a warm halo. 12 disk taps, warmth-weighted; fog dims it.
     if (FogGlowStrength > 0.001) {
         float phiG = hash(vec3(gl_FragCoord.xy, 9.7)) * 6.2831853;
         float sG = sin(phiG), cG = cos(phiG);
@@ -191,7 +175,6 @@ void main() {
         const int GN = 12;
         for (int i = 0; i < GN; i++) {
             vec2 v = VOGEL12[i];
-            // Rotate first, then aspect scale (they don't commute).
             vec2 o = vec2(v.x * cG - v.y * sG, v.x * sG + v.y * cG) * vec2(0.5625, 1.0) * 0.035;
             vec3 c = texture(Sampler0, clamp(texCoord + o, 0.0, 1.0)).rgb;
             float lum = dot(c, vec3(0.299, 0.587, 0.114));
@@ -200,27 +183,28 @@ void main() {
         }
         glow /= float(GN);
 
-        // Self-emissive boost so source pixels read as light, not texture.
         float selfLum = dot(color, vec3(0.299, 0.587, 0.114));
         float selfWarm = clamp((color.r - color.b) * 1.5, 0.0, 1.0);
         vec3 self = color * max(selfLum - 0.62, 0.0) * selfWarm;
 
-        float glowGate = mix(1.0, 0.22, dayFactor);   // fade in daylight
+        float glowGate = mix(1.0, 0.22, dayFactor);
         color += (glow * 2.4 + self * 0.5) * FogGlowStrength * glowGate * (1.0 - fog * 0.6);
     }
 
-    // Sun disc + glare at the sun's on-screen position, gated by open sky (terrain occludes it). Aspect-corrected.
+    float sunOccl = smoothstep(0.9990, 0.9999, texture(Sampler1, clamp(FogSunScreenUV, 0.0, 1.0)).r);
     if (FogSunVisible > 0.01 && dayFactor > 0.05) {
         vec2 d = (texCoord - FogSunScreenUV) * vec2(1.78, 1.0);
         float sunD = length(d);
-        float occl = smoothstep(0.9990, 0.9999, texture(Sampler1, clamp(FogSunScreenUV, 0.0, 1.0)).r);
-        float core = smoothstep(0.04, 0.0, sunD);          // bright disc
-        float glare = exp(-sunD * 11.0);                   // bloom halo
+        float core = smoothstep(0.04, 0.0, sunD);
+        float glare = exp(-sunD * 11.0);
         vec3 sunWarm = vec3(1.0, 0.95, 0.82);
-        color += sunWarm * FogSunVisible * dayFactor * occl * (core * 1.5 + glare * 0.25);
+        color += sunWarm * FogSunVisible * sunOccl * dayFactor * (core * 1.5 + glare * 0.25);
     }
 
-    // Filmic highlight roll-off: everything above the knee compresses toward 1.0 without clipping.
+    float exposure = AutoExposureEnabled > 0.5 ? texture(Sampler5, vec2(0.5)).r : 1.0;
+    if (exposure <= 0.0) exposure = 1.0;
+    color *= exposure;
+
     vec3 hx = max(color - vec3(0.78), vec3(0.0));
     color = min(color, vec3(0.78)) + hx / (1.0 + 4.6 * hx);
 
