@@ -4,10 +4,7 @@
         { "name": "Sampler1" },
         { "name": "Sampler2" },
         { "name": "Sampler3" },
-        { "name": "Sampler4" },
-        { "name": "Sampler5" },
-        { "name": "Sampler6" },
-        { "name": "Sampler7" }
+        { "name": "Sampler4" }
     ],
     "UBOs": [
         { "type": "fragment", "binding": 0, "fields": [

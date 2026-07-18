@@ -186,8 +186,6 @@ public class ShadowMap {
         worldRenderer.renderShadowTerrain(cam.x, cam.y, cam.z);
 
         this.renderPass.endRenderPass(commandBuffer);   // finalLayout: depth now SHADER_READ_ONLY
-
-        renderRsm(commandBuffer, stack, worldRenderer, cam);
     }
 
     private void renderRsm(VkCommandBuffer commandBuffer, MemoryStack stack, WorldRenderer worldRenderer, Vec3 cam) {

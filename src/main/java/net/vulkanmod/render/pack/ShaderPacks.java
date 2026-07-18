@@ -17,9 +17,8 @@ import java.util.Map;
 public class ShaderPacks {
     private static final Map<String, String[]> BUILTINS = Map.of(
             "radiance", new String[]{ "pack.json",
-                    "radiance_shadows.vsh", "radiance_shadows.fsh", "radiance_shadows.json",
-                    "radiance_gtao.vsh", "radiance_gtao.fsh", "radiance_gtao.json",
-                    "radiance_gi.vsh", "radiance_gi.fsh", "radiance_gi.json",
+                    "radiance_light.vsh", "radiance_light.fsh", "radiance_light.json",
+                    "radiance_blur.vsh", "radiance_blur.fsh", "radiance_blur.json",
                     "radiance_composite.vsh", "radiance_composite.fsh", "radiance_composite.json" }
     );
 
