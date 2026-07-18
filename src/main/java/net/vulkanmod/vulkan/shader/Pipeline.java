@@ -572,6 +572,10 @@ public abstract class Pipeline {
             this.imageDescriptors = imageDescriptors;
         }
 
+        public void setPushConstants(PushConstants pushConstants) {
+            this.pushConstants = pushConstants;
+        }
+
         public void setSPIRVs(SPIRV vertShaderSPIRV, SPIRV fragShaderSPIRV) {
             this.vertShaderSPIRV = vertShaderSPIRV;
             this.fragShaderSPIRV = fragShaderSPIRV;
