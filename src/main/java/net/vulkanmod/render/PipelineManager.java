@@ -7,15 +7,12 @@ import net.vulkanmod.render.chunk.build.thread.ThreadBuilderPack;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
-import net.vulkanmod.vulkan.shader.Pipeline;
-import net.vulkanmod.vulkan.shader.SPIRVUtils;
+import net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry;
+import net.vulkanmod.vulkan.shader.pipeline.definitions.*;
 
 import java.util.function.Function;
 
-import static net.vulkanmod.vulkan.shader.SPIRVUtils.compileShaderAbsoluteFile;
-
 public abstract class PipelineManager {
-    private static final String shaderPath = "/assets/vulkanmod/shaders/";
     public static VertexFormat TERRAIN_VERTEX_FORMAT;
 
     public static void setTerrainVertexFormat(VertexFormat format) {
@@ -40,38 +37,42 @@ public abstract class PipelineManager {
     }
 
     private static void createBasicPipelines() {
-        terrainShaderEarlyZ = createPipeline("terrain","terrain", "terrain_z", TERRAIN_VERTEX_FORMAT);
-        terrainShader = createPipeline("terrain", "terrain", "terrain", TERRAIN_VERTEX_FORMAT);
-        fastBlitPipeline = createPipeline("blit", "blit", "blit", CustomVertexFormat.NONE);
-        renderScaleBlitPipeline = createPipeline("render_scale_blit", "render_scale_blit", "render_scale_blit", CustomVertexFormat.NONE);
-        colorGradePipeline = createPipeline("post_color_grade", "post_color_grade", "post_color_grade", CustomVertexFormat.NONE);
-        fogPipeline = createPipeline("post_fog", "post_fog", "post_fog", CustomVertexFormat.NONE);
-        fogTermsPipeline = createPipeline("post_fog_terms", "post_fog_terms", "post_fog_terms", CustomVertexFormat.NONE);
-        fogCompositePipeline = createPipeline("post_fog_composite", "post_fog_composite", "post_fog_composite", CustomVertexFormat.NONE);
-        fogExposurePipeline = createPipeline("post_exposure", "post_exposure", "post_exposure", CustomVertexFormat.NONE);
-        shadowTerrainSolidPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_solid", TERRAIN_VERTEX_FORMAT);
-        shadowTerrainCutoutPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_cutout", TERRAIN_VERTEX_FORMAT);
-        shadowTerrainTintPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_tint", TERRAIN_VERTEX_FORMAT);
-        shadowTerrainRsmPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_rsm", TERRAIN_VERTEX_FORMAT);
-        shadowTerrainRsmSolidPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_rsm_solid", TERRAIN_VERTEX_FORMAT);
+        PipelineRegistry.register(
+                TerrainPipeline.class,
+                TerrainEarlyZPipeline.class,
+                FastBlitPipeline.class,
+                RenderScaleBlitPipeline.class,
+                ColorGradePipeline.class,
+                FogPipeline.class,
+                FogTermsPipeline.class,
+                FogCompositePipeline.class,
+                FogExposurePipeline.class,
+                ShadowTerrainSolidPipeline.class,
+                ShadowTerrainCutoutPipeline.class,
+                ShadowTerrainTintPipeline.class,
+                ShadowTerrainRsmPipeline.class,
+                ShadowTerrainRsmSolidPipeline.class
+        );
+
+        terrainShaderEarlyZ = PipelineRegistry.get(TerrainEarlyZPipeline.class);
+        terrainShader = PipelineRegistry.get(TerrainPipeline.class);
+        fastBlitPipeline = PipelineRegistry.get(FastBlitPipeline.class);
+        renderScaleBlitPipeline = PipelineRegistry.get(RenderScaleBlitPipeline.class);
+        colorGradePipeline = PipelineRegistry.get(ColorGradePipeline.class);
+        fogPipeline = PipelineRegistry.get(FogPipeline.class);
+        fogTermsPipeline = PipelineRegistry.get(FogTermsPipeline.class);
+        fogCompositePipeline = PipelineRegistry.get(FogCompositePipeline.class);
+        fogExposurePipeline = PipelineRegistry.get(FogExposurePipeline.class);
+        shadowTerrainSolidPipeline = PipelineRegistry.get(ShadowTerrainSolidPipeline.class);
+        shadowTerrainCutoutPipeline = PipelineRegistry.get(ShadowTerrainCutoutPipeline.class);
+        shadowTerrainTintPipeline = PipelineRegistry.get(ShadowTerrainTintPipeline.class);
+        shadowTerrainRsmPipeline = PipelineRegistry.get(ShadowTerrainRsmPipeline.class);
+        shadowTerrainRsmSolidPipeline = PipelineRegistry.get(ShadowTerrainRsmSolidPipeline.class);
+
         if (ExternalRenderPathSupport.shouldCreateExternalLodPipeline()) {
-            externalLodPipeline = createPipeline("external_lod", "lod", "lod", CustomVertexFormat.EXTERNAL_LOD);
+            PipelineRegistry.register(ExternalLodPipeline.class);
+            externalLodPipeline = PipelineRegistry.get(ExternalLodPipeline.class);
         }
-    }
-
-    private static GraphicsPipeline createPipeline(String baseName, String vertName, String fragName,VertexFormat vertexFormat) {
-        String pathB = String.format("basic/%s/%s", baseName, baseName);
-        String pathV = String.format("basic/%s/%s", baseName, vertName);
-        String pathF = String.format("basic/%s/%s", baseName, fragName);
-
-        Pipeline.Builder pipelineBuilder = new Pipeline.Builder(vertexFormat, pathB);
-        pipelineBuilder.parseBindingsJSON();
-
-        SPIRVUtils.SPIRV vertShaderSPIRV = compileShaderAbsoluteFile(String.format("%s%s.vsh", shaderPath, pathV), SPIRVUtils.ShaderKind.VERTEX_SHADER);
-        SPIRVUtils.SPIRV fragShaderSPIRV = compileShaderAbsoluteFile(String.format("%s%s.fsh", shaderPath, pathF), SPIRVUtils.ShaderKind.FRAGMENT_SHADER);
-        pipelineBuilder.setSPIRVs(vertShaderSPIRV, fragShaderSPIRV);
-
-        return pipelineBuilder.createGraphicsPipeline();
     }
 
     public static GraphicsPipeline getTerrainShader(TerrainRenderType renderType) {
@@ -124,42 +125,6 @@ public abstract class PipelineManager {
     public static GraphicsPipeline getExternalLodPipeline() { return externalLodPipeline; }
 
     public static void destroyPipelines() {
-        terrainShaderEarlyZ.cleanUp();
-        terrainShader.cleanUp();
-        fastBlitPipeline.cleanUp();
-        renderScaleBlitPipeline.cleanUp();
-        if (colorGradePipeline != null) {
-            colorGradePipeline.cleanUp();
-        }
-        if (fogPipeline != null) {
-            fogPipeline.cleanUp();
-        }
-        if (fogTermsPipeline != null) {
-            fogTermsPipeline.cleanUp();
-        }
-        if (fogCompositePipeline != null) {
-            fogCompositePipeline.cleanUp();
-        }
-        if (fogExposurePipeline != null) {
-            fogExposurePipeline.cleanUp();
-        }
-        if (externalLodPipeline != null) {
-            externalLodPipeline.cleanUp();
-        }
-        if (shadowTerrainSolidPipeline != null) {
-            shadowTerrainSolidPipeline.cleanUp();
-        }
-        if (shadowTerrainCutoutPipeline != null) {
-            shadowTerrainCutoutPipeline.cleanUp();
-        }
-        if (shadowTerrainTintPipeline != null) {
-            shadowTerrainTintPipeline.cleanUp();
-        }
-        if (shadowTerrainRsmPipeline != null) {
-            shadowTerrainRsmPipeline.cleanUp();
-        }
-        if (shadowTerrainRsmSolidPipeline != null) {
-            shadowTerrainRsmSolidPipeline.cleanUp();
-        }
+        PipelineRegistry.cleanUp();
     }
 }
