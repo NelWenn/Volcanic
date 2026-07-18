@@ -59,7 +59,7 @@ float shadowLit(vec3 rel, vec3 N, out float interior) {
     if (blockers <= 0.0) return 1.0;
 
     float gap = max(0.0, d - blockerSum / blockers);
-    float penumbra = clamp(gap * 260.0, 2.5, 24.0) * FogShadowTexel;
+    float penumbra = clamp(gap * 260.0, 1.4, 24.0) * FogShadowTexel;
 
     float sum = 0.0;
     for (int i = 0; i < 32; i++) {

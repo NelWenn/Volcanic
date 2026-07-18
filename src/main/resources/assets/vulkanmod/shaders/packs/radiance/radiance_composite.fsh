@@ -27,7 +27,7 @@ vec2 vogel(int i, int n) {
 }
 
 vec4 upsampleLight(float dist) {
-    vec2 ht = 1.3 / vec2(textureSize(Sampler3, 0));
+    vec2 ht = 0.8 / vec2(textureSize(Sampler3, 0));
     vec4 sum = texture(Sampler3, texCoord);
     float wSum = 1.0;
     for (int i = 0; i < 12; i++) {
