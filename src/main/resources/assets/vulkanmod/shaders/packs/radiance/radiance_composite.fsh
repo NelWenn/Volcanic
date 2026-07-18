@@ -16,8 +16,8 @@ layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
 
 const float GOLDEN = 2.39996323;
-const float GI_STRENGTH = 0.25;
-const float AO_STRENGTH = 0.55;
+const float GI_STRENGTH = 0.6;
+const float AO_STRENGTH = 0.5;
 const float HIGHLIGHT = 0.28;
 
 vec2 vogel(int i, int n) {
@@ -79,8 +79,9 @@ void main() {
     color *= 1.0 - AO_STRENGTH * (1.0 - ao);
 
     vec3 bleed = texture(Sampler4, texCoord).rgb;
-    float indirectAmt = (0.35 + 0.65 * shadowFrac) * ao;
-    color += bleed * GI_STRENGTH * indirectAmt;
+    vec3 tint = bleed - dot(bleed, vec3(0.299, 0.587, 0.114));
+    float indirectAmt = clamp(shadowFrac + (1.0 - ao), 0.0, 1.0);
+    color += color * tint * GI_STRENGTH * indirectAmt;
 
     vec3 hx = max(color - vec3(0.82), vec3(0.0));
     color = min(color, vec3(0.82)) + hx / (1.0 + 4.0 * hx);
