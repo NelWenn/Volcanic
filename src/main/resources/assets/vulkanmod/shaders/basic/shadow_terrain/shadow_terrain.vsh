@@ -4,7 +4,6 @@
 
 layout (binding = 0) uniform UniformBufferObject {
     mat4 MVP;
-    float HeldLightLevel;
     float WindTime;
     float WindStrength;
     vec3 CameraWorldPos;

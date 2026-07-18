@@ -210,17 +210,13 @@ public final class FrameTimer {
             net.vulkanmod.config.Config cfg = Initializer.CONFIG;
             if (cfg.shadersEnabled) {
                 String shadows = cfg.shadowsEnabled
-                        ? String.format("on(%d,evt,r%d)",
+                        ? String.format("on(%d,r%d)",
                                 net.vulkanmod.vulkan.pass.ShadowMap.currentResolution(),
                                 cfg.shadowDistance)
                         : "off";
-                String pl = cfg.pointLightsEnabled
-                        ? String.format("on(%d)", (int) net.vulkanmod.render.PointLights.getCount())
-                        : "off";
                 Initializer.LOGGER.info(String.format(
-                        "  post: shader=%s shadows=%s taa=%s glow=%.2f pl=%s scale=%d",
-                        cfg.selectedShader, shadows, cfg.taaEnabled ? "on" : "off",
-                        cfg.glowStrength, pl, cfg.renderScale));
+                        "  post: shader=%s shadows=%s scale=%d",
+                        cfg.selectedShader, shadows, cfg.renderScale));
             }
         } catch (Throwable ignored) {}
 

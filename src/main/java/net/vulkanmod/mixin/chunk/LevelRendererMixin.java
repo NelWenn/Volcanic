@@ -58,26 +58,6 @@ public abstract class LevelRendererMixin {
         PoseStack poseStack = new PoseStack();
 
         this.worldRenderer.renderBlockEntities(poseStack, pos.x(), pos.y(), pos.z(), this.destructionProgress, deltaTracker.getGameTimeDeltaPartialTick(false));
-
-        renderEntityShadows(camera, deltaTracker);
-    }
-
-    @Unique
-    private void renderEntityShadows(Camera camera, DeltaTracker deltaTracker) {
-        net.vulkanmod.config.Config cfg = net.vulkanmod.Initializer.CONFIG;
-        if (!cfg.shadersEnabled || !cfg.isCamille() || !cfg.shadowsEnabled) {
-            return;
-        }
-
-        Vec3 pos = camera.getPosition();
-        float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
-        PoseStack shadowPose = new PoseStack();
-
-        Runnable casters = cfg.entityShadows
-                ? () -> this.worldRenderer.renderShadowCasters(shadowPose, pos.x(), pos.y(), pos.z(), partialTick) : null;
-        Runnable tint = cfg.coloredShadows
-                ? () -> this.worldRenderer.renderShadowTint(pos.x(), pos.y(), pos.z()) : null;
-        net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().renderEntityShadows(casters, tint);
     }
 
     @Inject(method = "renderLevel", at = @At("HEAD"))

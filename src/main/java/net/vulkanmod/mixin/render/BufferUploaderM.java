@@ -71,14 +71,6 @@ public class BufferUploaderM {
             traceHudDraw(shaderName, pipeline, parameters);
 
             VRenderSystem.setPrimitiveTopology(parameters.mode());
-            if (net.vulkanmod.vulkan.pass.DefaultMainPass.inEntityShadowPass) {
-                // force every caster to draw as opaque depth so interleaved translucent shards can't flip blend/mask mid-pass
-                PipelineState.blendInfo.enabled = false;
-                VRenderSystem.colorMask = PipelineState.ColorMask.getColorMask(true, true, true, true);
-                VRenderSystem.depthMask = true;
-                VRenderSystem.depthTest = true;
-                VRenderSystem.depthFun = 515;
-            }
             renderer.bindGraphicsPipeline(pipeline);
             VTextureSelector.bindShaderTextures(pipeline);
             renderer.uploadAndBindUBOs(pipeline);

@@ -12,8 +12,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandBuffer;
-import org.lwjgl.vulkan.VkRect2D;
-import org.lwjgl.vulkan.VkViewport;
 
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -41,15 +39,7 @@ public class ShadowMap {
 
     private Framebuffer framebuffer;
     private RenderPass renderPass;
-    private RenderPass entityRenderPass;   // depth LOAD variant: adds entity depth on top of terrain depth
-    private RenderPass tintRenderPass;     // colour CLEAR white + multiply: stained-glass tint of the sun light
     private int builtSize = -1;
-
-    private static final int RSM_SIZE = 768;
-    private Framebuffer rsmFramebuffer;
-    private RenderPass rsmRenderPass;
-    private int rsmCounter;
-    private boolean rsmRendered;
 
     private final Matrix4f sunView = new Matrix4f();
     private final Matrix4f sunProj = new Matrix4f();
@@ -67,23 +57,6 @@ public class ShadowMap {
             this.renderPass.cleanUp();
             this.renderPass = null;
         }
-        if (this.entityRenderPass != null) {
-            this.entityRenderPass.cleanUp();
-            this.entityRenderPass = null;
-        }
-        if (this.tintRenderPass != null) {
-            this.tintRenderPass.cleanUp();
-            this.tintRenderPass = null;
-        }
-        if (this.rsmFramebuffer != null) {
-            this.rsmFramebuffer.cleanUp();
-            this.rsmFramebuffer = null;
-        }
-        if (this.rsmRenderPass != null) {
-            this.rsmRenderPass.cleanUp();
-            this.rsmRenderPass = null;
-        }
-        this.rsmRendered = false;
         this.builtSize = size;
 
         // colour is throwaway (DONT_CARE) to keep the terrain pipeline compatible; only depth is stored
@@ -100,39 +73,6 @@ public class ShadowMap {
                 .setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
                 .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         this.renderPass = builder.build();
-
-        // same target, but LOAD the terrain depth already written this frame so entities add to it
-        RenderPass.Builder entityBuilder = RenderPass.builder(this.framebuffer);
-        entityBuilder.getColorAttachmentInfo()
-                .setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_DONT_CARE)
-                .setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        entityBuilder.getDepthAttachmentInfo()
-                .setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
-                .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        this.entityRenderPass = entityBuilder.build();
-
-        // tint pass: clear colour to white, multiply-blend glass tint; load depth read-only to occlude behind terrain
-        RenderPass.Builder tintBuilder = RenderPass.builder(this.framebuffer);
-        tintBuilder.getColorAttachmentInfo()
-                .setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-                .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        tintBuilder.getDepthAttachmentInfo()
-                .setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
-                .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        this.tintRenderPass = tintBuilder.build();
-
-        this.rsmFramebuffer = Framebuffer.builder(RSM_SIZE, RSM_SIZE, 1, true)
-                .setDepthFormat(VK_FORMAT_D32_SFLOAT)
-                .setDepthLinearFiltering(false)
-                .build();
-        RenderPass.Builder rsmBuilder = RenderPass.builder(this.rsmFramebuffer);
-        rsmBuilder.getColorAttachmentInfo()
-                .setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-                .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        rsmBuilder.getDepthAttachmentInfo()
-                .setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
-                .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        this.rsmRenderPass = rsmBuilder.build();
     }
 
     private final Vector3f sunFwd = new Vector3f();
@@ -163,7 +103,7 @@ public class ShadowMap {
         this.sunProj.setOrtho(-R, R, -R, R, EYE - HALF_DEPTH, EYE + HALF_DEPTH);
     }
 
-    // call at frame start, before the main world pass, so the fog resolve can sample it
+    // call at frame start, before the main world pass, so the resolve can sample it
     public void render(VkCommandBuffer commandBuffer, MemoryStack stack, float sx, float sy, float sz) {
         ensureResources();
 
@@ -186,115 +126,6 @@ public class ShadowMap {
         worldRenderer.renderShadowTerrain(cam.x, cam.y, cam.z);
 
         this.renderPass.endRenderPass(commandBuffer);   // finalLayout: depth now SHADER_READ_ONLY
-    }
-
-    private void renderRsm(VkCommandBuffer commandBuffer, MemoryStack stack, WorldRenderer worldRenderer, Vec3 cam) {
-        if (!"radiance".equals(net.vulkanmod.Initializer.CONFIG.selectedShader) || this.rsmFramebuffer == null) {
-            return;
-        }
-        boolean due = !this.rsmRendered || ++this.rsmCounter >= 4;
-        if (!due) {
-            return;
-        }
-        this.rsmCounter = 0;
-
-        this.rsmFramebuffer.getDepthAttachment().transitionImageLayout(
-                stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-        this.rsmFramebuffer.getColorAttachment().transitionImageLayout(
-                stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-        Renderer.clearViewportScale();
-        float r = VRenderSystem.clearColor.get(0), g = VRenderSystem.clearColor.get(1),
-                b = VRenderSystem.clearColor.get(2), a = VRenderSystem.clearColor.get(3);
-        VRenderSystem.setClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        this.rsmFramebuffer.beginRenderPass(commandBuffer, this.rsmRenderPass, stack);
-        VRenderSystem.setClearColor(r, g, b, a);
-
-        VkViewport.Buffer viewport = this.rsmFramebuffer.viewport(stack);
-        vkCmdSetViewport(commandBuffer, 0, viewport);
-        VkRect2D.Buffer scissor = this.rsmFramebuffer.scissor(stack);
-        vkCmdSetScissor(commandBuffer, 0, scissor);
-
-        VRenderSystem.applyMVP(this.sunView, this.sunProj);
-        VRenderSystem.captureRsmMVP();
-
-        worldRenderer.renderShadowRsm(cam.x, cam.y, cam.z);
-
-        this.rsmRenderPass.endRenderPass(commandBuffer);
-        this.rsmRendered = true;
-    }
-
-    public boolean rsmPending() {
-        return !this.rsmRendered;
-    }
-
-    public VulkanImage getRsmColorImage() {
-        return this.rsmRendered && this.rsmFramebuffer != null ? this.rsmFramebuffer.getColorAttachment() : null;
-    }
-
-    public VulkanImage getRsmDepthImage() {
-        return this.rsmRendered && this.rsmFramebuffer != null ? this.rsmFramebuffer.getDepthAttachment() : null;
-    }
-
-    // begin a second pass into the SAME depth texture, loading this frame's terrain depth
-    public void beginEntityPass(VkCommandBuffer commandBuffer, MemoryStack stack) {
-        if (this.framebuffer == null || this.entityRenderPass == null) {
-            return;
-        }
-
-        this.framebuffer.getDepthAttachment().transitionImageLayout(
-                stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-        Renderer.clearViewportScale();
-        this.framebuffer.beginRenderPass(commandBuffer, this.entityRenderPass, stack);
-
-        // explicit 1:1 viewport/scissor: the main pass left them at the main-framebuffer size
-        VkViewport.Buffer viewport = this.framebuffer.viewport(stack);
-        vkCmdSetViewport(commandBuffer, 0, viewport);
-        VkRect2D.Buffer scissor = this.framebuffer.scissor(stack);
-        vkCmdSetScissor(commandBuffer, 0, scissor);
-
-        VRenderSystem.applyMVP(this.sunView, this.sunProj);
-    }
-
-    public void endEntityPass(VkCommandBuffer commandBuffer, MemoryStack stack) {
-        if (this.framebuffer == null || this.entityRenderPass == null) {
-            return;
-        }
-        this.entityRenderPass.endRenderPass(commandBuffer);   // finalLayout: depth back to SHADER_READ_ONLY
-    }
-
-    public void beginTintPass(VkCommandBuffer commandBuffer, MemoryStack stack) {
-        if (this.framebuffer == null || this.tintRenderPass == null) {
-            return;
-        }
-        this.framebuffer.getDepthAttachment().transitionImageLayout(
-                stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-        Renderer.clearViewportScale();
-        float r = VRenderSystem.clearColor.get(0), g = VRenderSystem.clearColor.get(1),
-                b = VRenderSystem.clearColor.get(2), a = VRenderSystem.clearColor.get(3);
-        VRenderSystem.setClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        this.framebuffer.beginRenderPass(commandBuffer, this.tintRenderPass, stack);
-        VRenderSystem.setClearColor(r, g, b, a);
-
-        VkViewport.Buffer viewport = this.framebuffer.viewport(stack);
-        vkCmdSetViewport(commandBuffer, 0, viewport);
-        VkRect2D.Buffer scissor = this.framebuffer.scissor(stack);
-        vkCmdSetScissor(commandBuffer, 0, scissor);
-
-        VRenderSystem.applyMVP(this.sunView, this.sunProj);
-    }
-
-    public void endTintPass(VkCommandBuffer commandBuffer, MemoryStack stack) {
-        if (this.framebuffer == null || this.tintRenderPass == null) {
-            return;
-        }
-        this.tintRenderPass.endRenderPass(commandBuffer);
-    }
-
-    public VulkanImage getColorImage() {
-        return this.framebuffer != null ? this.framebuffer.getColorAttachment() : null;
     }
 
     public Matrix4f getSunView() {

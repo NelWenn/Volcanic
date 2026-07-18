@@ -14,7 +14,6 @@ abstract class TerrainPipelineBase {
     @Ubo(stage = Stage.VERTEX, binding = 0)
     static class VertexUbo {
         Matrix4f MVP;
-        float HeldLightLevel;
         float WindTime;
         float WindStrength;
         Vector3f CameraWorldPos;

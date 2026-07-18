@@ -1,7 +1,6 @@
 package net.vulkanmod.render.pack;
 
 import net.vulkanmod.Initializer;
-import net.vulkanmod.render.PipelineManager;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.framebuffer.Framebuffer;
 import net.vulkanmod.vulkan.framebuffer.RenderPass;
@@ -60,8 +59,7 @@ public class PackPipeline {
     }
 
     private static GraphicsPipeline pipeline(ShaderPack pack, PackPass pass) {
-        GraphicsPipeline pipeline = PackShaderCompiler.get(pack.id, pass.program);
-        return pipeline != null ? pipeline : PipelineManager.getPostShaderPipeline(pass.program);
+        return PackShaderCompiler.get(pack.id, pass.program);
     }
 
     public static boolean pipelinesReady(ShaderPack pack) {
@@ -202,23 +200,6 @@ public class PackPipeline {
         return presented;
     }
 
-    public static boolean run(ShaderPack pack, ResourceResolver resolver) {
-        boolean ran = false;
-        for (PackPass pass : pack.passes) {
-            if (!"swapchain".equals(pass.output)) {
-                continue;
-            }
-            GraphicsPipeline pipeline = pipeline(pack, pass);
-            if (pipeline == null) {
-                continue;
-            }
-            bindInputs(pass, null, resolver);
-            DrawUtil.blit(pipeline);
-            ran = true;
-        }
-        return ran;
-    }
-
     private static void bindInputs(PackPass pass, Map<String, Target> targets, ResourceResolver resolver) {
         for (Map.Entry<Integer, String> in : pass.inputs.entrySet()) {
             VulkanImage img = resolveInput(in.getValue(), targets, resolver);
@@ -248,15 +229,6 @@ public class PackPipeline {
             case "RGBA8" -> VK_FORMAT_R8G8B8A8_UNORM;
             default -> VK_FORMAT_R16G16B16A16_SFLOAT;
         };
-    }
-
-    public static void releaseTargets() {
-        for (Map<String, Target> targets : TARGETS.values()) {
-            for (Target target : targets.values()) {
-                dispose(target);
-            }
-        }
-        TARGETS.clear();
     }
 
     private static void dispose(Target target) {

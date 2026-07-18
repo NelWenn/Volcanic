@@ -20,8 +20,7 @@ public abstract class PipelineManager {
     }
 
     static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline;
-    static GraphicsPipeline colorGradePipeline, fogPipeline, fogTermsPipeline, fogCompositePipeline, fogExposurePipeline;
-    static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline, shadowTerrainRsmPipeline, shadowTerrainRsmSolidPipeline;
+    static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline;
 
     private static Function<TerrainRenderType, GraphicsPipeline> shaderGetter;
 
@@ -42,32 +41,16 @@ public abstract class PipelineManager {
                 TerrainEarlyZPipeline.class,
                 FastBlitPipeline.class,
                 RenderScaleBlitPipeline.class,
-                ColorGradePipeline.class,
-                FogPipeline.class,
-                FogTermsPipeline.class,
-                FogCompositePipeline.class,
-                FogExposurePipeline.class,
                 ShadowTerrainSolidPipeline.class,
-                ShadowTerrainCutoutPipeline.class,
-                ShadowTerrainTintPipeline.class,
-                ShadowTerrainRsmPipeline.class,
-                ShadowTerrainRsmSolidPipeline.class
+                ShadowTerrainCutoutPipeline.class
         );
 
         terrainShaderEarlyZ = PipelineRegistry.get(TerrainEarlyZPipeline.class);
         terrainShader = PipelineRegistry.get(TerrainPipeline.class);
         fastBlitPipeline = PipelineRegistry.get(FastBlitPipeline.class);
         renderScaleBlitPipeline = PipelineRegistry.get(RenderScaleBlitPipeline.class);
-        colorGradePipeline = PipelineRegistry.get(ColorGradePipeline.class);
-        fogPipeline = PipelineRegistry.get(FogPipeline.class);
-        fogTermsPipeline = PipelineRegistry.get(FogTermsPipeline.class);
-        fogCompositePipeline = PipelineRegistry.get(FogCompositePipeline.class);
-        fogExposurePipeline = PipelineRegistry.get(FogExposurePipeline.class);
         shadowTerrainSolidPipeline = PipelineRegistry.get(ShadowTerrainSolidPipeline.class);
         shadowTerrainCutoutPipeline = PipelineRegistry.get(ShadowTerrainCutoutPipeline.class);
-        shadowTerrainTintPipeline = PipelineRegistry.get(ShadowTerrainTintPipeline.class);
-        shadowTerrainRsmPipeline = PipelineRegistry.get(ShadowTerrainRsmPipeline.class);
-        shadowTerrainRsmSolidPipeline = PipelineRegistry.get(ShadowTerrainRsmSolidPipeline.class);
 
         if (ExternalRenderPathSupport.shouldCreateExternalLodPipeline()) {
             PipelineRegistry.register(ExternalLodPipeline.class);
@@ -81,14 +64,6 @@ public abstract class PipelineManager {
 
     public static GraphicsPipeline getShadowTerrainShader(TerrainRenderType renderType) {
         return renderType == TerrainRenderType.SOLID ? shadowTerrainSolidPipeline : shadowTerrainCutoutPipeline;
-    }
-
-    public static GraphicsPipeline getShadowTerrainTintShader() {
-        return shadowTerrainTintPipeline;
-    }
-
-    public static GraphicsPipeline getShadowTerrainRsmShader(TerrainRenderType renderType) {
-        return renderType == TerrainRenderType.SOLID ? shadowTerrainRsmSolidPipeline : shadowTerrainRsmPipeline;
     }
 
     public static void setShaderGetter(Function<TerrainRenderType, GraphicsPipeline> consumer) {
@@ -106,21 +81,6 @@ public abstract class PipelineManager {
     public static GraphicsPipeline getFastBlitPipeline() { return fastBlitPipeline; }
 
     public static GraphicsPipeline getRenderScaleBlitPipeline() { return renderScaleBlitPipeline; }
-
-    public static GraphicsPipeline getPostShaderPipeline(String shaderId) {
-        return switch (shaderId) {
-            case "color_grade" -> colorGradePipeline;
-            case "fog" -> fogPipeline;
-            case "radiance" -> fogPipeline;
-            default -> null;
-        };
-    }
-
-    public static GraphicsPipeline getFogTermsPipeline() { return fogTermsPipeline; }
-
-    public static GraphicsPipeline getFogCompositePipeline() { return fogCompositePipeline; }
-
-    public static GraphicsPipeline getFogExposurePipeline() { return fogExposurePipeline; }
 
     public static GraphicsPipeline getExternalLodPipeline() { return externalLodPipeline; }
 
