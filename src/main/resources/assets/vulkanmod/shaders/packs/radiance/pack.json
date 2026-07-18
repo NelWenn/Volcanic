@@ -1,6 +1,6 @@
 {
     "name": "Camille Radiance",
-    "version": 11,
+    "version": 12,
     "targets": [
         { "name": "gtao",    "format": "RG16F",   "scale": 0.5, "pingpong": true, "clear": 1.0 },
         { "name": "gi",      "format": "RGBA16F", "scale": 0.5, "pingpong": true },

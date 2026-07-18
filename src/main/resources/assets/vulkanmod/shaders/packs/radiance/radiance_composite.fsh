@@ -40,12 +40,12 @@ const vec2 VOGEL16[16] = vec2[](
 );
 
 vec4 upsampleShadows(float dist) {
-    vec2 ht = 1.6 / vec2(textureSize(Sampler3, 0));
+    vec2 ht = 2.0 / vec2(textureSize(Sampler3, 0));
     vec4 sum = texture(Sampler3, texCoord);
     float wSum = 1.0;
     for (int i = 0; i < 16; i++) {
         vec4 t = texture(Sampler3, texCoord + VOGEL16[i] * ht);
-        float w = 1.0 / (1e-2 + abs(dist - t.b) / max(dist, 1.0));
+        float w = 1.0 / (1.0 + 6.0 * abs(dist - t.b) / max(dist, 1.0));
         sum += t * w;
         wSum += w;
     }
@@ -53,13 +53,13 @@ vec4 upsampleShadows(float dist) {
 }
 
 float upsampleAO(float dist) {
-    vec2 ht = 2.2 / vec2(textureSize(Sampler4, 0));
+    vec2 ht = 2.6 / vec2(textureSize(Sampler4, 0));
     vec2 c = texture(Sampler4, texCoord).rg;
     float sum = c.r;
     float wSum = 1.0;
     for (int i = 0; i < 16; i++) {
         vec2 t = texture(Sampler4, texCoord + VOGEL16[i] * ht).rg;
-        float w = 1.0 / (1e-2 + abs(dist - t.g) / max(dist, 1.0));
+        float w = 1.0 / (1.0 + 6.0 * abs(dist - t.g) / max(dist, 1.0));
         sum += t.r * w;
         wSum += w;
     }
@@ -67,13 +67,13 @@ float upsampleAO(float dist) {
 }
 
 vec3 upsampleGI(float dist) {
-    vec2 ht = 2.2 / vec2(textureSize(Sampler5, 0));
+    vec2 ht = 2.6 / vec2(textureSize(Sampler5, 0));
     vec4 c = texture(Sampler5, texCoord);
     vec3 sum = c.rgb;
     float wSum = 1.0;
     for (int i = 0; i < 16; i++) {
         vec4 t = texture(Sampler5, texCoord + VOGEL16[i] * ht);
-        float w = 1.0 / (1e-2 + abs(dist - t.a) / max(dist, 1.0));
+        float w = 1.0 / (1.0 + 6.0 * abs(dist - t.a) / max(dist, 1.0));
         sum += t.rgb * w;
         wSum += w;
     }

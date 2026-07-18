@@ -131,8 +131,8 @@ void main() {
             vec2 prevUV = vec2(pndc.x * 0.5 + 0.5, 0.5 - pndc.y * 0.5);
             if (prevUV.x > 0.0 && prevUV.x < 1.0 && prevUV.y > 0.0 && prevUV.y < 1.0) {
                 vec4 hist = texture(Sampler4, prevUV);
-                if (abs(hist.a - dist) < 0.1 * dist + 0.5) {
-                    gi = mix(gi, hist.rgb, 0.85);
+                if (abs(hist.a - dist) < 0.04 * dist + 0.25) {
+                    gi = mix(gi, hist.rgb, 0.70);
                 }
             }
         }

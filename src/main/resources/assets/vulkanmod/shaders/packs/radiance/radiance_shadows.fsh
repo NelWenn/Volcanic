@@ -150,11 +150,11 @@ void main() {
             vec2 prevUV = vec2(pndc.x * 0.5 + 0.5, 0.5 - pndc.y * 0.5);
             if (prevUV.x > 0.0 && prevUV.x < 1.0 && prevUV.y > 0.0 && prevUV.y < 1.0) {
                 vec4 hist = texture(Sampler3, prevUV);
-                if (abs(hist.b - dist) < 0.1 * dist + 0.5) {
+                if (abs(hist.b - dist) < 0.04 * dist + 0.25) {
                     float diff = abs(shadowTerm - hist.r);
-                    float rLo = mix(0.12, 0.30, df);
-                    float rHi = mix(0.80, 0.95, df);
-                    float w = min(0.97, FogTaaStrength * (1.0 + 0.10 * df)) * (1.0 - smoothstep(rLo, rHi, diff));
+                    float rLo = mix(0.10, 0.24, df);
+                    float rHi = mix(0.55, 0.75, df);
+                    float w = min(0.82, FogTaaStrength * (1.0 + 0.10 * df)) * (1.0 - smoothstep(rLo, rHi, diff));
                     shadowTerm = mix(shadowTerm, hist.r, w);
                 }
             }

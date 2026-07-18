@@ -123,7 +123,7 @@ public class PackPipeline {
                 VulkanImage image = VulkanImage.builder(w, h)
                         .setFormat(format(target.spec.format))
                         .setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-                        .setLinearFiltering(false)
+                        .setLinearFiltering(true)
                         .setClamp(true)
                         .createVulkanImage();
                 target.framebuffers[i] = Framebuffer.builder(image, null).build();
