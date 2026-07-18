@@ -74,7 +74,7 @@ float shadowLit(vec3 rel, vec3 N, out float interior) {
 float ambientOcclusion(vec3 p, vec3 N, float dist) {
     vec2 fullResSize = vec2(textureSize(Sampler0, 0));
     float aspect = fullResSize.x / fullResSize.y;
-    float rUV = clamp(0.6 / (dist + 1.0), 0.003, 0.014);
+    float rUV = clamp(0.5 / (dist + 1.0), 0.003, 0.011);
     vec2 radiusUV = vec2(rUV / aspect, rUV);
 
     float occ = 0.0;
@@ -86,13 +86,13 @@ float ambientOcclusion(vec3 p, vec3 N, float dist) {
         vec3 sp = reconstruct(uv, sd);
         vec3 v = sp - p;
         float len = length(v);
-        if (len < 0.02) continue;
-        float range = 1.0 - smoothstep(AoRadius * 0.7, AoRadius * 1.5, len);
-        occ += max(0.0, dot(v / len, N) - 0.1) * range;
+        if (len < 0.05) continue;
+        float range = 1.0 - smoothstep(AoRadius * 0.5, AoRadius, len);
+        occ += smoothstep(0.25, 0.6, dot(v / len, N)) * range;
         samples += 1.0;
     }
     occ = samples > 0.0 ? occ / samples : 0.0;
-    return clamp(1.0 - occ * 2.0, 0.0, 1.0);
+    return clamp(1.0 - occ * 1.6, 0.0, 1.0);
 }
 
 void main() {

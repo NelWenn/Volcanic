@@ -17,7 +17,7 @@ layout(location = 0) out vec4 fragColor;
 
 const float GOLDEN = 2.39996323;
 const float GI_STRENGTH = 0.6;
-const float AO_STRENGTH = 0.5;
+const float AO_STRENGTH = 0.35;
 const float HIGHLIGHT = 0.28;
 
 vec2 vogel(int i, int n) {
