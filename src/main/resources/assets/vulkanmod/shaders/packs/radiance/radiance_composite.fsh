@@ -20,76 +20,64 @@ layout(binding = 8) uniform sampler2D Sampler7;
 layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
 
-vec4 upsampleShadows(float dist) {
-    vec2 halfSize = vec2(textureSize(Sampler3, 0));
-    vec2 hPos = texCoord * halfSize - 0.5;
-    ivec2 h0 = ivec2(floor(hPos));
-    vec2 f = hPos - vec2(h0);
-    ivec2 hMax = ivec2(halfSize) - 1;
+const vec2 VOGEL16[16] = vec2[](
+    vec2(0.1767767, 0.0000000),
+    vec2(-0.2257721, 0.2068259),
+    vec2(0.0345579, -0.3937712),
+    vec2(0.2845715, 0.3711726),
+    vec2(-0.5222233, -0.0923734),
+    vec2(0.4946950, -0.3146853),
+    vec2(-0.1654651, 0.6155252),
+    vec2(-0.3155624, -0.6075939),
+    vec2(0.6846426, 0.2500290),
+    vec2(-0.7122555, 0.2940104),
+    vec2(0.3433528, -0.7337294),
+    vec2(0.2537323, 0.8089313),
+    vec2(-0.7647471, -0.4431838),
+    vec2(0.8971334, -0.1972351),
+    vec2(-0.5475044, 0.7787740),
+    vec2(-0.1264901, -0.9760893)
+);
 
-    vec4 sum = vec4(0.0);
-    float wSum = 0.0;
-    float bestW = -1.0;
-    vec4 best = vec4(0.0);
-    for (int i = 0; i < 4; i++) {
-        ivec2 o = ivec2(i & 1, i >> 1);
-        ivec2 h = clamp(h0 + o, ivec2(0), hMax);
-        float wBilin = (o.x == 1 ? f.x : 1.0 - f.x) * (o.y == 1 ? f.y : 1.0 - f.y);
-        vec4 t = texelFetch(Sampler3, h, 0);
-        float w = wBilin / (1e-3 + abs(dist - t.b) / max(dist, 1.0));
+vec4 upsampleShadows(float dist) {
+    vec2 ht = 1.6 / vec2(textureSize(Sampler3, 0));
+    vec4 sum = texture(Sampler3, texCoord);
+    float wSum = 1.0;
+    for (int i = 0; i < 16; i++) {
+        vec4 t = texture(Sampler3, texCoord + VOGEL16[i] * ht);
+        float w = 1.0 / (1e-2 + abs(dist - t.b) / max(dist, 1.0));
         sum += t * w;
         wSum += w;
-        if (w > bestW) { bestW = w; best = t; }
     }
-    return wSum < 1e-3 ? best : sum / wSum;
+    return sum / wSum;
 }
 
 float upsampleAO(float dist) {
-    vec2 halfSize = vec2(textureSize(Sampler4, 0));
-    vec2 hPos = texCoord * halfSize - 0.5;
-    ivec2 h0 = ivec2(floor(hPos));
-    vec2 f = hPos - vec2(h0);
-    ivec2 hMax = ivec2(halfSize) - 1;
-
-    float sum = 0.0;
-    float wSum = 0.0;
-    float bestW = -1.0;
-    float best = 1.0;
-    for (int i = 0; i < 4; i++) {
-        ivec2 o = ivec2(i & 1, i >> 1);
-        ivec2 h = clamp(h0 + o, ivec2(0), hMax);
-        float wBilin = (o.x == 1 ? f.x : 1.0 - f.x) * (o.y == 1 ? f.y : 1.0 - f.y);
-        vec2 t = texelFetch(Sampler4, h, 0).rg;
-        float w = wBilin / (1e-3 + abs(dist - t.g) / max(dist, 1.0));
+    vec2 ht = 2.2 / vec2(textureSize(Sampler4, 0));
+    vec2 c = texture(Sampler4, texCoord).rg;
+    float sum = c.r;
+    float wSum = 1.0;
+    for (int i = 0; i < 16; i++) {
+        vec2 t = texture(Sampler4, texCoord + VOGEL16[i] * ht).rg;
+        float w = 1.0 / (1e-2 + abs(dist - t.g) / max(dist, 1.0));
         sum += t.r * w;
         wSum += w;
-        if (w > bestW) { bestW = w; best = t.r; }
     }
-    return wSum < 1e-3 ? best : sum / wSum;
+    return sum / wSum;
 }
 
 vec3 upsampleGI(float dist) {
-    vec2 halfSize = vec2(textureSize(Sampler5, 0));
-    vec2 hPos = texCoord * halfSize - 0.5;
-    ivec2 h0 = ivec2(floor(hPos));
-    vec2 f = hPos - vec2(h0);
-    ivec2 hMax = ivec2(halfSize) - 1;
-
-    vec3 sum = vec3(0.0);
-    float wSum = 0.0;
-    float bestW = -1.0;
-    vec3 best = vec3(0.0);
-    for (int i = 0; i < 4; i++) {
-        ivec2 o = ivec2(i & 1, i >> 1);
-        ivec2 h = clamp(h0 + o, ivec2(0), hMax);
-        float wBilin = (o.x == 1 ? f.x : 1.0 - f.x) * (o.y == 1 ? f.y : 1.0 - f.y);
-        vec4 t = texelFetch(Sampler5, h, 0);
-        float w = wBilin / (1e-3 + abs(dist - t.a) / max(dist, 1.0));
+    vec2 ht = 2.2 / vec2(textureSize(Sampler5, 0));
+    vec4 c = texture(Sampler5, texCoord);
+    vec3 sum = c.rgb;
+    float wSum = 1.0;
+    for (int i = 0; i < 16; i++) {
+        vec4 t = texture(Sampler5, texCoord + VOGEL16[i] * ht);
+        float w = 1.0 / (1e-2 + abs(dist - t.a) / max(dist, 1.0));
         sum += t.rgb * w;
         wSum += w;
-        if (w > bestW) { bestW = w; best = t.rgb; }
     }
-    return wSum < 1e-3 ? best : sum / wSum;
+    return sum / wSum;
 }
 
 void main() {

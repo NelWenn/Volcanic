@@ -87,7 +87,7 @@ void main() {
 
     float visSum = 0.0;
     float wSum = 0.0;
-    const int SLICES = 2;
+    const int SLICES = 3;
     const int STEPS = 3;
     for (int sl = 0; sl < SLICES; sl++) {
         float phi = rot + float(sl) * (PI / float(SLICES));
