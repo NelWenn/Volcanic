@@ -63,6 +63,7 @@
     "render.GuiGraphicsRenderStateMixin",
     "render.GuiRenderStateBoundaryMixin",
     "render.GlProgramManagerMixin",
+    "render.EntityShadowBlobMixin",
     "render.GlStateManagerM",
     "render.LevelRendererMixin",
     "render.LightTextureMixin",

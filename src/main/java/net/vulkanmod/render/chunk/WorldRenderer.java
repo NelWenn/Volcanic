@@ -81,6 +81,8 @@ public class WorldRenderer {
 
     IndirectBuffer[] indirectBuffers;
     private IndirectBuffer[] shadowIndirectBuffers;
+    private IndirectBuffer[] shadowTintIndirectBuffers;
+    private IndirectBuffer[] shadowRsmIndirectBuffers;
 
     public RenderRegionBuilder renderRegionCache;
 
@@ -124,6 +126,24 @@ public class WorldRenderer {
 
         }
 
+        // tint pass runs mid-frame, after the terrain shadow pass already filled shadowIndirectBuffers; needs its own
+        if (this.shadowTintIndirectBuffers != null)
+            Arrays.stream(this.shadowTintIndirectBuffers).forEach(Buffer::freeBuffer);
+
+        this.shadowTintIndirectBuffers = new IndirectBuffer[Renderer.getFramesNum()];
+
+        for (int i = 0; i < this.shadowTintIndirectBuffers.length; ++i) {
+            this.shadowTintIndirectBuffers[i] = new IndirectBuffer(1000000, MemoryTypes.HOST_MEM);
+        }
+
+        if (this.shadowRsmIndirectBuffers != null)
+            Arrays.stream(this.shadowRsmIndirectBuffers).forEach(Buffer::freeBuffer);
+
+        this.shadowRsmIndirectBuffers = new IndirectBuffer[Renderer.getFramesNum()];
+
+        for (int i = 0; i < this.shadowRsmIndirectBuffers.length; ++i) {
+            this.shadowRsmIndirectBuffers[i] = new IndirectBuffer(1000000, MemoryTypes.HOST_MEM);
+        }
     }
 
     public static WorldRenderer init(RenderBuffers renderBuffers) {
@@ -495,6 +515,166 @@ public class WorldRenderer {
         bi.blendOp = sBlendOp; bi.blendOpRgb = sBlendOpRgb; bi.blendOpAlpha = sBlendOpAlpha;
     }
 
+    // stained-glass tint into the shadow colour attachment; multiply blend, read-only depth (glass doesn't darken, only tints)
+    // caller (renderEntityShadows) snapshots/restores VRenderSystem, so no local save/restore
+    public void renderShadowTint(double camX, double camY, double camZ) {
+        if (this.sectionGrid == null || this.sectionGrid.sections == null || this.shadowSections.isEmpty()) {
+            return;
+        }
+        Renderer renderer = Renderer.getInstance();
+        IndexBuffer indexBuffer = Renderer.getDrawer().getQuadsIndexBuffer().getIndexBuffer();
+        Renderer.getDrawer().bindIndexBuffer(Renderer.getCommandBuffer(), indexBuffer);
+
+        final TerrainRenderType type = TerrainRenderType.TRANSLUCENT;
+        RenderType renderType = TerrainRenderType.getRenderType(type);
+        renderType.setupRenderState();
+
+        VRenderSystem.depthTest = true;
+        VRenderSystem.depthMask = false;   // colour only; writing translucent depth into the shadow map is noisy
+        VRenderSystem.depthFun = 515;
+        VRenderSystem.cull = false;
+        VRenderSystem.colorMask = net.vulkanmod.vulkan.shader.PipelineState.ColorMask.getColorMask(true, true, true, true);
+        net.vulkanmod.vulkan.shader.PipelineState.BlendInfo bi = net.vulkanmod.vulkan.shader.PipelineState.blendInfo;
+        bi.enabled = true;
+        bi.srcRgbFactor = org.lwjgl.vulkan.VK10.VK_BLEND_FACTOR_DST_COLOR;
+        bi.dstRgbFactor = org.lwjgl.vulkan.VK10.VK_BLEND_FACTOR_ZERO;
+        bi.srcAlphaFactor = org.lwjgl.vulkan.VK10.VK_BLEND_FACTOR_ONE;
+        bi.dstAlphaFactor = org.lwjgl.vulkan.VK10.VK_BLEND_FACTOR_ZERO;
+        bi.blendOp = bi.blendOpRgb = bi.blendOpAlpha = org.lwjgl.vulkan.VK10.VK_BLEND_OP_ADD;
+
+        GraphicsPipeline pipeline = PipelineManager.getShadowTerrainTintShader();
+        renderer.bindGraphicsPipeline(pipeline);
+        VTextureSelector.bindShaderTextures(pipeline);
+        type.setCutoutUniform();
+
+        final boolean indirectDraw = Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw();
+        IndirectBuffer shadowIndirect = indirectDraw ? this.shadowTintIndirectBuffers[Renderer.getCurrentFrame()] : null;
+        if (indirectDraw) {
+            shadowIndirect.reset();
+            ChunkArea curArea = null;
+            this.shadowScratchQueue.clear();
+            for (RenderSection s : this.shadowSections) {
+                ChunkArea area = s.getChunkArea();
+                if (area != curArea) {
+                    flushShadowArea(curArea, type, pipeline, renderer, shadowIndirect, camX, camY, camZ);
+                    this.shadowScratchQueue.clear();
+                    curArea = area;
+                }
+                this.shadowScratchQueue.add(s);
+            }
+            flushShadowArea(curArea, type, pipeline, renderer, shadowIndirect, camX, camY, camZ);
+            shadowIndirect.submitUploads();
+        } else {
+            ChunkArea lastArea = null;
+            for (RenderSection s : this.shadowSections) {
+                ChunkArea area = s.getChunkArea();
+                DrawBuffers drawBuffers = area.drawBuffers;
+                if (drawBuffers.getAreaBuffer(type) == null) continue;
+                if (area != lastArea) {
+                    drawBuffers.bindBuffers(Renderer.getCommandBuffer(), pipeline, type, camX, camY, camZ);
+                    renderer.uploadAndBindUBOs(pipeline);
+                    lastArea = area;
+                }
+                drawBuffers.drawSingleSection(s, type);
+            }
+        }
+        renderType.clearRenderState();
+
+        VRenderSystem.setChunkOffset(0, 0, 0);
+        renderer.pushConstants(pipeline);
+    }
+
+    public void renderShadowRsm(double camX, double camY, double camZ) {
+        if (this.sectionGrid == null || this.sectionGrid.sections == null || this.shadowSections.isEmpty()) {
+            return;
+        }
+        Renderer renderer = Renderer.getInstance();
+        IndexBuffer indexBuffer = Renderer.getDrawer().getQuadsIndexBuffer().getIndexBuffer();
+        Renderer.getDrawer().bindIndexBuffer(Renderer.getCommandBuffer(), indexBuffer);
+
+        final boolean sDepthTest = VRenderSystem.depthTest, sDepthMask = VRenderSystem.depthMask, sCull = VRenderSystem.cull;
+        final int sDepthFun = VRenderSystem.depthFun, sColorMask = VRenderSystem.colorMask;
+        final net.vulkanmod.vulkan.shader.PipelineState.BlendInfo bi = net.vulkanmod.vulkan.shader.PipelineState.blendInfo;
+        final boolean sBlendEnabled = bi.enabled;
+
+        final TerrainRenderType[] types = {
+                TerrainRenderType.SOLID, TerrainRenderType.CUTOUT_MIPPED, TerrainRenderType.CUTOUT };
+
+        final boolean indirectDraw = Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw();
+        IndirectBuffer rsmIndirect = indirectDraw ? this.shadowRsmIndirectBuffers[Renderer.getCurrentFrame()] : null;
+        if (indirectDraw)
+            rsmIndirect.reset();
+
+        final float rsmRange = Math.min(net.vulkanmod.vulkan.pass.ShadowMap.shadowRange(), 62.0f);
+        final double rsmRangeSq = rsmRange * rsmRange;
+
+        GraphicsPipeline pipeline = null;
+
+        for (TerrainRenderType terrainRenderType : types) {
+            RenderType renderType = TerrainRenderType.getRenderType(terrainRenderType);
+            renderType.setupRenderState();
+
+            VRenderSystem.depthTest = true;
+            VRenderSystem.depthMask = true;
+            VRenderSystem.depthFun = 515;
+            VRenderSystem.cull = (terrainRenderType == TerrainRenderType.SOLID);
+            VRenderSystem.colorMask = net.vulkanmod.vulkan.shader.PipelineState.ColorMask.getColorMask(true, true, true, true);
+            bi.enabled = false;
+
+            pipeline = PipelineManager.getShadowTerrainRsmShader(terrainRenderType);
+            renderer.bindGraphicsPipeline(pipeline);
+            VTextureSelector.bindShaderTextures(pipeline);
+            terrainRenderType.setCutoutUniform();
+
+            if (indirectDraw) {
+                ChunkArea curArea = null;
+                this.shadowScratchQueue.clear();
+                for (RenderSection s : this.shadowSections) {
+                    double dx = (s.xOffset() + 8) - camX;
+                    double dz = (s.zOffset() + 8) - camZ;
+                    if (dx * dx + dz * dz > rsmRangeSq) continue;
+                    ChunkArea area = s.getChunkArea();
+                    if (area != curArea) {
+                        flushShadowArea(curArea, terrainRenderType, pipeline, renderer, rsmIndirect, camX, camY, camZ);
+                        this.shadowScratchQueue.clear();
+                        curArea = area;
+                    }
+                    this.shadowScratchQueue.add(s);
+                }
+                flushShadowArea(curArea, terrainRenderType, pipeline, renderer, rsmIndirect, camX, camY, camZ);
+            } else {
+                ChunkArea lastArea = null;
+                for (RenderSection s : this.shadowSections) {
+                    double dx = (s.xOffset() + 8) - camX;
+                    double dz = (s.zOffset() + 8) - camZ;
+                    if (dx * dx + dz * dz > rsmRangeSq) continue;
+                    ChunkArea area = s.getChunkArea();
+                    DrawBuffers drawBuffers = area.drawBuffers;
+                    if (drawBuffers.getAreaBuffer(terrainRenderType) == null) continue;
+
+                    if (area != lastArea) {
+                        drawBuffers.bindBuffers(Renderer.getCommandBuffer(), pipeline, terrainRenderType, camX, camY, camZ);
+                        renderer.uploadAndBindUBOs(pipeline);
+                        lastArea = area;
+                    }
+                    drawBuffers.drawSingleSection(s, terrainRenderType);
+                }
+            }
+
+            renderType.clearRenderState();
+        }
+
+        if (indirectDraw)
+            rsmIndirect.submitUploads();
+
+        VRenderSystem.setChunkOffset(0, 0, 0);
+        renderer.pushConstants(pipeline);
+
+        VRenderSystem.depthTest = sDepthTest; VRenderSystem.depthMask = sDepthMask; VRenderSystem.depthFun = sDepthFun;
+        VRenderSystem.cull = sCull; VRenderSystem.colorMask = sColorMask;
+        bi.enabled = sBlendEnabled;
+    }
+
     private void flushShadowArea(ChunkArea area, TerrainRenderType terrainRenderType, GraphicsPipeline pipeline,
                                  Renderer renderer, IndirectBuffer shadowIndirect, double camX, double camY, double camZ) {
         if (area == null || this.shadowScratchQueue.size() == 0)
@@ -602,6 +782,125 @@ public class WorldRenderer {
         }
     }
 
+    private net.minecraft.client.renderer.MultiBufferSource.BufferSource shadowBufferSource;
+
+    private net.minecraft.client.renderer.MultiBufferSource.BufferSource shadowBufferSource() {
+        if (this.shadowBufferSource == null) {
+            this.shadowBufferSource = net.minecraft.client.renderer.MultiBufferSource.immediate(
+                    new com.mojang.blaze3d.vertex.ByteBufferBuilder(1536));
+        }
+        return this.shadowBufferSource;
+    }
+
+    // depth-only casters into the shadow pass; sun MVP is already applied, posing is camera-relative
+    public void renderShadowCasters(PoseStack poseStack, double camX, double camY, double camZ, float partialTick) {
+        renderShadowEntities(poseStack, camX, camY, camZ, partialTick);
+        renderShadowBlockEntities(poseStack, camX, camY, camZ, partialTick);
+    }
+
+    private void renderShadowEntities(PoseStack poseStack, double camX, double camY, double camZ, float partialTick) {
+        if (this.level == null) {
+            return;
+        }
+        net.minecraft.client.renderer.entity.EntityRenderDispatcher dispatcher = this.minecraft.getEntityRenderDispatcher();
+        net.minecraft.client.renderer.MultiBufferSource.BufferSource src = shadowBufferSource();
+        ShadowCasterBufferSource filtered = new ShadowCasterBufferSource(src);
+
+        final float range = net.vulkanmod.vulkan.pass.ShadowMap.shadowRange();
+        final float rangeSq = range * range;
+
+        for (net.minecraft.world.entity.Entity entity : this.level.entitiesForRendering()) {
+            if (entity.isInvisible() || entity.isSpectator()) {
+                continue;
+            }
+
+            double ex = Mth.lerp(partialTick, entity.xOld, entity.getX());
+            double ey = Mth.lerp(partialTick, entity.yOld, entity.getY());
+            double ez = Mth.lerp(partialTick, entity.zOld, entity.getZ());
+            double dx = ex - camX;
+            double dz = ez - camZ;
+            if (dx * dx + dz * dz > rangeSq) {
+                continue;
+            }
+            double dy = ey - camY;
+            if (dy < -80.0 || dy > 80.0) {
+                continue;
+            }
+
+            float yRot = Mth.lerp(partialTick, entity.yRotO, entity.getYRot());
+            int packedLight = dispatcher.getPackedLightCoords(entity, partialTick);
+            try {
+                dispatcher.render(entity, ex - camX, ey - camY, ez - camZ, yRot, partialTick, poseStack, filtered, packedLight);
+            } catch (Throwable ignored) {
+            }
+        }
+        src.endBatch();
+    }
+
+    private void renderShadowBlockEntities(PoseStack poseStack, double camX, double camY, double camZ, float partialTick) {
+        net.minecraft.client.renderer.MultiBufferSource.BufferSource src = shadowBufferSource();
+        ShadowCasterBufferSource filtered = new ShadowCasterBufferSource(src);
+
+        final float range = net.vulkanmod.vulkan.pass.ShadowMap.shadowRange();
+        final float rangeSq = range * range;
+
+        for (RenderSection renderSection : this.sectionGraph.getBlockEntitiesSections()) {
+            List<BlockEntity> list = renderSection.getCompiledSection().getBlockEntities();
+            if (list.isEmpty()) continue;
+            for (BlockEntity blockEntity : list) {
+                BlockPos blockPos = blockEntity.getBlockPos();
+                double dx = (double) blockPos.getX() + 0.5 - camX;
+                double dz = (double) blockPos.getZ() + 0.5 - camZ;
+                if (dx * dx + dz * dz > rangeSq) continue;
+                double dy = (double) blockPos.getY() + 0.5 - camY;
+                if (dy < -80.0 || dy > 80.0) continue;
+
+                poseStack.pushPose();
+                poseStack.translate((double) blockPos.getX() - camX, (double) blockPos.getY() - camY, (double) blockPos.getZ() - camZ);
+                try {
+                    this.minecraft.getBlockEntityRenderDispatcher().render(blockEntity, partialTick, poseStack, filtered);
+                } catch (Throwable ignored) {
+                }
+                poseStack.popPose();
+            }
+        }
+        src.endBatch();
+    }
+
+    // solid/cutout/translucent geometry casts (draw-time state is forced depth-safe); decorative/target-rebinding types are dropped
+    private static final class ShadowCasterBufferSource implements MultiBufferSource {
+        private static final VertexConsumer NOOP = new NoOpVertexConsumer();
+        private final MultiBufferSource delegate;
+
+        ShadowCasterBufferSource(MultiBufferSource delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public VertexConsumer getBuffer(RenderType renderType) {
+            // match the render-type NAME only; the full toString contains "affects_outline"/"default_texturing" etc. which would collide
+            String full = renderType.toString();
+            int lb = full.indexOf('[');
+            int colon = full.indexOf(':', lb + 1);
+            String type = (lb >= 0 && colon > lb) ? full.substring(lb + 1, colon) : full;
+            boolean geom = type.contains("solid") || type.contains("cutout") || type.contains("translucent");
+            boolean skip = type.contains("item_entity") || type.contains("eyes") || type.contains("glint")
+                    || type.contains("outline") || type.contains("beacon") || type.contains("lines")
+                    || type.contains("energy_swirl") || type.contains("breeze_wind") || type.contains("text")
+                    || type.contains("leash") || type.contains("water_mask") || type.contains("weather");
+            return (geom && !skip) ? this.delegate.getBuffer(renderType) : NOOP;
+        }
+    }
+
+    private static final class NoOpVertexConsumer implements VertexConsumer {
+        @Override public VertexConsumer addVertex(float x, float y, float z) { return this; }
+        @Override public VertexConsumer setColor(int r, int g, int b, int a) { return this; }
+        @Override public VertexConsumer setUv(float u, float v) { return this; }
+        @Override public VertexConsumer setUv1(int u, int v) { return this; }
+        @Override public VertexConsumer setUv2(int u, int v) { return this; }
+        @Override public VertexConsumer setNormal(float x, float y, float z) { return this; }
+    }
+
     public void scheduleGraphUpdate() {
         this.graphNeedsUpdate = true;
     }
@@ -649,6 +948,8 @@ public class WorldRenderer {
             Arrays.stream(indirectBuffers).forEach(Buffer::freeBuffer);
         if (shadowIndirectBuffers != null)
             Arrays.stream(shadowIndirectBuffers).forEach(Buffer::freeBuffer);
+        if (shadowTintIndirectBuffers != null)
+            Arrays.stream(shadowTintIndirectBuffers).forEach(Buffer::freeBuffer);
     }
 
 }

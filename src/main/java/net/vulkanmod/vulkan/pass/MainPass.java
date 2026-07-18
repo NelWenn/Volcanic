@@ -27,6 +27,10 @@ public interface MainPass {
 
     default void rebindMainTarget() {}
 
+    /** Switch to the shadow pass mid-frame: {@code casters} draws entity/block-entity depth, {@code tint} draws
+     *  stained-glass tint into the shadow colour map; either may be null. No-op unless the shadow map exists. */
+    default void renderEntityShadows(Runnable casters, Runnable tint) {}
+
     default void bindAsTexture() {}
 
     default void resolveRenderScaleForGui() {}

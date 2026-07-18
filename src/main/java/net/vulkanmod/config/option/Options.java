@@ -32,10 +32,12 @@ public abstract class Options {
     private static boolean shaderOptsBuilt = false;
     private static Option<Boolean> enabledOpt;
     private static ShaderEntryOption fogEntryOpt;
-    private static ShaderEntryOption colorGradeEntryOpt;
+    private static ShaderEntryOption radianceEntryOpt;
     private static RangeOption fogDensityOpt;
     private static RangeOption fogHeightOpt;
     private static Option<Boolean> shadowsOpt;
+    private static Option<Boolean> mobShadowsOpt;
+    private static Option<Boolean> coloredShadowsOpt;
     private static Option<Boolean> taaOpt;
     private static RangeOption shadowQualityOpt;
     private static RangeOption shadowDistanceOpt;
@@ -103,19 +105,31 @@ public abstract class Options {
                 .setTooltip(Component.translatable("vulkanmod.options.shadersEnabled.tooltip"));
 
         fogEntryOpt = shaderListEntry("fog");
-        colorGradeEntryOpt = shaderListEntry("color_grade");
+        radianceEntryOpt = shaderListEntry("radiance");
 
         shadowsOpt = new SwitchOption(
                 Component.translatable("vulkanmod.options.shadowsEnabled"),
                 value -> config.shadowsEnabled = value,
                 () -> config.shadowsEnabled);
-        shadowsOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+        shadowsOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille());
+
+        mobShadowsOpt = new SwitchOption(
+                Component.translatable("vulkanmod.options.entityShadows"),
+                value -> config.entityShadows = value,
+                () -> config.entityShadows);
+        mobShadowsOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
+
+        coloredShadowsOpt = new SwitchOption(
+                Component.translatable("vulkanmod.options.coloredShadows"),
+                value -> config.coloredShadows = value,
+                () -> config.coloredShadows);
+        coloredShadowsOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
 
         taaOpt = new SwitchOption(
                 Component.translatable("vulkanmod.options.taaEnabled"),
                 value -> config.taaEnabled = value,
                 () -> config.taaEnabled);
-        taaOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+        taaOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
         final int[] shadowRes = { 1024, 2048, 3072, 4096, 6144 };
         shadowQualityOpt = new RangeOption(
@@ -124,7 +138,7 @@ public abstract class Options {
                 value -> Component.nullToEmpty(shadowRes[Math.max(0, Math.min(4, value))] + " px"),
                 value -> config.shadowQuality = value,
                 () -> config.shadowQuality);
-        shadowQualityOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader) && config.shadowsEnabled);
+        shadowQualityOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
 
         shadowDistanceOpt = new RangeOption(
                 Component.translatable("vulkanmod.options.shadowDistance"),
@@ -132,7 +146,7 @@ public abstract class Options {
                 value -> Component.nullToEmpty(value + " blocks"),
                 value -> config.shadowDistance = value,
                 () -> config.shadowDistance);
-        shadowDistanceOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader) && config.shadowsEnabled);
+        shadowDistanceOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
 
         exposureOpt = new RangeOption(
                 Component.translatable("vulkanmod.options.cgExposure"),
@@ -172,7 +186,7 @@ public abstract class Options {
                 value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
                 value -> config.fogDensity = value / 100.0f,
                 () -> Math.round(config.fogDensity * 100.0f));
-        fogDensityOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+        fogDensityOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
         fogHeightOpt = new RangeOption(
                 Component.translatable("vulkanmod.options.fogHeight"),
@@ -180,7 +194,7 @@ public abstract class Options {
                 value -> Component.nullToEmpty(String.valueOf(value)),
                 value -> config.fogHeight = value,
                 () -> Math.round(config.fogHeight));
-        fogHeightOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+        fogHeightOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
         lightingOptsCache = buildLightingOptions();
         cameraOptsCache = buildCameraOptions();
@@ -191,7 +205,7 @@ public abstract class Options {
     public static OptionBlock[] getShaderOpts() {
         buildShaderOptionsIfNeeded();
 
-        if ("fog".equals(shaderNav)) {
+        if ("fog".equals(shaderNav) || "radiance".equals(shaderNav)) {
             if ("fog".equals(shaderCat)) {
                 return new OptionBlock[]{
                         new OptionBlock("", new Option<?>[]{ backTo(() -> shaderCat = null) }),
@@ -204,7 +218,7 @@ public abstract class Options {
                 return new OptionBlock[]{
                         new OptionBlock("", new Option<?>[]{ backTo(() -> shaderCat = null) }),
                         new OptionBlock(Component.translatable("vulkanmod.options.category.shadows").getString(),
-                                new Option<?>[]{ shadowsOpt, shadowQualityOpt, shadowDistanceOpt, taaOpt })
+                                new Option<?>[]{ shadowsOpt, mobShadowsOpt, coloredShadowsOpt, shadowQualityOpt, shadowDistanceOpt, taaOpt })
                 };
             }
 
@@ -263,18 +277,10 @@ public abstract class Options {
             };
         }
 
-        if ("color_grade".equals(shaderNav)) {
-            return new OptionBlock[]{
-                    new OptionBlock("", new Option<?>[]{ backTo(() -> { shaderNav = null; shaderCat = null; }) }),
-                    new OptionBlock(Component.translatable("vulkanmod.options.category.colorGrade").getString(),
-                            new Option<?>[]{ exposureOpt, contrastOpt, saturationOpt, temperatureOpt })
-            };
-        }
-
         return new OptionBlock[]{
                 new OptionBlock("", new Option<?>[]{ enabledOpt }),
                 new OptionBlock(Component.translatable("vulkanmod.options.category.shaderPack").getString(),
-                        new Option<?>[]{ fogEntryOpt, colorGradeEntryOpt })
+                        new Option<?>[]{ fogEntryOpt, radianceEntryOpt })
         };
     }
 
@@ -289,8 +295,12 @@ public abstract class Options {
     }
 
     private static ShaderEntryOption shaderListEntry(String id) {
+        net.vulkanmod.render.pack.ShaderPack pack = net.vulkanmod.render.pack.PackPipeline.get(id);
+        Component label = pack != null
+                ? Component.literal(pack.name)                                   // data-driven: name comes from the pack manifest
+                : Component.translatable("vulkanmod.options.shader." + id);
         return new ShaderEntryOption(
-                Component.translatable("vulkanmod.options.shader." + id),
+                label,
                 () -> id.equals(config.selectedShader),
                 () -> config.selectedShader = id,
                 () -> {
@@ -479,13 +489,13 @@ public abstract class Options {
                 value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
                 value -> config.glowStrength = value / 100.0f,
                 () -> Math.round(config.glowStrength * 100.0f));
-        glowStrength.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+        glowStrength.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
         SwitchOption pointLights = new SwitchOption(
                 Component.translatable("vulkanmod.options.pointLights"),
                 value -> config.pointLightsEnabled = value,
                 () -> config.pointLightsEnabled);
-        pointLights.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+        pointLights.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
         RangeOption pointLightStrength = new RangeOption(
                 Component.translatable("vulkanmod.options.pointLightStrength"),
@@ -493,7 +503,7 @@ public abstract class Options {
                 value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
                 value -> config.pointLightStrength = value / 100.0f,
                 () -> Math.round(config.pointLightStrength * 100.0f));
-        pointLightStrength.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader)
+        pointLightStrength.setActivationFn(() -> config.shadersEnabled && config.isCamille()
                 && config.pointLightsEnabled);
 
         SwitchOption wind = new SwitchOption(
@@ -528,7 +538,7 @@ public abstract class Options {
                 Component.translatable("vulkanmod.options.autoExposure"),
                 value -> config.autoExposure = value,
                 () -> config.autoExposure);
-        autoExposure.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+        autoExposure.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
         RangeOption exposureStrength = new RangeOption(
                 Component.translatable("vulkanmod.options.exposureStrength"),
@@ -536,7 +546,7 @@ public abstract class Options {
                 value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
                 value -> config.exposureStrength = value / 100.0f,
                 () -> Math.round(config.exposureStrength * 100.0f));
-        exposureStrength.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader)
+        exposureStrength.setActivationFn(() -> config.shadersEnabled && config.isCamille()
                 && config.autoExposure);
 
         return new Option<?>[]{

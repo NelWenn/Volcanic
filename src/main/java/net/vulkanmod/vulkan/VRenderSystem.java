@@ -209,13 +209,46 @@ public abstract class VRenderSystem {
     }
 
     public static final MappedBuffer capturedShadowMVP = new MappedBuffer(16 * 4);
+    public static final MappedBuffer capturedShadowInvMVP = new MappedBuffer(16 * 4);
+    private static final FloatBuffer capturedShadowMVPView = capturedShadowMVP.buffer.asFloatBuffer();
+    private static final FloatBuffer capturedShadowInvMVPView = capturedShadowInvMVP.buffer.asFloatBuffer();
+    private static final Matrix4f shadowInvScratch = new Matrix4f();
 
     public static void captureShadowMVP() {
         MemoryUtil.memCopy(MVP.ptr, capturedShadowMVP.ptr, 64L);
+        shadowInvScratch.set(capturedShadowMVPView).invert().get(capturedShadowInvMVPView);
     }
 
     public static MappedBuffer getCapturedShadowMVP() {
         return capturedShadowMVP;
+    }
+
+    public static MappedBuffer getCapturedShadowInvMVP() {
+        return capturedShadowInvMVP;
+    }
+
+    public static final MappedBuffer capturedRsmMVP = new MappedBuffer(16 * 4);
+    public static final MappedBuffer capturedRsmInvMVP = new MappedBuffer(16 * 4);
+    public static final MappedBuffer capturedRsmCameraPos = new MappedBuffer(3 * 4);
+    private static final FloatBuffer capturedRsmMVPView = capturedRsmMVP.buffer.asFloatBuffer();
+    private static final FloatBuffer capturedRsmInvMVPView = capturedRsmInvMVP.buffer.asFloatBuffer();
+
+    public static void captureRsmMVP() {
+        MemoryUtil.memCopy(MVP.ptr, capturedRsmMVP.ptr, 64L);
+        shadowInvScratch.set(capturedRsmMVPView).invert().get(capturedRsmInvMVPView);
+        MemoryUtil.memCopy(capturedShadowCameraPos.ptr, capturedRsmCameraPos.ptr, 12L);
+    }
+
+    public static MappedBuffer getCapturedRsmMVP() {
+        return capturedRsmMVP;
+    }
+
+    public static MappedBuffer getCapturedRsmInvMVP() {
+        return capturedRsmInvMVP;
+    }
+
+    public static MappedBuffer getCapturedRsmCameraPos() {
+        return capturedRsmCameraPos;
     }
 
     public static final MappedBuffer capturedShadowCameraPos = new MappedBuffer(3 * 4);
@@ -236,7 +269,14 @@ public abstract class VRenderSystem {
     public static final MappedBuffer prevMVPForward = new MappedBuffer(16 * 4);
     public static final MappedBuffer prevCameraPos = new MappedBuffer(3 * 4);
 
+    private static int taaFrameIndex = 0;
+
+    public static float getTaaFrame() {
+        return taaFrameIndex;
+    }
+
     public static void advanceTaaFrame() {
+        taaFrameIndex = (taaFrameIndex + 1) & 63;
         MemoryUtil.memCopy(capturedMVPForward.ptr, prevMVPForward.ptr, 64L);
         MemoryUtil.memCopy(capturedCameraPos.ptr, prevCameraPos.ptr, 12L);
         updateFrameDelta();

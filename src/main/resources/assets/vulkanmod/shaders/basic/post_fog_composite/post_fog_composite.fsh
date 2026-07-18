@@ -26,6 +26,7 @@ layout(binding = 0) uniform UBO {
     float AutoExposureEnabled;
     float ExposureStrength;
     float FrameDelta;
+    float FogColoredShadows;
 };
 
 layout(binding = 1) uniform sampler2D Sampler0;
@@ -34,6 +35,7 @@ layout(binding = 3) uniform sampler2D Sampler2;
 layout(binding = 4) uniform sampler2D Sampler3;
 layout(binding = 5) uniform sampler2D Sampler4;
 layout(binding = 6) uniform sampler2D Sampler5;
+layout(binding = 7) uniform sampler2D Sampler6;
 
 const vec2 VOGEL12[12] = vec2[](
     vec2(0.2041241, 0.0000000),
@@ -111,6 +113,23 @@ void main() {
     float godAmt = terms.b;
     float sunInterior = terms.a;
 
+    // stained-glass tint of the sun light at this pixel's shadow-map texel (white = no glass)
+    // colour of the glass occluder that cast this pixel's shadow (white = opaque occluder / no glass)
+    vec3 glassTint = vec3(1.0);
+    if (FogColoredShadows > 0.5 && FogShadowIntensity > 0.0) {
+        vec3 shadowRel = rel.xyz + (FogCameraPos - FogShadowCameraPos);
+        vec4 sc = FogShadowMVP * vec4(shadowRel, 1.0);
+        if (sc.w > 0.0) {
+            vec2 suv = vec2(sc.x * 0.5 + 0.5, 0.5 - sc.y * 0.5);
+            if (all(greaterThanEqual(suv, vec2(0.0))) && all(lessThanEqual(suv, vec2(1.0))))
+                glassTint = texture(Sampler6, suv).rgb;
+        }
+    }
+    // toggle on -> keep the colour; off -> classic uncoloured (grey) dim
+    float glassLum = dot(glassTint, vec3(0.299, 0.587, 0.114));
+    vec3 appliedTint = (FogColoredShadows > 0.5) ? glassTint : vec3(glassLum);
+    float glassAmt = clamp(length(vec3(1.0) - glassTint) * 1.2, 0.0, 1.0);
+
     color *= mix(vec3(1.0), vec3(0.60, 0.65, 0.80), shadowTerm);
 
     vec3 nrm = dot(surfN, rayDir) > 0.0 ? -surfN : surfN;
@@ -118,7 +137,9 @@ void main() {
     if (!isSky && FogShadowIntensity > 0.0) {
         float ndlLight = max(dot(nrm, lightDirN), 0.0);
         float hiTime = mix(0.16, 0.42, duskDawn);
-        color += color * lightCol * (1.0 - shadowTerm) * (1.0 - sunInterior) * ndlLight * FogShadowIntensity * hiTime;
+        float litFactor = (1.0 - shadowTerm) * (1.0 - sunInterior) * ndlLight;
+        color = mix(color, color * appliedTint, litFactor * glassAmt * 0.5);
+        color += color * lightCol * appliedTint * litFactor * FogShadowIntensity * hiTime;
     }
 
     if (!isSky && PointLightStrength > 0.001 && PointLightCount > 0.5) {
@@ -165,7 +186,7 @@ void main() {
         float phaseGR = 0.25 + 0.75 * cos6;
         float grTime = 0.45 + 0.55 * duskDawn;
         float strength = godAmt * phaseGR * FogShadowIntensity * (0.45 + 0.55 * fog) * layerPresence * grTime * 1.25;
-        color += lightCol * min(strength, 0.45);
+        color += lightCol * appliedTint * min(strength, 0.45);
     }
 
     if (FogGlowStrength > 0.001) {

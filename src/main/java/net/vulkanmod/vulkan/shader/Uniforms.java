@@ -53,11 +53,16 @@ public class Uniforms {
         mat4f_uniformMap.put("FogInvProjMat", VRenderSystem::getCapturedInverseProjectionMatrix);
         mat4f_uniformMap.put("FogInvMVPMat", VRenderSystem::getCapturedInverseMVP);
         mat4f_uniformMap.put("FogShadowMVP", VRenderSystem::getCapturedShadowMVP);
+        mat4f_uniformMap.put("FogShadowInvMVP", VRenderSystem::getCapturedShadowInvMVP);
+        mat4f_uniformMap.put("FogRsmMVP", VRenderSystem::getCapturedRsmMVP);
+        mat4f_uniformMap.put("FogRsmInvMVP", VRenderSystem::getCapturedRsmInvMVP);
+        vec3f_uniformMap.put("FogRsmCameraPos", VRenderSystem::getCapturedRsmCameraPos);
         vec3f_uniformMap.put("FogShadowCameraPos", VRenderSystem::getCapturedShadowCameraPos);
         vec1f_uniformMap.put("FogGlowStrength", () -> net.vulkanmod.Initializer.CONFIG.glowStrength);
         mat4f_uniformMap.put("FogPrevMVP", VRenderSystem::getPrevMVPForward);
         vec3f_uniformMap.put("FogPrevCameraPos", VRenderSystem::getPrevCameraPos);
         vec1f_uniformMap.put("FogTaaStrength", () -> net.vulkanmod.Initializer.CONFIG.taaEnabled ? 0.88f : 0.0f);
+        vec1f_uniformMap.put("FogTaaFrame", VRenderSystem::getTaaFrame);
         vec1f_uniformMap.put("FogShadowTexel", () -> 1.0f / net.vulkanmod.vulkan.pass.ShadowMap.currentResolution());
         vec1f_uniformMap.put("FogShadowIntensity", VRenderSystem::getCapturedShadowIntensity);
         vec3f_uniformMap.put("FogCameraPos", VRenderSystem::getCapturedCameraPos);
@@ -68,6 +73,7 @@ public class Uniforms {
         vec1f_uniformMap.put("AutoExposureEnabled", () -> net.vulkanmod.Initializer.CONFIG.autoExposure ? 1.0f : 0.0f);
         vec1f_uniformMap.put("ExposureStrength", () -> net.vulkanmod.Initializer.CONFIG.exposureStrength);
         vec1f_uniformMap.put("FrameDelta", VRenderSystem::getFrameDelta);
+        vec1f_uniformMap.put("FogColoredShadows", () -> net.vulkanmod.Initializer.CONFIG.coloredShadows ? 1.0f : 0.0f);
 
         vec1f_uniformMap.put("PointLightCount", PointLights::getCount);
         vec1f_uniformMap.put("PointLightStrength", () -> net.vulkanmod.Initializer.CONFIG.pointLightStrength

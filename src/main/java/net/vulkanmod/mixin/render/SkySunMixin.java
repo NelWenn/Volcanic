@@ -23,7 +23,7 @@ public class SkySunMixin {
             )
     )
     private void skipSun(MeshData meshData) {
-        if (Initializer.CONFIG.shadersEnabled && "fog".equals(Initializer.CONFIG.selectedShader)) {
+        if (Initializer.CONFIG.shadersEnabled && Initializer.CONFIG.isCamille()) {
             meshData.close();
             return;
         }
@@ -39,7 +39,7 @@ public class SkySunMixin {
             )
     )
     private void tiltCelestial(PoseStack posestack, Quaternionf ypMinus90) {
-        if (Initializer.CONFIG.shadersEnabled && "fog".equals(Initializer.CONFIG.selectedShader)) {
+        if (Initializer.CONFIG.shadersEnabled && Initializer.CONFIG.isCamille()) {
             posestack.mulPose(Axis.XP.rotationDegrees((float) Math.toDegrees(net.vulkanmod.vulkan.VRenderSystem.SUN_TILT)));
         }
         posestack.mulPose(ypMinus90);

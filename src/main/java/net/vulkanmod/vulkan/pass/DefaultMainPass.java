@@ -43,6 +43,10 @@ public class DefaultMainPass implements MainPass {
 
     private final ShadowMap shadowMap = new ShadowMap();
 
+    // draws during this window are forced depth-only (blend off, colour masked) so translucent shards can't
+    // re-enable blend against the DONT_CARE colour attachment (silently aborts the whole pass on MoltenVK)
+    public static boolean inEntityShadowPass = false;
+
     private static final double SHADOW_MOVE_THRESHOLD_SQ = 0.35 * 0.35;
     private static final float SHADOW_DRIFT_TOLERANCE = 1.15f;
     private double lastShadowCamX, lastShadowCamY, lastShadowCamZ;
@@ -314,6 +318,8 @@ public class DefaultMainPass implements MainPass {
         if (windDue) this.windShadowCounter = 0;
 
         boolean due = !this.shadowRenderedOnce
+                || Initializer.CONFIG.entityShadows   // fresh terrain depth every frame so the entity depth-LOAD is valid
+                || ("radiance".equals(Initializer.CONFIG.selectedShader) && this.shadowMap.rsmPending())
                 || windDue
                 || drift > driftThreshold
                 || movedSq > SHADOW_MOVE_THRESHOLD_SQ
@@ -376,7 +382,19 @@ public class DefaultMainPass implements MainPass {
             fgDepth.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
 
-        boolean fogShader = "fog".equals(Initializer.CONFIG.selectedShader);
+        net.vulkanmod.render.pack.ShaderPacks.ensureBuiltins();
+        boolean fogShader = Initializer.CONFIG.isCamille();
+
+        if (!"radiance".equals(Initializer.CONFIG.selectedShader)) {
+            net.vulkanmod.render.pack.PackPipeline.releaseTargets();
+        }
+
+        if (fogShader && depthShader
+                && "radiance".equals(Initializer.CONFIG.selectedShader)
+                && resolveRadiancePack(commandBuffer, stack, keepRendering, worldDepth, fgDepth)) {
+            return;
+        }
+
         if (fogShader) {
             ensureTermsTargets(commandBuffer, stack);
             ensureExposureTargets(commandBuffer, stack);
@@ -403,7 +421,19 @@ public class DefaultMainPass implements MainPass {
             VTextureSelector.bindTexture(4, termsReady
                     ? this.termsFramebuffers[this.termsIndex ^ 1].getColorAttachment() : worldDepth);
         }
-        DrawUtil.blitRenderScaleToScreen();
+        net.vulkanmod.render.pack.ShaderPack pack = net.vulkanmod.render.pack.PackPipeline.get(Initializer.CONFIG.selectedShader);
+        final VulkanImage sceneImg = this.mainFramebuffer.getColorAttachment();
+        final VulkanImage wd = worldDepth, fd = fgDepth;
+        boolean ranPack = pack != null && !pack.passes.isEmpty() && pack.targets.isEmpty()
+                && net.vulkanmod.render.pack.PackPipeline.run(pack, name -> switch (name) {
+                    case "scene" -> sceneImg;
+                    case "depthtex" -> wd;
+                    case "fgdepth" -> fd;
+                    default -> null;
+                });
+        if (!ranPack) {
+            DrawUtil.blitRenderScaleToScreen();
+        }
         if (!keepRendering) {
             Renderer.getInstance().endRenderPass(commandBuffer);
         }
@@ -453,6 +483,9 @@ public class DefaultMainPass implements MainPass {
         VTextureSelector.bindTexture(3, target.getColorAttachment());
         VTextureSelector.bindTexture(4, history.getColorAttachment());
         VTextureSelector.bindTexture(5, expTarget.getColorAttachment());
+        VulkanImage tintImg = (Initializer.CONFIG.coloredShadows && this.shadowMap.isReady() && this.shadowMap.getColorImage() != null)
+                ? this.shadowMap.getColorImage() : this.mainFramebuffer.getColorAttachment();
+        VTextureSelector.bindTexture(6, tintImg);
         DrawUtil.blit(net.vulkanmod.render.PipelineManager.getFogCompositePipeline());
         if (!keepRendering) {
             Renderer.getInstance().endRenderPass(commandBuffer);
@@ -460,6 +493,53 @@ public class DefaultMainPass implements MainPass {
 
         this.termsIndex ^= 1;
         this.exposureIndex ^= 1;
+    }
+
+    private boolean resolveRadiancePack(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
+                                        VulkanImage worldDepth, VulkanImage fgDepth) {
+        net.vulkanmod.render.pack.ShaderPack pack = net.vulkanmod.render.pack.PackPipeline.get(Initializer.CONFIG.selectedShader);
+        if (pack == null || pack.targets.isEmpty() || !net.vulkanmod.render.pack.PackPipeline.structureValid(pack)) {
+            return false;
+        }
+        if (!net.vulkanmod.render.pack.PackPipeline.pipelinesReady(pack)) {
+            return false;
+        }
+        net.vulkanmod.render.pack.PackPipeline.ensureTargets(pack, commandBuffer, stack,
+                this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
+        if (!net.vulkanmod.render.pack.PackPipeline.targetsReady(pack)) {
+            return false;
+        }
+
+        final VulkanImage scene = this.mainFramebuffer.getColorAttachment();
+        final VulkanImage shadow = (Initializer.CONFIG.shadowsEnabled && this.shadowMap.isReady())
+                ? this.shadowMap.getDepthImage() : worldDepth;
+        final VulkanImage tint = (Initializer.CONFIG.coloredShadows && this.shadowMap.isReady() && this.shadowMap.getColorImage() != null)
+                ? this.shadowMap.getColorImage() : scene;
+        final VulkanImage rsmFlux = this.shadowMap.getRsmColorImage() != null ? this.shadowMap.getRsmColorImage() : scene;
+        final VulkanImage rsmDepth = this.shadowMap.getRsmDepthImage() != null ? this.shadowMap.getRsmDepthImage() : worldDepth;
+        boolean ran = net.vulkanmod.render.pack.PackPipeline.runFrame(pack, commandBuffer, stack, name -> switch (name) {
+            case "scene" -> scene;
+            case "depthtex" -> worldDepth;
+            case "fgdepth" -> fgDepth;
+            case "shadowtex" -> shadow;
+            case "shadowtint" -> tint;
+            case "rsmflux" -> rsmFlux;
+            case "rsmdepth" -> rsmDepth;
+            default -> null;
+        }, () -> {
+            this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            this.swapChain.beginRenderPass(commandBuffer, this.presentRenderPass, stack);
+            Renderer.clearViewportScale();
+            Renderer.resetViewport();
+            Renderer.resetScissor();
+        });
+        if (!ran) {
+            return false;
+        }
+        if (!keepRendering) {
+            Renderer.getInstance().endRenderPass(commandBuffer);
+        }
+        return true;
     }
 
     private void ensureTermsTargets(VkCommandBuffer commandBuffer, MemoryStack stack) {
@@ -627,7 +707,8 @@ public class DefaultMainPass implements MainPass {
         if(boundRenderPass == this.mainRenderPass || boundRenderPass == this.auxRenderPass)
             return;
 
-        Renderer.getInstance().endRenderPass(commandBuffer);
+        if (boundRenderPass != null)
+            Renderer.getInstance().endRenderPass(commandBuffer);
 
         try(MemoryStack stack = MemoryStack.stackPush()) {
             this.mainFramebuffer.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
@@ -638,6 +719,86 @@ public class DefaultMainPass implements MainPass {
             }
         }
 
+    }
+
+    @Override
+    public void renderEntityShadows(Runnable casters, Runnable tint) {
+        if (!this.shadowMap.isReady() || (casters == null && tint == null)) {
+            return;
+        }
+
+        VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
+
+        // snapshot the full pipeline-selecting state (mirror WorldRenderer.renderShadowTerrain)
+        final boolean sDepthTest = net.vulkanmod.vulkan.VRenderSystem.depthTest, sDepthMask = net.vulkanmod.vulkan.VRenderSystem.depthMask, sCull = net.vulkanmod.vulkan.VRenderSystem.cull;
+        final int sDepthFun = net.vulkanmod.vulkan.VRenderSystem.depthFun, sCullFace = net.vulkanmod.vulkan.VRenderSystem.cullFace, sFrontFace = net.vulkanmod.vulkan.VRenderSystem.frontFace;
+        final int sTopology = net.vulkanmod.vulkan.VRenderSystem.topology, sPolygonMode = net.vulkanmod.vulkan.VRenderSystem.polygonMode, sColorMask = net.vulkanmod.vulkan.VRenderSystem.colorMask;
+        final boolean sStencilTest = net.vulkanmod.vulkan.VRenderSystem.stencilTest, sLogicOp = net.vulkanmod.vulkan.VRenderSystem.logicOp;
+        final int sStencilFunc = net.vulkanmod.vulkan.VRenderSystem.stencilFunc, sStencilRef = net.vulkanmod.vulkan.VRenderSystem.stencilRef, sStencilFuncMask = net.vulkanmod.vulkan.VRenderSystem.stencilFuncMask;
+        final int sStencilFail = net.vulkanmod.vulkan.VRenderSystem.stencilFailOp, sStencilDepthFail = net.vulkanmod.vulkan.VRenderSystem.stencilDepthFailOp;
+        final int sStencilPass = net.vulkanmod.vulkan.VRenderSystem.stencilPassOp, sStencilWriteMask = net.vulkanmod.vulkan.VRenderSystem.stencilWriteMask, sLogicOpFun = net.vulkanmod.vulkan.VRenderSystem.logicOpFun;
+        final net.vulkanmod.vulkan.shader.PipelineState.BlendInfo bi = net.vulkanmod.vulkan.shader.PipelineState.blendInfo;
+        final boolean sBlendEnabled = bi.enabled;
+        final int sSrcRgb = bi.srcRgbFactor, sDstRgb = bi.dstRgbFactor, sSrcA = bi.srcAlphaFactor, sDstA = bi.dstAlphaFactor;
+        final int sBlendOp = bi.blendOp, sBlendOpRgb = bi.blendOpRgb, sBlendOpAlpha = bi.blendOpAlpha;
+
+        // snapshot the active MVP (main camera) so the color pass resumes with it
+        net.vulkanmod.vulkan.util.MappedBuffer mvBuf = net.vulkanmod.vulkan.VRenderSystem.modelViewMatrix;
+        net.vulkanmod.vulkan.util.MappedBuffer pBuf = net.vulkanmod.vulkan.VRenderSystem.projectionMatrix;
+        long mvBackupPtr = org.lwjgl.system.MemoryUtil.nmemAlloc(64);
+        long pBackupPtr = org.lwjgl.system.MemoryUtil.nmemAlloc(64);
+        org.lwjgl.system.MemoryUtil.memCopy(mvBuf.ptr, mvBackupPtr, 64L);
+        org.lwjgl.system.MemoryUtil.memCopy(pBuf.ptr, pBackupPtr, 64L);
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            // leave the main color pass, enter the shadow depth-LOAD pass
+            Renderer.getInstance().endRenderPass(commandBuffer);
+
+            if (casters != null) {
+                this.shadowMap.beginEntityPass(commandBuffer, stack);
+
+                // write colour to the throwaway attachment (masking all channels leaves the encoder with no observable output, which MoltenVK silently drops)
+                net.vulkanmod.vulkan.VRenderSystem.colorMask = net.vulkanmod.vulkan.shader.PipelineState.ColorMask.getColorMask(true, true, true, true);
+                net.vulkanmod.vulkan.VRenderSystem.depthTest = true;
+                net.vulkanmod.vulkan.VRenderSystem.depthMask = true;
+                net.vulkanmod.vulkan.VRenderSystem.depthFun = 515;   // GL_LEQUAL
+
+                inEntityShadowPass = true;
+                try {
+                    casters.run();
+                } finally {
+                    inEntityShadowPass = false;
+                }
+
+                this.shadowMap.endEntityPass(commandBuffer, stack);
+            }
+
+            if (tint != null) {
+                this.shadowMap.beginTintPass(commandBuffer, stack);
+                tint.run();
+                this.shadowMap.endTintPass(commandBuffer, stack);
+            }
+        }
+
+        // restore VRenderSystem state
+        net.vulkanmod.vulkan.VRenderSystem.depthTest = sDepthTest; net.vulkanmod.vulkan.VRenderSystem.depthMask = sDepthMask; net.vulkanmod.vulkan.VRenderSystem.depthFun = sDepthFun;
+        net.vulkanmod.vulkan.VRenderSystem.cull = sCull; net.vulkanmod.vulkan.VRenderSystem.cullFace = sCullFace; net.vulkanmod.vulkan.VRenderSystem.frontFace = sFrontFace;
+        net.vulkanmod.vulkan.VRenderSystem.topology = sTopology; net.vulkanmod.vulkan.VRenderSystem.polygonMode = sPolygonMode; net.vulkanmod.vulkan.VRenderSystem.colorMask = sColorMask;
+        net.vulkanmod.vulkan.VRenderSystem.stencilTest = sStencilTest; net.vulkanmod.vulkan.VRenderSystem.stencilFunc = sStencilFunc; net.vulkanmod.vulkan.VRenderSystem.stencilRef = sStencilRef;
+        net.vulkanmod.vulkan.VRenderSystem.stencilFuncMask = sStencilFuncMask; net.vulkanmod.vulkan.VRenderSystem.stencilFailOp = sStencilFail;
+        net.vulkanmod.vulkan.VRenderSystem.stencilDepthFailOp = sStencilDepthFail; net.vulkanmod.vulkan.VRenderSystem.stencilPassOp = sStencilPass;
+        net.vulkanmod.vulkan.VRenderSystem.stencilWriteMask = sStencilWriteMask; net.vulkanmod.vulkan.VRenderSystem.logicOp = sLogicOp; net.vulkanmod.vulkan.VRenderSystem.logicOpFun = sLogicOpFun;
+        bi.enabled = sBlendEnabled; bi.srcRgbFactor = sSrcRgb; bi.dstRgbFactor = sDstRgb;
+        bi.srcAlphaFactor = sSrcA; bi.dstAlphaFactor = sDstA;
+        bi.blendOp = sBlendOp; bi.blendOpRgb = sBlendOpRgb; bi.blendOpAlpha = sBlendOpAlpha;
+
+        // resume the main color pass, then re-apply the camera MVP that was active
+        rebindMainTarget();
+        org.lwjgl.system.MemoryUtil.memCopy(mvBackupPtr, mvBuf.ptr, 64L);
+        org.lwjgl.system.MemoryUtil.memCopy(pBackupPtr, pBuf.ptr, 64L);
+        net.vulkanmod.vulkan.VRenderSystem.calculateMVP();
+        org.lwjgl.system.MemoryUtil.nmemFree(mvBackupPtr);
+        org.lwjgl.system.MemoryUtil.nmemFree(pBackupPtr);
     }
 
     @Override

@@ -39,6 +39,11 @@ public class Config {
 
     public boolean shadersEnabled = false;
     public String selectedShader = "off";
+
+    // Camille shaders share the same render path (fog = Visual, radiance = Radiance) while Radiance's extra passes are built out
+    public boolean isCamille() {
+        return "fog".equals(selectedShader) || "radiance".equals(selectedShader);
+    }
     public float cgExposure = 1.0f;
     public float cgContrast = 1.0f;
     public float cgSaturation = 1.0f;
@@ -46,6 +51,8 @@ public class Config {
     public float fogDensity = 0.06f;
     public float fogHeight = 80.0f;
     public boolean shadowsEnabled = true;
+    public boolean entityShadows = true;
+    public boolean coloredShadows = false;
     public boolean taaEnabled = true;
     public boolean halfResTerms = true;
     public int shadowQuality = 2;

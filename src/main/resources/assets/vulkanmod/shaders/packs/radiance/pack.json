@@ -1,0 +1,15 @@
+{
+    "name": "Camille Radiance",
+    "version": 10,
+    "targets": [
+        { "name": "gtao",    "format": "RG16F",   "scale": 0.5, "pingpong": true, "clear": 1.0 },
+        { "name": "gi",      "format": "RGBA16F", "scale": 0.5, "pingpong": true },
+        { "name": "shadows", "format": "RGBA16F", "scale": 0.5, "pingpong": true }
+    ],
+    "passes": [
+        { "name": "gtao",      "program": "radiance_gtao",      "inputs": { "0": "depthtex", "1": "fgdepth", "2": "gtao_history" }, "output": "gtao" },
+        { "name": "gi",        "program": "radiance_gi",        "inputs": { "0": "depthtex", "1": "fgdepth", "2": "rsmflux", "3": "rsmdepth", "4": "gi_history" }, "output": "gi" },
+        { "name": "shadows",   "program": "radiance_shadows",   "inputs": { "0": "depthtex", "1": "fgdepth", "2": "shadowtex", "3": "shadows_history" }, "output": "shadows" },
+        { "name": "composite", "program": "radiance_composite", "inputs": { "0": "scene", "1": "depthtex", "2": "fgdepth", "3": "shadows", "4": "gtao", "5": "gi", "6": "rsmflux", "7": "rsmdepth" }, "output": "swapchain" }
+    ]
+}

@@ -2,11 +2,7 @@
     "samplers": [
         { "name": "Sampler0" },
         { "name": "Sampler1" },
-        { "name": "Sampler2" },
-        { "name": "Sampler3" },
-        { "name": "Sampler4" },
-        { "name": "Sampler5" },
-        { "name": "Sampler6" }
+        { "name": "Sampler2" }
     ],
     "UBOs": [
         { "type": "fragment", "binding": 0, "fields": [
@@ -35,7 +31,7 @@
             { "name": "AutoExposureEnabled", "type": "float", "count": 1, "values": [ 1.0 ] },
             { "name": "ExposureStrength", "type": "float", "count": 1, "values": [ 1.0 ] },
             { "name": "FrameDelta", "type": "float", "count": 1, "values": [ 0.016 ] },
-            { "name": "FogColoredShadows", "type": "float", "count": 1, "values": [ 1.0 ] }
+            { "name": "FogTaaFrame", "type": "float", "count": 1, "values": [ 0.0 ] }
         ] }
     ]
 }

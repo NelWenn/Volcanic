@@ -24,7 +24,7 @@ public abstract class PipelineManager {
 
     static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline;
     static GraphicsPipeline colorGradePipeline, fogPipeline, fogTermsPipeline, fogCompositePipeline, fogExposurePipeline;
-    static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline;
+    static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline, shadowTerrainRsmPipeline, shadowTerrainRsmSolidPipeline;
 
     private static Function<TerrainRenderType, GraphicsPipeline> shaderGetter;
 
@@ -51,6 +51,9 @@ public abstract class PipelineManager {
         fogExposurePipeline = createPipeline("post_exposure", "post_exposure", "post_exposure", CustomVertexFormat.NONE);
         shadowTerrainSolidPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_solid", TERRAIN_VERTEX_FORMAT);
         shadowTerrainCutoutPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_cutout", TERRAIN_VERTEX_FORMAT);
+        shadowTerrainTintPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_tint", TERRAIN_VERTEX_FORMAT);
+        shadowTerrainRsmPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_rsm", TERRAIN_VERTEX_FORMAT);
+        shadowTerrainRsmSolidPipeline = createPipeline("shadow_terrain", "shadow_terrain", "shadow_terrain_rsm_solid", TERRAIN_VERTEX_FORMAT);
         if (ExternalRenderPathSupport.shouldCreateExternalLodPipeline()) {
             externalLodPipeline = createPipeline("external_lod", "lod", "lod", CustomVertexFormat.EXTERNAL_LOD);
         }
@@ -79,6 +82,14 @@ public abstract class PipelineManager {
         return renderType == TerrainRenderType.SOLID ? shadowTerrainSolidPipeline : shadowTerrainCutoutPipeline;
     }
 
+    public static GraphicsPipeline getShadowTerrainTintShader() {
+        return shadowTerrainTintPipeline;
+    }
+
+    public static GraphicsPipeline getShadowTerrainRsmShader(TerrainRenderType renderType) {
+        return renderType == TerrainRenderType.SOLID ? shadowTerrainRsmSolidPipeline : shadowTerrainRsmPipeline;
+    }
+
     public static void setShaderGetter(Function<TerrainRenderType, GraphicsPipeline> consumer) {
         shaderGetter = consumer;
     }
@@ -99,6 +110,7 @@ public abstract class PipelineManager {
         return switch (shaderId) {
             case "color_grade" -> colorGradePipeline;
             case "fog" -> fogPipeline;
+            case "radiance" -> fogPipeline;
             default -> null;
         };
     }
@@ -139,6 +151,15 @@ public abstract class PipelineManager {
         }
         if (shadowTerrainCutoutPipeline != null) {
             shadowTerrainCutoutPipeline.cleanUp();
+        }
+        if (shadowTerrainTintPipeline != null) {
+            shadowTerrainTintPipeline.cleanUp();
+        }
+        if (shadowTerrainRsmPipeline != null) {
+            shadowTerrainRsmPipeline.cleanUp();
+        }
+        if (shadowTerrainRsmSolidPipeline != null) {
+            shadowTerrainRsmSolidPipeline.cleanUp();
         }
     }
 }

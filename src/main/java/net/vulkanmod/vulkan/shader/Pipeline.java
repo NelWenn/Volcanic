@@ -592,18 +592,19 @@ public abstract class Pipeline {
         public void parseBindingsJSON() {
             Validate.notNull(this.shaderPath, "Cannot parse bindings: shaderPath is null");
 
-            this.UBOs = new ArrayList<>();
-            this.imageDescriptors = new ArrayList<>();
-
-            JsonObject jsonObject;
-
             String resourcePath = String.format("/assets/vulkanmod/shaders/%s.json", this.shaderPath);
             InputStream stream = openResource(resourcePath);
 
             if (stream == null)
                 throw new NullPointerException(String.format("Failed to load: %s", resourcePath));
 
-            jsonObject = GsonHelper.parse(new InputStreamReader(stream, StandardCharsets.UTF_8));
+            parseBindings(GsonHelper.parse(new InputStreamReader(stream, StandardCharsets.UTF_8)));
+        }
+
+        // parse UBO/sampler/push-constant bindings from an already-loaded json (used for external disk-loaded packs)
+        public void parseBindings(JsonObject jsonObject) {
+            this.UBOs = new ArrayList<>();
+            this.imageDescriptors = new ArrayList<>();
 
             JsonArray jsonUbos = GsonHelper.getAsJsonArray(jsonObject, "UBOs", null);
             JsonArray jsonManualUbos = GsonHelper.getAsJsonArray(jsonObject, "ManualUBOs", null);
