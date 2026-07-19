@@ -106,6 +106,7 @@ public abstract class LevelRendererMixin {
         long t = timer != null ? System.nanoTime() : 0;
         if (net.vulkanmod.vulkan.pass.DefaultMainPass.postShaderActive()) {
             if (renderType == net.minecraft.client.renderer.RenderType.translucent()) {
+                net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().captureOpaqueDepth();
                 net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().applyColoredShadow();
             }
             net.vulkanmod.vulkan.VRenderSystem.captureWorldViewMatrix(modelView, camX, camY, camZ);

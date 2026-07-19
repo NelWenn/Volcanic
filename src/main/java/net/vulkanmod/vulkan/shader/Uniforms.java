@@ -43,6 +43,7 @@ public class Uniforms {
         vec1f_uniformMap.put("AlphaCutout", () -> VRenderSystem.alphaCutout);
 
         mat4f_uniformMap.put("FogInvMVPMat", VRenderSystem::getCapturedInverseMVP);
+        mat4f_uniformMap.put("FogMVPMat", VRenderSystem::getCapturedMVP);
         mat4f_uniformMap.put("FogPrevMVP", VRenderSystem::getCapturedPrevMVP);
         mat4f_uniformMap.put("FogShadowMVP0", VRenderSystem::getCapturedShadowMVP0);
         mat4f_uniformMap.put("FogShadowMVP1", VRenderSystem::getCapturedShadowMVP1);

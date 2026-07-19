@@ -31,6 +31,8 @@ public interface MainPass {
 
     default void applyColoredShadow() {}
 
+    default void captureOpaqueDepth() {}
+
     default void bindAsTexture() {}
 
     default void resolveRenderScaleForGui() {}

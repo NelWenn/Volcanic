@@ -217,6 +217,10 @@ public abstract class VRenderSystem {
         return capturedPrevMVPForward;
     }
 
+    public static MappedBuffer getCapturedMVP() {
+        return capturedMVPForward;
+    }
+
     public static MappedBuffer getCapturedPrevCameraPos() {
         return capturedPrevCameraPos;
     }

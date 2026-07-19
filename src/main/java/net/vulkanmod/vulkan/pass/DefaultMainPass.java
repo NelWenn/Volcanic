@@ -39,6 +39,7 @@ public class DefaultMainPass implements MainPass {
 
     private VulkanImage capturedWorldDepth;
     private VulkanImage coloredShadowDepth;
+    private VulkanImage capturedOpaqueDepth;
     private VulkanImage capturedForegroundDepth;
     private int scaledDepthClears;
     private boolean liveDepthIsForeground;
@@ -182,6 +183,10 @@ public class DefaultMainPass implements MainPass {
         if (this.coloredShadowDepth != null) {
             this.coloredShadowDepth.free();
             this.coloredShadowDepth = null;
+        }
+        if (this.capturedOpaqueDepth != null) {
+            this.capturedOpaqueDepth.free();
+            this.capturedOpaqueDepth = null;
         }
 
         if (this.capturedForegroundDepth != null) {
@@ -401,6 +406,15 @@ public class DefaultMainPass implements MainPass {
     }
 
     @Override
+    public void captureOpaqueDepth() {
+        if (!postShaderActive() || !isUsingScaledFramebuffer()
+                || !"radiance".equals(Initializer.CONFIG.selectedShader)) {
+            return;
+        }
+        this.capturedOpaqueDepth = snapshotScaledDepth(this.capturedOpaqueDepth);
+    }
+
+    @Override
     public void applyColoredShadow() {
         if (!Initializer.CONFIG.coloredShadows || !Initializer.CONFIG.shadowsEnabled
                 || !this.shadowMap.isReady() || !postShaderActive() || !isUsingScaledFramebuffer()) {
@@ -413,7 +427,9 @@ public class DefaultMainPass implements MainPass {
             return;
         }
 
-        this.coloredShadowDepth = snapshotScaledDepth(this.coloredShadowDepth);
+        VulkanImage opaqueDepth = this.capturedOpaqueDepth != null
+                ? this.capturedOpaqueDepth
+                : (this.coloredShadowDepth = snapshotScaledDepth(this.coloredShadowDepth));
 
         VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
 
@@ -436,7 +452,7 @@ public class DefaultMainPass implements MainPass {
         bi.dstAlphaFactor = VK_BLEND_FACTOR_ZERO;
         bi.blendOp = bi.blendOpRgb = bi.blendOpAlpha = VK_BLEND_OP_ADD;
 
-        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(0, this.coloredShadowDepth);
+        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(0, opaqueDepth);
         net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(1, tint0);
         net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(2, tint1);
         net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(3, tint2);
@@ -541,6 +557,7 @@ public class DefaultMainPass implements MainPass {
             case "shadowtex0" -> sh0;
             case "shadowtex1" -> sh1;
             case "shadowtex2" -> sh2;
+            case "opaquedepth" -> this.capturedOpaqueDepth != null ? this.capturedOpaqueDepth : worldDepth;
             default -> null;
         }, () -> {
             this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
