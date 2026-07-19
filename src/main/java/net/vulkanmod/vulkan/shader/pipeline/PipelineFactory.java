@@ -1,5 +1,6 @@
 package net.vulkanmod.vulkan.shader.pipeline;
 
+import com.mojang.blaze3d.vertex.VertexFormat;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.Pipeline;
 import net.vulkanmod.vulkan.shader.SPIRVUtils;
@@ -31,6 +32,7 @@ import static net.vulkanmod.vulkan.shader.SPIRVUtils.compileShaderAbsoluteFile;
  */
 public final class PipelineFactory {
     private static final String SHADER_ROOT = "/assets/vulkanmod/shaders/";
+    private static final String CORE_SHADER_ROOT = "minecraft/core/";
 
     private PipelineFactory() {
     }
@@ -49,6 +51,24 @@ public final class PipelineFactory {
         SPIRVUtils.SPIRV vertSpirv = compileShaderAbsoluteFile(SHADER_ROOT + vertPath + ".vsh", VERTEX_SHADER);
         SPIRVUtils.SPIRV fragSpirv = compileShaderAbsoluteFile(SHADER_ROOT + fragPath + ".fsh", FRAGMENT_SHADER);
         builder.setSPIRVs(vertSpirv, fragSpirv);
+
+        return builder.createGraphicsPipeline();
+    }
+
+    /**
+     * Builds a pipeline for a {@link CoreGfxPipeline}-annotated definition mirroring a vanilla
+     * {@code ShaderInstance} shader. The vertex format is supplied by the caller since it comes
+     */
+    public static GraphicsPipeline buildCore(Class<? extends PipelineDefinition> definition, VertexFormat vertexFormat) {
+        CoreGfxPipeline meta = definition.getAnnotation(CoreGfxPipeline.class);
+        if (meta == null)
+            throw new IllegalStateException(definition.getName() + " has no @CoreGfxPipeline annotation");
+
+        String path = CORE_SHADER_ROOT + meta.name() + "/" + meta.name();
+        Pipeline.Builder builder = new Pipeline.Builder(vertexFormat, path);
+        builder.setUniforms(collectUbos(definition), collectSamplers(definition));
+        builder.setPushConstants(collectPushConstants(definition));
+        builder.compileShaders();
 
         return builder.createGraphicsPipeline();
     }

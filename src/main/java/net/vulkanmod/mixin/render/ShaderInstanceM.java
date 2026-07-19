@@ -18,6 +18,9 @@ import net.vulkanmod.gl.GlEmulationLog;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.Pipeline;
 import net.vulkanmod.vulkan.shader.descriptor.UBO;
+import net.vulkanmod.vulkan.shader.pipeline.CorePipelineRegistry;
+import net.vulkanmod.vulkan.shader.pipeline.PipelineDefinition;
+import net.vulkanmod.vulkan.shader.pipeline.PipelineFactory;
 import net.vulkanmod.vulkan.shader.layout.Uniform;
 import net.vulkanmod.vulkan.shader.parser.GlslConverter;
 import net.vulkanmod.vulkan.util.MappedBuffer;
@@ -64,6 +67,7 @@ public class ShaderInstanceM implements ShaderMixed {
     private String vsPath;
     private String fsName;
     private String vulkanBindPath;
+    private Class<? extends PipelineDefinition> coreDefinition;
     private VertexFormat pipelineFormat;
 
     private GraphicsPipeline pipeline;
@@ -123,16 +127,21 @@ public class ShaderInstanceM implements ShaderMixed {
 
         try {
             String bindPath = String.format("%s/core/%s/%s", namespace, namePath, namePath);
-            if (!hasVulkanShader(bindPath)) {
-                createLegacyShader(resourceProvider, format);
-                return;
-            }
+            Class<? extends PipelineDefinition> builtinDefinition = "minecraft".equals(namespace) ? CorePipelineRegistry.get(namePath) : null;
 
-            this.vulkanBindPath = bindPath;
-            Pipeline.Builder pipelineBuilder = new Pipeline.Builder(format, bindPath);
-            pipelineBuilder.parseBindingsJSON();
-            pipelineBuilder.compileShaders();
-            this.pipeline = pipelineBuilder.createGraphicsPipeline();
+            if (builtinDefinition != null) {
+                this.vulkanBindPath = bindPath;
+                this.coreDefinition = builtinDefinition;
+                this.pipeline = PipelineFactory.buildCore(builtinDefinition, format);
+            } else if (hasVulkanShader(bindPath)) {
+                this.vulkanBindPath = bindPath;
+                Pipeline.Builder pipelineBuilder = new Pipeline.Builder(format, bindPath);
+                pipelineBuilder.parseBindingsJSON();
+                pipelineBuilder.compileShaders();
+                this.pipeline = pipelineBuilder.createGraphicsPipeline();
+            } else {
+                createLegacyShader(resourceProvider, format);
+            }
         } catch (Exception e) {
 
             Initializer.LOGGER.error("Error on shader {} creation, attempting conversion fallback", name, e);
@@ -151,6 +160,10 @@ public class ShaderInstanceM implements ShaderMixed {
 
     private GraphicsPipeline createPipelineVariant(VertexFormat drawFormat) {
         try {
+            if (this.coreDefinition != null) {
+                return PipelineFactory.buildCore(this.coreDefinition, drawFormat);
+            }
+
             Pipeline.Builder pipelineBuilder = new Pipeline.Builder(drawFormat, this.vulkanBindPath);
             pipelineBuilder.parseBindingsJSON();
             pipelineBuilder.compileShaders();
@@ -329,45 +342,44 @@ public class ShaderInstanceM implements ShaderMixed {
     }
 
     private void createExternalFallbackShader(VertexFormat format) {
-        String fallbackPath = fallbackShaderPath(format);
-        if (fallbackPath == null) {
+        String fallbackName = fallbackShaderName(format);
+        Class<? extends PipelineDefinition> fallbackDefinition = fallbackName != null ? CorePipelineRegistry.get(fallbackName) : null;
+        if (fallbackDefinition == null) {
             Initializer.LOGGER.warn("No safe Vulkan fallback shader for {} with vertex format {}", this.name, format);
             return;
         }
 
         try {
-            Pipeline.Builder builder = new Pipeline.Builder(format, fallbackPath);
-            builder.parseBindingsJSON();
-            builder.compileShaders();
-            this.pipeline = builder.createGraphicsPipeline();
-            this.vulkanBindPath = fallbackPath;
+            this.pipeline = PipelineFactory.buildCore(fallbackDefinition, format);
+            this.vulkanBindPath = "minecraft/core/%s/%s".formatted(fallbackName, fallbackName);
+            this.coreDefinition = fallbackDefinition;
             this.pipelineFormat = format;
             this.isLegacy = false;
-            Initializer.LOGGER.warn("Using Vulkan fallback shader {} for external shader {}", fallbackPath, this.name);
+            Initializer.LOGGER.warn("Using Vulkan fallback shader {} for external shader {}", fallbackName, this.name);
         } catch (Exception fallbackException) {
-            Initializer.LOGGER.error("Error creating Vulkan fallback shader {} for {}", fallbackPath, this.name, fallbackException);
+            Initializer.LOGGER.error("Error creating Vulkan fallback shader {} for {}", fallbackName, this.name, fallbackException);
         }
     }
 
-    private static String fallbackShaderPath(VertexFormat format) {
+    private static String fallbackShaderName(VertexFormat format) {
         if (DefaultVertexFormat.POSITION_TEX_COLOR.equals(format)) {
-            return "minecraft/core/position_tex_color/position_tex_color";
+            return "position_tex_color";
         }
 
         if (DefaultVertexFormat.POSITION_TEX.equals(format)) {
-            return "minecraft/core/position_tex/position_tex";
+            return "position_tex";
         }
 
         if (DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP.equals(format)) {
-            return "minecraft/core/position_color_tex_lightmap/position_color_tex_lightmap";
+            return "position_color_tex_lightmap";
         }
 
         if (DefaultVertexFormat.POSITION_COLOR.equals(format)) {
-            return "minecraft/core/position_color/position_color";
+            return "position_color";
         }
 
         if (DefaultVertexFormat.POSITION.equals(format)) {
-            return "minecraft/core/position/position";
+            return "position";
         }
 
         return null;

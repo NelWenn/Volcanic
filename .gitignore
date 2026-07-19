@@ -12,6 +12,7 @@ classes/
 # idea
 
 .idea/
+!.idea/misc.xml
 *.iml
 *.ipr
 *.iws
