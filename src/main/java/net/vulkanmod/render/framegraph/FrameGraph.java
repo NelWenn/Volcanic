@@ -15,10 +15,16 @@ import org.lwjgl.vulkan.VkClearColorValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkImageSubresourceRange;
 
+import java.lang.reflect.Field;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -55,12 +61,12 @@ public final class FrameGraph {
         }
     }
 
-    static final class Pass {
+    static final class Node {
         final Class<? extends PipelineDefinition> pipeline;
         final Map<Integer, String> inputs;
         final String output;
 
-        Pass(Class<? extends PipelineDefinition> pipeline, Map<Integer, String> inputs, String output) {
+        Node(Class<? extends PipelineDefinition> pipeline, Map<Integer, String> inputs, String output) {
             this.pipeline = pipeline;
             this.inputs = inputs;
             this.output = output;
@@ -69,9 +75,9 @@ public final class FrameGraph {
 
     private final String id;
     private final Map<String, Resource> targets = new LinkedHashMap<>();
-    private final List<Pass> passes;
+    private final List<Node> passes;
 
-    private FrameGraph(String id, Map<String, Resource> targets, List<Pass> passes) {
+    private FrameGraph(String id, Map<String, Resource> targets, List<Node> passes) {
         this.id = id;
         this.targets.putAll(targets);
         this.passes = passes;
@@ -79,7 +85,7 @@ public final class FrameGraph {
 
     private void compile() {
         for (int i = 0; i < this.passes.size(); i++) {
-            Pass pass = this.passes.get(i);
+            Node pass = this.passes.get(i);
             Resource out = this.targets.get(pass.output);
             if (out != null && out.firstWrite < 0) {
                 out.firstWrite = i;
@@ -100,7 +106,7 @@ public final class FrameGraph {
     }
 
     public boolean pipelinesReady() {
-        for (Pass pass : this.passes) {
+        for (Node pass : this.passes) {
             if (PipelineRegistry.getOrNull(pass.pipeline) == null) {
                 return false;
             }
@@ -158,7 +164,7 @@ public final class FrameGraph {
         List<Resource> swapped = new ArrayList<>();
         boolean presented = false;
 
-        for (Pass pass : this.passes) {
+        for (Node pass : this.passes) {
             GraphicsPipeline pipeline = PipelineRegistry.getOrNull(pass.pipeline);
             if (pipeline == null) {
                 return false;
@@ -195,7 +201,7 @@ public final class FrameGraph {
         return presented;
     }
 
-    private void bindInputs(Pass pass, ResourceResolver resolver) {
+    private void bindInputs(Node pass, ResourceResolver resolver) {
         for (Map.Entry<Integer, String> in : pass.inputs.entrySet()) {
             VulkanImage img = resolveInput(in.getValue(), resolver);
             if (img != null) {
@@ -240,10 +246,97 @@ public final class FrameGraph {
         return new Builder(id);
     }
 
+    public static FrameGraph fromPasses(String id, Class<?>... passClasses) {
+        Builder builder = new Builder(id);
+        List<PassSpec> specs = new ArrayList<>();
+        for (Class<?> passClass : passClasses) {
+            Pass ann = passClass.getAnnotation(Pass.class);
+            if (ann == null) {
+                throw new IllegalStateException(passClass.getName() + " has no @Pass annotation");
+            }
+            Map<Integer, String> inputs = new LinkedHashMap<>();
+            String output = null;
+            int slot = 0;
+            for (Field field : passClass.getDeclaredFields()) {
+                Input in = field.getAnnotation(Input.class);
+                if (in != null) {
+                    inputs.put(slot++, in.value());
+                    continue;
+                }
+                Output out = field.getAnnotation(Output.class);
+                if (out != null) {
+                    output = out.value();
+                    if (!SWAPCHAIN.equals(output)) {
+                        builder.target(output, out.format().vk, out.scale(), out.clear(), out.pingpong());
+                    }
+                }
+            }
+            if (output == null) {
+                throw new IllegalStateException(passClass.getName() + " has no @Output field");
+            }
+            specs.add(new PassSpec(ann.pipeline(), inputs, output));
+        }
+        for (PassSpec spec : topoSort(id, specs)) {
+            PassBuilder passBuilder = builder.pass(spec.pipeline());
+            for (Map.Entry<Integer, String> input : spec.inputs().entrySet()) {
+                passBuilder.in(input.getKey(), input.getValue());
+            }
+            passBuilder.out(spec.output());
+        }
+        return builder.build();
+    }
+
+    private record PassSpec(Class<? extends PipelineDefinition> pipeline, Map<Integer, String> inputs, String output) {
+    }
+
+    private static List<PassSpec> topoSort(String id, List<PassSpec> specs) {
+        Map<String, PassSpec> producer = new HashMap<>();
+        for (PassSpec spec : specs) {
+            producer.put(spec.output(), spec);
+        }
+        Map<PassSpec, Set<PassSpec>> dependencies = new LinkedHashMap<>();
+        Map<PassSpec, Integer> indegree = new LinkedHashMap<>();
+        for (PassSpec spec : specs) {
+            dependencies.put(spec, new LinkedHashSet<>());
+            indegree.put(spec, 0);
+        }
+        for (PassSpec spec : specs) {
+            for (String input : spec.inputs().values()) {
+                if (input.endsWith("_history")) {
+                    continue;
+                }
+                PassSpec upstream = producer.get(input);
+                if (upstream != null && upstream != spec && dependencies.get(spec).add(upstream)) {
+                    indegree.merge(spec, 1, Integer::sum);
+                }
+            }
+        }
+        Deque<PassSpec> ready = new ArrayDeque<>();
+        for (PassSpec spec : specs) {
+            if (indegree.get(spec) == 0) {
+                ready.add(spec);
+            }
+        }
+        List<PassSpec> ordered = new ArrayList<>();
+        while (!ready.isEmpty()) {
+            PassSpec spec = ready.poll();
+            ordered.add(spec);
+            for (PassSpec other : specs) {
+                if (dependencies.get(other).remove(spec) && indegree.merge(other, -1, Integer::sum) == 0) {
+                    ready.add(other);
+                }
+            }
+        }
+        if (ordered.size() != specs.size()) {
+            throw new IllegalStateException("Frame graph '" + id + "' has a cyclic pass dependency");
+        }
+        return ordered;
+    }
+
     public static final class Builder {
         private final String id;
         private final Map<String, Resource> targets = new LinkedHashMap<>();
-        private final List<Pass> passes = new ArrayList<>();
+        private final List<Node> passes = new ArrayList<>();
 
         private Builder(String id) {
             this.id = id;
@@ -281,7 +374,7 @@ public final class FrameGraph {
         }
 
         public Builder out(String output) {
-            this.parent.passes.add(new Pass(this.pipeline, this.inputs, output));
+            this.parent.passes.add(new Node(this.pipeline, this.inputs, output));
             return this.parent;
         }
     }
