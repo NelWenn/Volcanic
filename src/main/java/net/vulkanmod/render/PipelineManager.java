@@ -9,7 +9,7 @@ import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry;
 import net.vulkanmod.vulkan.shader.pipeline.definitions.*;
-import net.vulkanmod.vulkan.shader.pipeline.definitions.radiance.*;
+import net.vulkanmod.render.framegraph.radiance.*;
 
 import java.util.function.Function;
 

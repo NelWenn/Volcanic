@@ -1,4 +1,4 @@
-package net.vulkanmod.vulkan.shader.pipeline.definitions.radiance;
+package net.vulkanmod.render.framegraph.radiance;
 
 import net.vulkanmod.vulkan.shader.pipeline.GfxPipeline;
 import net.vulkanmod.vulkan.shader.pipeline.PipelineDefinition;

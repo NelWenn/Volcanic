@@ -459,7 +459,7 @@ public class DefaultMainPass implements MainPass {
 
         net.vulkanmod.vulkan.shader.GraphicsPipeline pipeline =
                 net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry.getOrNull(
-                        net.vulkanmod.vulkan.shader.pipeline.definitions.radiance.RadianceOpaqueTintPipeline.class);
+                        net.vulkanmod.render.framegraph.radiance.RadianceOpaqueTintPipeline.class);
         if (pipeline != null) {
             Renderer.getInstance().bindGraphicsPipeline(pipeline);
             Renderer.getInstance().uploadAndBindUBOs(pipeline);
@@ -531,7 +531,7 @@ public class DefaultMainPass implements MainPass {
 
     private boolean resolveRadianceGraph(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
                                          VulkanImage worldDepth, VulkanImage fgDepth) {
-        net.vulkanmod.render.framegraph.FrameGraph graph = net.vulkanmod.render.framegraph.RadianceGraph.get();
+        net.vulkanmod.render.framegraph.FrameGraph graph = net.vulkanmod.render.framegraph.radiance.RadianceGraph.get();
         if (!graph.pipelinesReady()) {
             return false;
         }

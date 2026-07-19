@@ -1,8 +1,6 @@
-package net.vulkanmod.render.framegraph;
+package net.vulkanmod.render.framegraph.radiance;
 
-import net.vulkanmod.vulkan.shader.pipeline.definitions.radiance.RadianceAaPipeline;
-import net.vulkanmod.vulkan.shader.pipeline.definitions.radiance.RadianceCompositePipeline;
-import net.vulkanmod.vulkan.shader.pipeline.definitions.radiance.RadianceLightPipeline;
+import net.vulkanmod.render.framegraph.FrameGraph;
 
 import static org.lwjgl.vulkan.VK10.VK_FORMAT_R16G16B16A16_SFLOAT;
 
