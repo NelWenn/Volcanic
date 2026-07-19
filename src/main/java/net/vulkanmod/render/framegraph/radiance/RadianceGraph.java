@@ -14,6 +14,7 @@ public final class RadianceGraph {
                     ShadowMapPass.class,
                     ColoredShadowTintPass.class,
                     RadianceLightPass.class,
+                    RadianceReflectionPass.class,
                     RadianceCompositePass.class,
                     RadianceAaPass.class);
         }

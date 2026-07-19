@@ -46,6 +46,7 @@ public abstract class PipelineManager {
                 ShadowTerrainCutoutPipeline.class,
                 ShadowTerrainTintPipeline.class,
                 RadianceLightPipeline.class,
+                RadianceReflectionPipeline.class,
                 RadianceCompositePipeline.class,
                 RadianceAaPipeline.class,
                 RadianceOpaqueTintPipeline.class
