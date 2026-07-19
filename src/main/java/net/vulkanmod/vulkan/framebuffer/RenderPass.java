@@ -111,13 +111,19 @@ public class RenderPass {
                     renderPassInfo.pDependencies(subpassDependencies);
                 }
                 case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL -> {
+                    int srcStages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                    int srcAccess = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+                    if (depthAttachmentInfo != null && depthAttachmentInfo.finalLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+                        srcStages |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+                        srcAccess |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                    }
                     VkSubpassDependency.Buffer subpassDependencies = VkSubpassDependency.calloc(1, stack);
                     subpassDependencies.get(0)
                             .srcSubpass(0)
                             .dstSubpass(VK_SUBPASS_EXTERNAL)
-                            .srcStageMask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT)
+                            .srcStageMask(srcStages)
                             .dstStageMask(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT)
-                            .srcAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                            .srcAccessMask(srcAccess)
                             .dstAccessMask(VK_ACCESS_SHADER_READ_BIT);
 
                     renderPassInfo.pDependencies(subpassDependencies);

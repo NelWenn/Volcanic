@@ -39,32 +39,21 @@ public class Config {
 
     public boolean shadersEnabled = false;
     public String selectedShader = "off";
-    public float cgExposure = 1.0f;
-    public float cgContrast = 1.0f;
-    public float cgSaturation = 1.0f;
-    public float cgTemperature = 0.0f;
-    public float fogDensity = 0.06f;
-    public float fogHeight = 80.0f;
+
+    public boolean isCamille() {
+        return "radiance".equals(selectedShader);
+    }
+
     public boolean shadowsEnabled = true;
-    public boolean taaEnabled = true;
-    public boolean halfResTerms = true;
     public int shadowQuality = 2;
     public int shadowDistance = 48;
+    public boolean entityShadows = true;
+    public boolean coloredShadows = true;
 
-    public boolean customLightmap = true;
-    public float lightBrightness = 1.0f;
-    public float nightDarkness = 0.7f;
-    public float torchIntensity = 1.0f;
-    public float caveAmbient = 0.02f;
-    public float glowStrength = 1.0f;
-    public boolean pointLightsEnabled = true;
-    public float pointLightStrength = 1.0f;
+    public int aaMode = 1;
 
     public boolean windEnabled = true;
     public float windStrength = 1.0f;
-
-    public boolean autoExposure = true;
-    public float exposureStrength = 1.0f;
 
     public void write() {
 

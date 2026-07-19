@@ -1,0 +1,14 @@
+{
+    "name": "Camille Radiance",
+    "targets": [
+        { "name": "light",    "format": "RGBA16F", "scale": 1.0,  "clear": 1.0, "pingpong": true },
+        { "name": "scenblur", "format": "RGBA16F", "scale": 0.25 },
+        { "name": "aatex",    "format": "RGBA16F", "scale": 1.0 }
+    ],
+    "passes": [
+        { "name": "light",     "program": "radiance_light",     "inputs": { "0": "depthtex", "1": "fgdepth", "2": "shadowtex0", "3": "shadowtex1", "4": "shadowtex2", "5": "light_history" }, "output": "light" },
+        { "name": "blur",      "program": "radiance_blur",      "inputs": { "0": "scene" }, "output": "scenblur" },
+        { "name": "composite", "program": "radiance_composite", "inputs": { "0": "scene", "1": "depthtex", "2": "fgdepth", "3": "light", "4": "scenblur" }, "output": "aatex" },
+        { "name": "aa",        "program": "radiance_aa",        "inputs": { "0": "aatex", "1": "depthtex", "2": "fgdepth" }, "output": "swapchain" }
+    ]
+}

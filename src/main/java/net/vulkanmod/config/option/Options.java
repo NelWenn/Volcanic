@@ -31,20 +31,15 @@ public abstract class Options {
 
     private static boolean shaderOptsBuilt = false;
     private static Option<Boolean> enabledOpt;
-    private static ShaderEntryOption fogEntryOpt;
-    private static ShaderEntryOption colorGradeEntryOpt;
-    private static RangeOption fogDensityOpt;
-    private static RangeOption fogHeightOpt;
+    private static ShaderEntryOption radianceEntryOpt;
     private static Option<Boolean> shadowsOpt;
-    private static Option<Boolean> taaOpt;
     private static RangeOption shadowQualityOpt;
     private static RangeOption shadowDistanceOpt;
-    private static RangeOption exposureOpt;
-    private static RangeOption contrastOpt;
-    private static RangeOption saturationOpt;
-    private static RangeOption temperatureOpt;
-    private static Option<?>[] lightingOptsCache;
-    private static Option<?>[] cameraOptsCache;
+    private static Option<Boolean> entityShadowsOpt;
+    private static Option<Boolean> coloredShadowsOpt;
+    private static Option<Boolean> windOpt;
+    private static RangeOption windStrengthOpt;
+    private static Option<Integer> aaOpt;
 
     static Config config = Initializer.CONFIG;
     static Minecraft minecraft = Minecraft.getInstance();
@@ -102,20 +97,13 @@ public abstract class Options {
                 () -> config.shadersEnabled)
                 .setTooltip(Component.translatable("vulkanmod.options.shadersEnabled.tooltip"));
 
-        fogEntryOpt = shaderListEntry("fog");
-        colorGradeEntryOpt = shaderListEntry("color_grade");
+        radianceEntryOpt = shaderListEntry("radiance");
 
         shadowsOpt = new SwitchOption(
                 Component.translatable("vulkanmod.options.shadowsEnabled"),
                 value -> config.shadowsEnabled = value,
                 () -> config.shadowsEnabled);
-        shadowsOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
-
-        taaOpt = new SwitchOption(
-                Component.translatable("vulkanmod.options.taaEnabled"),
-                value -> config.taaEnabled = value,
-                () -> config.taaEnabled);
-        taaOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
+        shadowsOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
         final int[] shadowRes = { 1024, 2048, 3072, 4096, 6144 };
         shadowQualityOpt = new RangeOption(
@@ -124,66 +112,48 @@ public abstract class Options {
                 value -> Component.nullToEmpty(shadowRes[Math.max(0, Math.min(4, value))] + " px"),
                 value -> config.shadowQuality = value,
                 () -> config.shadowQuality);
-        shadowQualityOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader) && config.shadowsEnabled);
+        shadowQualityOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
 
         shadowDistanceOpt = new RangeOption(
                 Component.translatable("vulkanmod.options.shadowDistance"),
-                24, 160, 8,
+                24, 320, 16,
                 value -> Component.nullToEmpty(value + " blocks"),
                 value -> config.shadowDistance = value,
                 () -> config.shadowDistance);
-        shadowDistanceOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader) && config.shadowsEnabled);
+        shadowDistanceOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
 
-        exposureOpt = new RangeOption(
-                Component.translatable("vulkanmod.options.cgExposure"),
-                50, 200, 5,
+        entityShadowsOpt = new SwitchOption(
+                Component.translatable("vulkanmod.options.entityShadows"),
+                value -> config.entityShadows = value,
+                () -> config.entityShadows);
+        entityShadowsOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
+
+        coloredShadowsOpt = new SwitchOption(
+                Component.translatable("vulkanmod.options.coloredShadows"),
+                value -> config.coloredShadows = value,
+                () -> config.coloredShadows);
+        coloredShadowsOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
+
+        windOpt = new SwitchOption(
+                Component.translatable("vulkanmod.options.wind"),
+                value -> config.windEnabled = value,
+                () -> config.windEnabled);
+
+        windStrengthOpt = new RangeOption(
+                Component.translatable("vulkanmod.options.windStrength"),
+                0, 200, 10,
                 value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.cgExposure = value / 100.0f,
-                () -> Math.round(config.cgExposure * 100.0f));
-        exposureOpt.setActivationFn(() -> config.shadersEnabled && "color_grade".equals(config.selectedShader));
+                value -> config.windStrength = value / 100.0f,
+                () -> Math.round(config.windStrength * 100.0f));
+        windStrengthOpt.setActivationFn(() -> config.windEnabled);
 
-        contrastOpt = new RangeOption(
-                Component.translatable("vulkanmod.options.cgContrast"),
-                50, 200, 5,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.cgContrast = value / 100.0f,
-                () -> Math.round(config.cgContrast * 100.0f));
-        contrastOpt.setActivationFn(() -> config.shadersEnabled && "color_grade".equals(config.selectedShader));
-
-        saturationOpt = new RangeOption(
-                Component.translatable("vulkanmod.options.cgSaturation"),
-                0, 200, 5,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.cgSaturation = value / 100.0f,
-                () -> Math.round(config.cgSaturation * 100.0f));
-        saturationOpt.setActivationFn(() -> config.shadersEnabled && "color_grade".equals(config.selectedShader));
-
-        temperatureOpt = new RangeOption(
-                Component.translatable("vulkanmod.options.cgTemperature"),
-                -100, 100, 5,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.cgTemperature = value / 100.0f,
-                () -> Math.round(config.cgTemperature * 100.0f));
-        temperatureOpt.setActivationFn(() -> config.shadersEnabled && "color_grade".equals(config.selectedShader));
-
-        fogDensityOpt = new RangeOption(
-                Component.translatable("vulkanmod.options.fogDensity"),
-                0, 30, 1,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.fogDensity = value / 100.0f,
-                () -> Math.round(config.fogDensity * 100.0f));
-        fogDensityOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
-
-        fogHeightOpt = new RangeOption(
-                Component.translatable("vulkanmod.options.fogHeight"),
-                0, 256, 4,
-                value -> Component.nullToEmpty(String.valueOf(value)),
-                value -> config.fogHeight = value,
-                () -> Math.round(config.fogHeight));
-        fogHeightOpt.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
-
-        lightingOptsCache = buildLightingOptions();
-        cameraOptsCache = buildCameraOptions();
+        aaOpt = new CyclingOption<>(
+                Component.translatable("vulkanmod.options.antialiasing"),
+                new Integer[]{ 0, 1, 2 },
+                value -> config.aaMode = value,
+                () -> config.aaMode)
+                .setTranslator(value -> Component.literal(value == 0 ? "Off" : (value == 1 ? "FXAA" : "SMAA")));
+        aaOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
         shaderOptsBuilt = true;
     }
@@ -191,92 +161,25 @@ public abstract class Options {
     public static OptionBlock[] getShaderOpts() {
         buildShaderOptionsIfNeeded();
 
-        if ("fog".equals(shaderNav)) {
-            if ("fog".equals(shaderCat)) {
-                return new OptionBlock[]{
-                        new OptionBlock("", new Option<?>[]{ backTo(() -> shaderCat = null) }),
-                        new OptionBlock(Component.translatable("vulkanmod.options.category.fog").getString(),
-                                new Option<?>[]{ fogDensityOpt, fogHeightOpt })
-                };
-            }
-
-            if ("shadows".equals(shaderCat)) {
-                return new OptionBlock[]{
-                        new OptionBlock("", new Option<?>[]{ backTo(() -> shaderCat = null) }),
-                        new OptionBlock(Component.translatable("vulkanmod.options.category.shadows").getString(),
-                                new Option<?>[]{ shadowsOpt, shadowQualityOpt, shadowDistanceOpt, taaOpt })
-                };
-            }
-
-            if ("lighting".equals(shaderCat)) {
-                return new OptionBlock[]{
-                        new OptionBlock("", new Option<?>[]{ backTo(() -> shaderCat = null) }),
-                        new OptionBlock(Component.translatable("vulkanmod.options.pages.lighting").getString(),
-                                lightingOptsCache)
-                };
-            }
-
-            if ("camera".equals(shaderCat)) {
-                return new OptionBlock[]{
-                        new OptionBlock("", new Option<?>[]{ backTo(() -> shaderCat = null) }),
-                        new OptionBlock(Component.translatable("vulkanmod.options.category.camera").getString(),
-                                cameraOptsCache)
-                };
-            }
-
-            ActionOption fogCat = new ActionOption(
-                    Component.translatable("vulkanmod.options.category.fog"),
-                    Component.translatable("vulkanmod.options.category.fog"),
-                    () -> {
-                        shaderCat = "fog";
-                        if (shaderNavRebuild != null) shaderNavRebuild.run();
-                    }).setFullButton(true);
-
-            ActionOption shadowsCat = new ActionOption(
-                    Component.translatable("vulkanmod.options.category.shadows"),
-                    Component.translatable("vulkanmod.options.category.shadows"),
-                    () -> {
-                        shaderCat = "shadows";
-                        if (shaderNavRebuild != null) shaderNavRebuild.run();
-                    }).setFullButton(true);
-
-            ActionOption lightingCat = new ActionOption(
-                    Component.translatable("vulkanmod.options.pages.lighting"),
-                    Component.translatable("vulkanmod.options.pages.lighting"),
-                    () -> {
-                        shaderCat = "lighting";
-                        if (shaderNavRebuild != null) shaderNavRebuild.run();
-                    }).setFullButton(true);
-
-            ActionOption cameraCat = new ActionOption(
-                    Component.translatable("vulkanmod.options.category.camera"),
-                    Component.translatable("vulkanmod.options.category.camera"),
-                    () -> {
-                        shaderCat = "camera";
-                        if (shaderNavRebuild != null) shaderNavRebuild.run();
-                    }).setFullButton(true);
-
+        if ("radiance".equals(shaderNav)) {
             return new OptionBlock[]{
                     new OptionBlock("", new Option<?>[]{ backTo(() -> { shaderNav = null; shaderCat = null; }) }),
-                    new OptionBlock(Component.translatable("vulkanmod.options.category.general").getString(),
-                            new Option<?>[]{ fogCat, shadowsCat, lightingCat, cameraCat })
-            };
-        }
-
-        if ("color_grade".equals(shaderNav)) {
-            return new OptionBlock[]{
-                    new OptionBlock("", new Option<?>[]{ backTo(() -> { shaderNav = null; shaderCat = null; }) }),
-                    new OptionBlock(Component.translatable("vulkanmod.options.category.colorGrade").getString(),
-                            new Option<?>[]{ exposureOpt, contrastOpt, saturationOpt, temperatureOpt })
+                    new OptionBlock(Component.translatable("vulkanmod.options.category.shadows").getString(),
+                            new Option<?>[]{ shadowsOpt, shadowQualityOpt, shadowDistanceOpt, entityShadowsOpt, coloredShadowsOpt }),
+                    new OptionBlock(Component.translatable("vulkanmod.options.category.antialiasing").getString(),
+                            new Option<?>[]{ aaOpt }),
+                    new OptionBlock(Component.translatable("vulkanmod.options.category.vegetation").getString(),
+                            new Option<?>[]{ windOpt, windStrengthOpt })
             };
         }
 
         return new OptionBlock[]{
                 new OptionBlock("", new Option<?>[]{ enabledOpt }),
                 new OptionBlock(Component.translatable("vulkanmod.options.category.shaderPack").getString(),
-                        new Option<?>[]{ fogEntryOpt, colorGradeEntryOpt })
+                        new Option<?>[]{ radianceEntryOpt })
         };
     }
+
 
     private static ActionOption backTo(Runnable navChange) {
         return new ActionOption(
@@ -289,8 +192,12 @@ public abstract class Options {
     }
 
     private static ShaderEntryOption shaderListEntry(String id) {
+        net.vulkanmod.render.pack.ShaderPack pack = net.vulkanmod.render.pack.PackPipeline.get(id);
+        Component label = pack != null
+                ? Component.literal(pack.name)                                   // data-driven: name comes from the pack manifest
+                : Component.translatable("vulkanmod.options.shader." + id);
         return new ShaderEntryOption(
-                Component.translatable("vulkanmod.options.shader." + id),
+                label,
                 () -> id.equals(config.selectedShader),
                 () -> config.selectedShader = id,
                 () -> {
@@ -432,116 +339,6 @@ public abstract class Options {
                                 value -> minecraftOptions.showAutosaveIndicator().set(value),
                                 () -> minecraftOptions.showAutosaveIndicator().get()),
                 })
-        };
-    }
-
-    private static Option<?>[] buildLightingOptions() {
-        SwitchOption customLightmap = new SwitchOption(
-                Component.translatable("vulkanmod.options.customLightmap"),
-                value -> config.customLightmap = value,
-                () -> config.customLightmap);
-
-        RangeOption brightness = new RangeOption(
-                Component.translatable("vulkanmod.options.lightBrightness"),
-                60, 150, 5,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.lightBrightness = value / 100.0f,
-                () -> Math.round(config.lightBrightness * 100.0f));
-        brightness.setActivationFn(() -> config.customLightmap);
-
-        RangeOption nightDarkness = new RangeOption(
-                Component.translatable("vulkanmod.options.nightDarkness"),
-                0, 100, 5,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.nightDarkness = value / 100.0f,
-                () -> Math.round(config.nightDarkness * 100.0f));
-        nightDarkness.setActivationFn(() -> config.customLightmap);
-
-        RangeOption torchIntensity = new RangeOption(
-                Component.translatable("vulkanmod.options.torchIntensity"),
-                50, 160, 5,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.torchIntensity = value / 100.0f,
-                () -> Math.round(config.torchIntensity * 100.0f));
-        torchIntensity.setActivationFn(() -> config.customLightmap);
-
-        RangeOption caveAmbient = new RangeOption(
-                Component.translatable("vulkanmod.options.caveAmbient"),
-                0, 15, 1,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.caveAmbient = value / 100.0f,
-                () -> Math.round(config.caveAmbient * 100.0f));
-        caveAmbient.setActivationFn(() -> config.customLightmap);
-
-        RangeOption glowStrength = new RangeOption(
-                Component.translatable("vulkanmod.options.glowStrength"),
-                0, 200, 10,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.glowStrength = value / 100.0f,
-                () -> Math.round(config.glowStrength * 100.0f));
-        glowStrength.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
-
-        SwitchOption pointLights = new SwitchOption(
-                Component.translatable("vulkanmod.options.pointLights"),
-                value -> config.pointLightsEnabled = value,
-                () -> config.pointLightsEnabled);
-        pointLights.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
-
-        RangeOption pointLightStrength = new RangeOption(
-                Component.translatable("vulkanmod.options.pointLightStrength"),
-                0, 200, 10,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.pointLightStrength = value / 100.0f,
-                () -> Math.round(config.pointLightStrength * 100.0f));
-        pointLightStrength.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader)
-                && config.pointLightsEnabled);
-
-        SwitchOption wind = new SwitchOption(
-                Component.translatable("vulkanmod.options.wind"),
-                value -> config.windEnabled = value,
-                () -> config.windEnabled);
-
-        RangeOption windStrength = new RangeOption(
-                Component.translatable("vulkanmod.options.windStrength"),
-                0, 200, 10,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.windStrength = value / 100.0f,
-                () -> Math.round(config.windStrength * 100.0f));
-        windStrength.setActivationFn(() -> config.windEnabled);
-
-        return new Option<?>[]{
-                customLightmap,
-                brightness,
-                nightDarkness,
-                torchIntensity,
-                caveAmbient,
-                glowStrength,
-                pointLights,
-                pointLightStrength,
-                wind,
-                windStrength
-        };
-    }
-
-    private static Option<?>[] buildCameraOptions() {
-        SwitchOption autoExposure = new SwitchOption(
-                Component.translatable("vulkanmod.options.autoExposure"),
-                value -> config.autoExposure = value,
-                () -> config.autoExposure);
-        autoExposure.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader));
-
-        RangeOption exposureStrength = new RangeOption(
-                Component.translatable("vulkanmod.options.exposureStrength"),
-                0, 150, 10,
-                value -> Component.nullToEmpty(String.format("%.2f", value / 100.0f)),
-                value -> config.exposureStrength = value / 100.0f,
-                () -> Math.round(config.exposureStrength * 100.0f));
-        exposureStrength.setActivationFn(() -> config.shadersEnabled && "fog".equals(config.selectedShader)
-                && config.autoExposure);
-
-        return new Option<?>[]{
-                autoExposure,
-                exposureStrength
         };
     }
 

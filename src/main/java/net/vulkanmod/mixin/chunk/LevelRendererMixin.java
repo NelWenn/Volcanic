@@ -58,10 +58,37 @@ public abstract class LevelRendererMixin {
         PoseStack poseStack = new PoseStack();
 
         this.worldRenderer.renderBlockEntities(poseStack, pos.x(), pos.y(), pos.z(), this.destructionProgress, deltaTracker.getGameTimeDeltaPartialTick(false));
+
+        renderEntityShadows(camera, deltaTracker);
+    }
+
+    @Unique
+    private void renderEntityShadows(Camera camera, DeltaTracker deltaTracker) {
+        net.vulkanmod.config.Config cfg = net.vulkanmod.Initializer.CONFIG;
+        if (!cfg.shadersEnabled || !cfg.isCamille() || !cfg.shadowsEnabled) {
+            return;
+        }
+        Vec3 pos = camera.getPosition();
+        float partialTick = deltaTracker.getGameTimeDeltaPartialTick(false);
+        PoseStack shadowPose = new PoseStack();
+        Runnable casters = cfg.entityShadows
+                ? () -> this.worldRenderer.renderShadowCasters(shadowPose, pos.x(), pos.y(), pos.z(), partialTick) : null;
+        java.util.function.IntConsumer tint = cfg.coloredShadows
+                ? (int cascade) -> this.worldRenderer.renderShadowTint(cascade,
+                        net.vulkanmod.vulkan.VRenderSystem.shadowCamX,
+                        net.vulkanmod.vulkan.VRenderSystem.shadowCamY,
+                        net.vulkanmod.vulkan.VRenderSystem.shadowCamZ) : null;
+        if (casters == null && tint == null) {
+            return;
+        }
+        net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().renderEntityShadows(casters, tint);
     }
 
     @Inject(method = "renderLevel", at = @At("HEAD"))
     private void prepareLevelRenderState(DeltaTracker deltaTracker, boolean bl, Camera camera, GameRenderer gameRenderer, LightTexture lightTexture, Matrix4f matrix4f, Matrix4f matrix4f2, CallbackInfo ci) {
+        if (net.vulkanmod.vulkan.pass.DefaultMainPass.postShaderActive()) {
+            net.vulkanmod.vulkan.VRenderSystem.snapshotPrevFrameMatrices();
+        }
         prepareWorldPassRenderState();
     }
 
@@ -77,8 +104,10 @@ public abstract class LevelRendererMixin {
     private void renderSectionLayer(RenderType renderType, double camX, double camY, double camZ, Matrix4f modelView, Matrix4f projectionMatrix, CallbackInfo ci) {
         net.vulkanmod.vulkan.FrameTimer timer = net.vulkanmod.vulkan.FrameTimer.instance();
         long t = timer != null ? System.nanoTime() : 0;
-        // capture the camera view matrix here; the depth-capture modelview is no longer the camera view
         if (net.vulkanmod.vulkan.pass.DefaultMainPass.postShaderActive()) {
+            if (renderType == net.minecraft.client.renderer.RenderType.translucent()) {
+                net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().applyColoredShadow();
+            }
             net.vulkanmod.vulkan.VRenderSystem.captureWorldViewMatrix(modelView, camX, camY, camZ);
         }
         this.worldRenderer.renderSectionLayer(renderType, camX, camY, camZ, modelView, projectionMatrix);

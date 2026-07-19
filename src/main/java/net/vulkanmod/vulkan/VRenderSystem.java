@@ -105,6 +105,19 @@ public abstract class VRenderSystem {
     public static float capturedSunVisible = 0.0f;
     private static final Vector4f scratchSun = new Vector4f();
 
+    public static float smoothTimeOfDay(Minecraft mc) {
+        float partial = mc.getTimer().getGameTimeDeltaPartialTick(false);
+        double dayTime = mc.level.getDayTime() + partial;
+        double frac = net.minecraft.util.Mth.frac(dayTime / 24000.0 - 0.25);
+        double e = 0.5 - Math.cos(frac * Math.PI) / 2.0;
+        return (float) ((frac * 2.0 + e) / 3.0);
+    }
+
+    public static void snapshotPrevFrameMatrices() {
+        org.lwjgl.system.MemoryUtil.memCopy(capturedMVPForward.ptr, capturedPrevMVPForward.ptr, 64L);
+        org.lwjgl.system.MemoryUtil.memCopy(capturedCameraPos.ptr, capturedPrevCameraPos.ptr, 12L);
+    }
+
     public static void captureWorldViewMatrix(Matrix4f cameraView, double cx, double cy, double cz) {
         scratchCapMVP.set(vulkanProjectionMatrix);
         scratchCapMVP.mul(cameraView);
@@ -120,7 +133,7 @@ public abstract class VRenderSystem {
         try {
             Minecraft mc = Minecraft.getInstance();
             if (mc.level != null) {
-                capturedDayTime = mc.level.getTimeOfDay(1.0f);
+                capturedDayTime = smoothTimeOfDay(mc);
                 float a = capturedDayTime * ((float) Math.PI * 2.0f);
                 float sx = -(float) Math.sin(a);
                 float sh = (float) Math.cos(a);
@@ -139,7 +152,7 @@ public abstract class VRenderSystem {
                     float ndcx = scratchSun.x / scratchSun.w;
                     float ndcy = scratchSun.y / scratchSun.w;
                     uvx = ndcx * 0.5f + 0.5f;
-                    uvy = (1.0f - ndcy) * 0.5f;                  // negative-height viewport Y flip
+                    uvy = (1.0f - ndcy) * 0.5f;
                     float ndcMag = (float) Math.sqrt(ndcx * ndcx + ndcy * ndcy);
                     visible = (1.0f - smoothstep(1.8f, 3.6f, ndcMag)) * horizon;
                 }
@@ -200,6 +213,14 @@ public abstract class VRenderSystem {
         return capturedCameraPos;
     }
 
+    public static MappedBuffer getCapturedPrevMVP() {
+        return capturedPrevMVPForward;
+    }
+
+    public static MappedBuffer getCapturedPrevCameraPos() {
+        return capturedPrevCameraPos;
+    }
+
     public static MappedBuffer getCapturedSunDir() {
         return capturedSunDir;
     }
@@ -208,19 +229,35 @@ public abstract class VRenderSystem {
         return capturedDayTime;
     }
 
-    public static final MappedBuffer capturedShadowMVP = new MappedBuffer(16 * 4);
+    public static final MappedBuffer[] capturedShadowMVP = {
+            new MappedBuffer(16 * 4), new MappedBuffer(16 * 4), new MappedBuffer(16 * 4)
+    };
+    public static final MappedBuffer capturedShadowSplits = new MappedBuffer(3 * 4);
 
-    public static void captureShadowMVP() {
-        MemoryUtil.memCopy(MVP.ptr, capturedShadowMVP.ptr, 64L);
+    public static void captureShadowCascadeMVP(int cascade) {
+        MemoryUtil.memCopy(MVP.ptr, capturedShadowMVP[cascade].ptr, 64L);
     }
 
-    public static MappedBuffer getCapturedShadowMVP() {
-        return capturedShadowMVP;
+    public static void captureShadowSplits(float s0, float s1, float s2) {
+        long sp = capturedShadowSplits.ptr;
+        VUtil.UNSAFE.putFloat(sp, s0);
+        VUtil.UNSAFE.putFloat(sp + 4, s1);
+        VUtil.UNSAFE.putFloat(sp + 8, s2);
     }
+
+    public static MappedBuffer getCapturedShadowMVP0() { return capturedShadowMVP[0]; }
+    public static MappedBuffer getCapturedShadowMVP1() { return capturedShadowMVP[1]; }
+    public static MappedBuffer getCapturedShadowMVP2() { return capturedShadowMVP[2]; }
+    public static MappedBuffer getCapturedShadowSplits() { return capturedShadowSplits; }
 
     public static final MappedBuffer capturedShadowCameraPos = new MappedBuffer(3 * 4);
 
+    public static double shadowCamX, shadowCamY, shadowCamZ;
+
     public static void captureShadowCameraPos(double x, double y, double z) {
+        shadowCamX = x;
+        shadowCamY = y;
+        shadowCamZ = z;
         long p = capturedShadowCameraPos.ptr;
         VUtil.UNSAFE.putFloat(p, (float) x);
         VUtil.UNSAFE.putFloat(p + 4, (float) y);
@@ -233,37 +270,8 @@ public abstract class VRenderSystem {
 
     public static final MappedBuffer capturedMVPForward = new MappedBuffer(16 * 4);
     private static final FloatBuffer capturedMVPForwardView = capturedMVPForward.buffer.asFloatBuffer();
-    public static final MappedBuffer prevMVPForward = new MappedBuffer(16 * 4);
-    public static final MappedBuffer prevCameraPos = new MappedBuffer(3 * 4);
-
-    public static void advanceTaaFrame() {
-        MemoryUtil.memCopy(capturedMVPForward.ptr, prevMVPForward.ptr, 64L);
-        MemoryUtil.memCopy(capturedCameraPos.ptr, prevCameraPos.ptr, 12L);
-        updateFrameDelta();
-    }
-
-    private static long lastFrameNanos = 0L;
-    private static float frameDelta = 0.016f;
-
-    private static void updateFrameDelta() {
-        long now = System.nanoTime();
-        if (lastFrameNanos != 0L) {
-            frameDelta = Math.max(0.0f, Math.min(0.1f, (now - lastFrameNanos) / 1.0e9f));
-        }
-        lastFrameNanos = now;
-    }
-
-    public static float getFrameDelta() {
-        return frameDelta;
-    }
-
-    public static MappedBuffer getPrevMVPForward() {
-        return prevMVPForward;
-    }
-
-    public static MappedBuffer getPrevCameraPos() {
-        return prevCameraPos;
-    }
+    public static final MappedBuffer capturedPrevMVPForward = new MappedBuffer(16 * 4);
+    public static final MappedBuffer capturedPrevCameraPos = new MappedBuffer(3 * 4);
 
     public static MappedBuffer ChunkOffset = new MappedBuffer(3 * 4);
     public static MappedBuffer lightDirection0 = new MappedBuffer(3 * 4);

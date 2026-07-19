@@ -26,15 +26,6 @@ public class DrawUtil {
     }
 
     public static void blitRenderScaleToScreen() {
-        // post-process injection point: when a shader is enabled, present through its pipeline
-        var config = net.vulkanmod.Initializer.CONFIG;
-        if (config.shadersEnabled && !"off".equals(config.selectedShader)) {
-            GraphicsPipeline post = PipelineManager.getPostShaderPipeline(config.selectedShader);
-            if (post != null) {
-                blit(post);
-                return;
-            }
-        }
         blit(PipelineManager.getRenderScaleBlitPipeline());
     }
 

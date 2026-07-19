@@ -27,6 +27,10 @@ public interface MainPass {
 
     default void rebindMainTarget() {}
 
+    default void renderEntityShadows(Runnable casters, java.util.function.IntConsumer tintCascade) {}
+
+    default void applyColoredShadow() {}
+
     default void bindAsTexture() {}
 
     default void resolveRenderScaleForGui() {}

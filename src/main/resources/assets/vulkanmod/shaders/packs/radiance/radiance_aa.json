@@ -1,0 +1,13 @@
+{
+    "samplers": [
+        { "name": "Sampler0" },
+        { "name": "Sampler1" },
+        { "name": "Sampler2" }
+    ],
+    "UBOs": [
+        { "type": "fragment", "binding": 0, "fields": [
+            { "name": "FogInvMVPMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
+            { "name": "AaMode", "type": "float", "count": 1, "values": [ 1.0 ] }
+        ] }
+    ]
+}

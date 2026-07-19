@@ -27,6 +27,7 @@ import static org.lwjgl.vulkan.VK10.VK_BLEND_FACTOR_ZERO;
 
 @Mixin(value = BufferUploader.class, priority = 900)
 public class BufferUploaderM {
+
     @Inject(method = "reset", at = @At("HEAD"), cancellable = true)
     private static void reset(CallbackInfo ci) {
         ci.cancel();
@@ -70,6 +71,13 @@ public class BufferUploaderM {
             traceHudDraw(shaderName, pipeline, parameters);
 
             VRenderSystem.setPrimitiveTopology(parameters.mode());
+            if (net.vulkanmod.vulkan.pass.DefaultMainPass.inEntityShadowPass) {
+                PipelineState.blendInfo.enabled = false;
+                VRenderSystem.colorMask = PipelineState.ColorMask.getColorMask(true, true, true, true);
+                VRenderSystem.depthMask = true;
+                VRenderSystem.depthTest = true;
+                VRenderSystem.depthFun = 515;
+            }
             renderer.bindGraphicsPipeline(pipeline);
             VTextureSelector.bindShaderTextures(pipeline);
             renderer.uploadAndBindUBOs(pipeline);
