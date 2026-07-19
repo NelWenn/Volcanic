@@ -11,6 +11,8 @@ public final class RadianceGraph {
     public static FrameGraph get() {
         if (graph == null) {
             graph = FrameGraph.fromPasses("radiance",
+                    ShadowMapPass.class,
+                    ColoredShadowTintPass.class,
                     RadianceLightPass.class,
                     RadianceCompositePass.class,
                     RadianceAaPass.class);

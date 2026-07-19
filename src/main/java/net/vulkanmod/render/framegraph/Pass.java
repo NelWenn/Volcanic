@@ -12,5 +12,9 @@ import java.lang.annotation.Target;
 public @interface Pass {
     String name();
 
-    Class<? extends PipelineDefinition> pipeline();
+    Phase phase() default Phase.POST_PROCESS;
+
+    Class<? extends PipelineDefinition> pipeline() default PipelineDefinition.class;
+
+    Class<? extends PassExecutor> executor() default PassExecutor.class;
 }

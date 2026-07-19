@@ -222,7 +222,8 @@ public class DefaultMainPass implements MainPass {
 
         ensureMainFramebuffer();
 
-        renderShadowMap(commandBuffer, stack);
+        net.vulkanmod.render.framegraph.radiance.RadianceGraph.get().execute(
+                net.vulkanmod.render.framegraph.Phase.FRAME_START, commandBuffer, stack, name -> null, () -> {});
 
         VulkanImage colorAttachment = this.mainFramebuffer.getColorAttachment();
         colorAttachment.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -275,7 +276,7 @@ public class DefaultMainPass implements MainPass {
         setMainFramebuffer(this.swapChain);
     }
 
-    private void renderShadowMap(VkCommandBuffer commandBuffer, MemoryStack stack) {
+    public void renderShadowMap(VkCommandBuffer commandBuffer, MemoryStack stack) {
         Minecraft mc = Minecraft.getInstance();
         if (!Initializer.CONFIG.shadowsEnabled || !postShaderActive() || mc.level == null) {
             return;
@@ -545,7 +546,7 @@ public class DefaultMainPass implements MainPass {
         final VulkanImage sh0 = shadowsOn ? this.shadowMap.getCascadeDepthImage(0) : worldDepth;
         final VulkanImage sh1 = shadowsOn ? this.shadowMap.getCascadeDepthImage(1) : worldDepth;
         final VulkanImage sh2 = shadowsOn ? this.shadowMap.getCascadeDepthImage(2) : worldDepth;
-        boolean ran = graph.execute(commandBuffer, stack, name -> switch (name) {
+        boolean ran = graph.execute(net.vulkanmod.render.framegraph.Phase.POST_PROCESS, commandBuffer, stack, name -> switch (name) {
             case "scene" -> scene;
             case "depthtex" -> worldDepth;
             case "fgdepth" -> fgDepth;

@@ -63,13 +63,23 @@ public final class FrameGraph {
 
     static final class Node {
         final Class<? extends PipelineDefinition> pipeline;
+        final Phase phase;
+        final Class<? extends PassExecutor> executor;
         final Map<Integer, String> inputs;
         final String output;
+        PassExecutor executorInstance;
 
-        Node(Class<? extends PipelineDefinition> pipeline, Map<Integer, String> inputs, String output) {
+        Node(Class<? extends PipelineDefinition> pipeline, Phase phase, Class<? extends PassExecutor> executor,
+             Map<Integer, String> inputs, String output) {
             this.pipeline = pipeline;
+            this.phase = phase;
+            this.executor = executor;
             this.inputs = inputs;
             this.output = output;
+        }
+
+        boolean isExecutor() {
+            return this.executor != PassExecutor.class;
         }
     }
 
@@ -107,7 +117,7 @@ public final class FrameGraph {
 
     public boolean pipelinesReady() {
         for (Node pass : this.passes) {
-            if (PipelineRegistry.getOrNull(pass.pipeline) == null) {
+            if (!pass.isExecutor() && PipelineRegistry.getOrNull(pass.pipeline) == null) {
                 return false;
             }
         }
@@ -160,11 +170,18 @@ public final class FrameGraph {
         return true;
     }
 
-    public boolean execute(VkCommandBuffer commandBuffer, MemoryStack stack, ResourceResolver resolver, Runnable presentBegin) {
+    public boolean execute(Phase phase, VkCommandBuffer commandBuffer, MemoryStack stack, ResourceResolver resolver, Runnable presentBegin) {
         List<Resource> swapped = new ArrayList<>();
         boolean presented = false;
 
         for (Node pass : this.passes) {
+            if (pass.phase != phase) {
+                continue;
+            }
+            if (pass.isExecutor()) {
+                runExecutor(pass, commandBuffer, stack);
+                continue;
+            }
             GraphicsPipeline pipeline = PipelineRegistry.getOrNull(pass.pipeline);
             if (pipeline == null) {
                 return false;
@@ -199,6 +216,17 @@ public final class FrameGraph {
             r.index ^= 1;
         }
         return presented;
+    }
+
+    private void runExecutor(Node pass, VkCommandBuffer commandBuffer, MemoryStack stack) {
+        if (pass.executorInstance == null) {
+            try {
+                pass.executorInstance = pass.executor.getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("Cannot instantiate pass executor " + pass.executor.getName(), e);
+            }
+        }
+        pass.executorInstance.execute(commandBuffer, stack);
     }
 
     private void bindInputs(Node pass, ResourceResolver resolver) {
@@ -254,8 +282,9 @@ public final class FrameGraph {
             if (ann == null) {
                 throw new IllegalStateException(passClass.getName() + " has no @Pass annotation");
             }
+            boolean executorPass = ann.executor() != PassExecutor.class;
             Map<Integer, String> inputs = new LinkedHashMap<>();
-            String output = null;
+            List<String> outputs = new ArrayList<>();
             int slot = 0;
             for (Field field : passClass.getDeclaredFields()) {
                 Input in = field.getAnnotation(Input.class);
@@ -265,34 +294,37 @@ public final class FrameGraph {
                 }
                 Output out = field.getAnnotation(Output.class);
                 if (out != null) {
-                    output = out.value();
-                    if (!SWAPCHAIN.equals(output)) {
-                        builder.target(output, out.format().vk, out.scale(), out.clear(), out.pingpong());
+                    outputs.add(out.value());
+                    if (!SWAPCHAIN.equals(out.value()) && !executorPass) {
+                        builder.target(out.value(), out.format().vk, out.scale(), out.clear(), out.pingpong());
                     }
                 }
             }
-            if (output == null) {
+            if (outputs.isEmpty()) {
                 throw new IllegalStateException(passClass.getName() + " has no @Output field");
             }
-            specs.add(new PassSpec(ann.pipeline(), inputs, output));
+            specs.add(new PassSpec(ann.pipeline(), ann.phase(), ann.executor(), inputs, outputs));
         }
         for (PassSpec spec : topoSort(id, specs)) {
-            PassBuilder passBuilder = builder.pass(spec.pipeline());
+            PassBuilder passBuilder = builder.pass(spec.pipeline()).phase(spec.phase()).executor(spec.executor());
             for (Map.Entry<Integer, String> input : spec.inputs().entrySet()) {
                 passBuilder.in(input.getKey(), input.getValue());
             }
-            passBuilder.out(spec.output());
+            passBuilder.out(spec.outputs().get(0));
         }
         return builder.build();
     }
 
-    private record PassSpec(Class<? extends PipelineDefinition> pipeline, Map<Integer, String> inputs, String output) {
+    private record PassSpec(Class<? extends PipelineDefinition> pipeline, Phase phase,
+                            Class<? extends PassExecutor> executor, Map<Integer, String> inputs, List<String> outputs) {
     }
 
     private static List<PassSpec> topoSort(String id, List<PassSpec> specs) {
         Map<String, PassSpec> producer = new HashMap<>();
         for (PassSpec spec : specs) {
-            producer.put(spec.output(), spec);
+            for (String out : spec.outputs()) {
+                producer.put(out, spec);
+            }
         }
         Map<PassSpec, Set<PassSpec>> dependencies = new LinkedHashMap<>();
         Map<PassSpec, Integer> indegree = new LinkedHashMap<>();
@@ -361,11 +393,23 @@ public final class FrameGraph {
     public static final class PassBuilder {
         private final Builder parent;
         private final Class<? extends PipelineDefinition> pipeline;
+        private Phase phase = Phase.POST_PROCESS;
+        private Class<? extends PassExecutor> executor = PassExecutor.class;
         private final Map<Integer, String> inputs = new LinkedHashMap<>();
 
         private PassBuilder(Builder parent, Class<? extends PipelineDefinition> pipeline) {
             this.parent = parent;
             this.pipeline = pipeline;
+        }
+
+        public PassBuilder phase(Phase phase) {
+            this.phase = phase;
+            return this;
+        }
+
+        public PassBuilder executor(Class<? extends PassExecutor> executor) {
+            this.executor = executor;
+            return this;
         }
 
         public PassBuilder in(int binding, String resource) {
@@ -374,7 +418,7 @@ public final class FrameGraph {
         }
 
         public Builder out(String output) {
-            this.parent.passes.add(new Node(this.pipeline, this.inputs, output));
+            this.parent.passes.add(new Node(this.pipeline, this.phase, this.executor, this.inputs, output));
             return this.parent;
         }
     }

@@ -107,7 +107,11 @@ public abstract class LevelRendererMixin {
         if (net.vulkanmod.vulkan.pass.DefaultMainPass.postShaderActive()) {
             if (renderType == net.minecraft.client.renderer.RenderType.translucent()) {
                 net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().captureOpaqueDepth();
-                net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().applyColoredShadow();
+                try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+                    net.vulkanmod.render.framegraph.radiance.RadianceGraph.get().execute(
+                            net.vulkanmod.render.framegraph.Phase.MID_RENDER,
+                            net.vulkanmod.vulkan.Renderer.getCommandBuffer(), stack, name -> null, () -> {});
+                }
             }
             net.vulkanmod.vulkan.VRenderSystem.captureWorldViewMatrix(modelView, camX, camY, camZ);
         }
