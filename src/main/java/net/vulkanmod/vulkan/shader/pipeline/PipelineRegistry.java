@@ -25,6 +25,10 @@ public final class PipelineRegistry {
         return pipeline;
     }
 
+    public static GraphicsPipeline getOrNull(Class<? extends PipelineDefinition> def) {
+        return PIPELINES.get(def);
+    }
+
     public static void cleanUp() {
         PIPELINES.values().forEach(GraphicsPipeline::cleanUp);
         PIPELINES.clear();

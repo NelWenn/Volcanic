@@ -458,7 +458,8 @@ public class DefaultMainPass implements MainPass {
         net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(3, tint2);
 
         net.vulkanmod.vulkan.shader.GraphicsPipeline pipeline =
-                net.vulkanmod.render.pack.PackShaderCompiler.get("radiance", "radiance_opaque_tint");
+                net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry.getOrNull(
+                        net.vulkanmod.vulkan.shader.pipeline.definitions.radiance.RadianceOpaqueTintPipeline.class);
         if (pipeline != null) {
             Renderer.getInstance().bindGraphicsPipeline(pipeline);
             Renderer.getInstance().uploadAndBindUBOs(pipeline);
@@ -511,10 +512,8 @@ public class DefaultMainPass implements MainPass {
             fgDepth.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
 
-        net.vulkanmod.render.pack.ShaderPacks.ensureBuiltins();
-
         if (depthShader && "radiance".equals(Initializer.CONFIG.selectedShader)
-                && resolveRadiancePack(commandBuffer, stack, keepRendering, worldDepth, fgDepth)) {
+                && resolveRadianceGraph(commandBuffer, stack, keepRendering, worldDepth, fgDepth)) {
             return;
         }
 
@@ -530,18 +529,14 @@ public class DefaultMainPass implements MainPass {
         }
     }
 
-    private boolean resolveRadiancePack(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
-                                        VulkanImage worldDepth, VulkanImage fgDepth) {
-        net.vulkanmod.render.pack.ShaderPack pack = net.vulkanmod.render.pack.PackPipeline.get(Initializer.CONFIG.selectedShader);
-        if (pack == null || pack.targets.isEmpty() || !net.vulkanmod.render.pack.PackPipeline.structureValid(pack)) {
+    private boolean resolveRadianceGraph(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
+                                         VulkanImage worldDepth, VulkanImage fgDepth) {
+        net.vulkanmod.render.framegraph.FrameGraph graph = net.vulkanmod.render.framegraph.RadianceGraph.get();
+        if (!graph.pipelinesReady()) {
             return false;
         }
-        if (!net.vulkanmod.render.pack.PackPipeline.pipelinesReady(pack)) {
-            return false;
-        }
-        net.vulkanmod.render.pack.PackPipeline.ensureTargets(pack, commandBuffer, stack,
-                this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
-        if (!net.vulkanmod.render.pack.PackPipeline.targetsReady(pack)) {
+        graph.resize(commandBuffer, stack, this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
+        if (!graph.targetsReady()) {
             return false;
         }
 
@@ -550,7 +545,7 @@ public class DefaultMainPass implements MainPass {
         final VulkanImage sh0 = shadowsOn ? this.shadowMap.getCascadeDepthImage(0) : worldDepth;
         final VulkanImage sh1 = shadowsOn ? this.shadowMap.getCascadeDepthImage(1) : worldDepth;
         final VulkanImage sh2 = shadowsOn ? this.shadowMap.getCascadeDepthImage(2) : worldDepth;
-        boolean ran = net.vulkanmod.render.pack.PackPipeline.runFrame(pack, commandBuffer, stack, name -> switch (name) {
+        boolean ran = graph.execute(commandBuffer, stack, name -> switch (name) {
             case "scene" -> scene;
             case "depthtex" -> worldDepth;
             case "fgdepth" -> fgDepth;

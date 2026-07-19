@@ -9,6 +9,7 @@ import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry;
 import net.vulkanmod.vulkan.shader.pipeline.definitions.*;
+import net.vulkanmod.vulkan.shader.pipeline.definitions.radiance.*;
 
 import java.util.function.Function;
 
@@ -43,7 +44,11 @@ public abstract class PipelineManager {
                 RenderScaleBlitPipeline.class,
                 ShadowTerrainSolidPipeline.class,
                 ShadowTerrainCutoutPipeline.class,
-                ShadowTerrainTintPipeline.class
+                ShadowTerrainTintPipeline.class,
+                RadianceLightPipeline.class,
+                RadianceCompositePipeline.class,
+                RadianceAaPipeline.class,
+                RadianceOpaqueTintPipeline.class
         );
 
         terrainShaderEarlyZ = PipelineRegistry.get(TerrainEarlyZPipeline.class);

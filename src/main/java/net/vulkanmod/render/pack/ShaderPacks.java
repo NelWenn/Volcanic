@@ -15,14 +15,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.Map;
 
 public class ShaderPacks {
-    private static final Map<String, String[]> BUILTINS = Map.of(
-            "radiance", new String[]{ "pack.json",
-                    "radiance_light.vsh", "radiance_light.fsh", "radiance_light.json",
-                    "radiance_blur.vsh", "radiance_blur.fsh", "radiance_blur.json",
-                    "radiance_composite.vsh", "radiance_composite.fsh", "radiance_composite.json",
-                    "radiance_opaque_tint.vsh", "radiance_opaque_tint.fsh", "radiance_opaque_tint.json",
-                    "radiance_aa.vsh", "radiance_aa.fsh", "radiance_aa.json" }
-    );
+    private static final Map<String, String[]> BUILTINS = Map.of();
 
     private static boolean ensured = false;
 
