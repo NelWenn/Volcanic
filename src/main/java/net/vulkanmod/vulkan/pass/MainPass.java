@@ -3,6 +3,7 @@ package net.vulkanmod.vulkan.pass;
 import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.framebuffer.Framebuffer;
 import net.vulkanmod.vulkan.framebuffer.SwapChain;
+import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandBuffer;
 
@@ -32,6 +33,8 @@ public interface MainPass {
     default void applyColoredShadow() {}
 
     default void captureOpaqueDepth() {}
+
+    default void prepareMaterialBuffer(double camX, double camY, double camZ, Matrix4f modelView, Matrix4f projection) {}
 
     default void bindAsTexture() {}
 

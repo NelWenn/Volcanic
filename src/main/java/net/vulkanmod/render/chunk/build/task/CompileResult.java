@@ -16,6 +16,7 @@ import java.util.List;
 public class CompileResult {
     public final RenderSection renderSection;
     public final boolean fullUpdate;
+    public boolean hasReflective;
     private final ChunkArea chunkArea;
     private final int xOffset;
     private final int yOffset;
@@ -56,5 +57,6 @@ public class CompileResult {
         this.renderSection.setVisibility(((VisibilitySetExtended)visibilitySet).getVisibility());
         this.renderSection.setCompletelyEmpty(compiledSection.isCompletelyEmpty);
         this.renderSection.setContainsBlockEntities(!blockEntities.isEmpty());
+        this.renderSection.setReflective(hasReflective);
     }
 }

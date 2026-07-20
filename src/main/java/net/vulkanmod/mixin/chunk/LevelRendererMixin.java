@@ -107,6 +107,8 @@ public abstract class LevelRendererMixin {
         if (net.vulkanmod.vulkan.pass.DefaultMainPass.postShaderActive()) {
             if (renderType == net.minecraft.client.renderer.RenderType.translucent()) {
                 net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().captureOpaqueDepth();
+                net.vulkanmod.vulkan.Renderer.getInstance().getMainPass()
+                        .prepareMaterialBuffer(camX, camY, camZ, modelView, projectionMatrix);
                 try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
                     net.vulkanmod.render.framegraph.radiance.RadianceGraph.get().execute(
                             net.vulkanmod.render.framegraph.Phase.MID_RENDER,

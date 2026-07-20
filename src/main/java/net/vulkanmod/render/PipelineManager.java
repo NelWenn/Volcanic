@@ -22,6 +22,7 @@ public abstract class PipelineManager {
 
     static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline;
     static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline;
+    static GraphicsPipeline materialPipeline;
 
     private static Function<TerrainRenderType, GraphicsPipeline> shaderGetter;
 
@@ -47,6 +48,8 @@ public abstract class PipelineManager {
                 ShadowTerrainTintPipeline.class,
                 RadianceLightPipeline.class,
                 RadianceReflectionPipeline.class,
+                RadianceMaterialPipeline.class,
+                RadianceGlassReflectionPipeline.class,
                 RadianceCompositePipeline.class,
                 RadianceAaPipeline.class,
                 RadianceOpaqueTintPipeline.class
@@ -59,6 +62,7 @@ public abstract class PipelineManager {
         shadowTerrainSolidPipeline = PipelineRegistry.get(ShadowTerrainSolidPipeline.class);
         shadowTerrainCutoutPipeline = PipelineRegistry.get(ShadowTerrainCutoutPipeline.class);
         shadowTerrainTintPipeline = PipelineRegistry.get(ShadowTerrainTintPipeline.class);
+        materialPipeline = PipelineRegistry.get(RadianceMaterialPipeline.class);
 
         if (ExternalRenderPathSupport.shouldCreateExternalLodPipeline()) {
             PipelineRegistry.register(ExternalLodPipeline.class);
@@ -76,6 +80,10 @@ public abstract class PipelineManager {
 
     public static GraphicsPipeline getShadowTerrainTintShader() {
         return shadowTerrainTintPipeline;
+    }
+
+    public static GraphicsPipeline getMaterialShader() {
+        return materialPipeline;
     }
 
     public static void setShaderGetter(Function<TerrainRenderType, GraphicsPipeline> consumer) {

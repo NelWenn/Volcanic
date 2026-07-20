@@ -42,6 +42,7 @@ public class RenderSection {
     private boolean playerChanged;
     private boolean completelyEmpty = true;
     private boolean containsBlockEntities = false;
+    private boolean reflective = false;
 
     public long visibility;
 
@@ -327,6 +328,14 @@ public class RenderSection {
 
     public void setContainsBlockEntities(boolean b) {
         this.containsBlockEntities = b;
+    }
+
+    public void setReflective(boolean b) {
+        this.reflective = b;
+    }
+
+    public boolean hasReflective() {
+        return this.reflective;
     }
 
     public byte getDirections() {

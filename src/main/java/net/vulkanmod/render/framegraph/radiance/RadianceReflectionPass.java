@@ -11,6 +11,7 @@ public final class RadianceReflectionPass {
     @Input("depthtex")    Texture depth;
     @Input("fgdepth")     Texture fgDepth;
     @Input("opaquedepth") Texture opaqueDepth;
+    @Input("material")    Texture material;
 
-    @Output(value = "reflection", scale = 0.5f) Texture reflection;
+    @Output(value = "reflection", scale = 0.4f) Texture reflection;
 }

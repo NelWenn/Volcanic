@@ -53,6 +53,10 @@ public class Config {
 
     public int aaMode = 1;
 
+    public boolean glassReflections = true;
+
+    public float horizonFog = 1.0f;
+
     public boolean windEnabled = true;
     public float windStrength = 1.0f;
 

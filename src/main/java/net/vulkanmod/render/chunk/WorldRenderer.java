@@ -376,6 +376,76 @@ public class WorldRenderer {
         VRenderSystem.applyMVP(RenderSystem.getModelViewMatrix(), RenderSystem.getProjectionMatrix());
     }
 
+    public void renderMaterialTerrain(double camX, double camY, double camZ) {
+        if (this.sectionGrid == null || this.sectionGrid.sections == null || this.sectionGraph == null) {
+            return;
+        }
+        GraphicsPipeline pipeline = PipelineManager.getMaterialShader();
+        if (pipeline == null) {
+            return;
+        }
+
+        Renderer renderer = Renderer.getInstance();
+        VRenderSystem.setPrimitiveTopologyGL(GL11.GL_TRIANGLES);
+        IndexBuffer indexBuffer = Renderer.getDrawer().getQuadsIndexBuffer().getIndexBuffer();
+        Renderer.getDrawer().bindIndexBuffer(Renderer.getCommandBuffer(), indexBuffer);
+
+        final boolean sDepthTest = VRenderSystem.depthTest, sDepthMask = VRenderSystem.depthMask, sCull = VRenderSystem.cull;
+        final int sDepthFun = VRenderSystem.depthFun, sColorMask = VRenderSystem.colorMask, sTopology = VRenderSystem.topology;
+        final net.vulkanmod.vulkan.shader.PipelineState.BlendInfo bi = net.vulkanmod.vulkan.shader.PipelineState.blendInfo;
+        final boolean sBlendEnabled = bi.enabled;
+
+        VRenderSystem.depthTest = true;
+        VRenderSystem.depthMask = true;
+        VRenderSystem.depthFun = 515;
+        VRenderSystem.cull = false;
+        VRenderSystem.colorMask = net.vulkanmod.vulkan.shader.PipelineState.ColorMask.getColorMask(true, true, true, true);
+        bi.enabled = false;
+
+        renderer.bindGraphicsPipeline(pipeline);
+        VTextureSelector.bindShaderTextures(pipeline);
+
+        final TerrainRenderType[] types = {
+                TerrainRenderType.CUTOUT_MIPPED, TerrainRenderType.CUTOUT, TerrainRenderType.TRANSLUCENT };
+
+        for (TerrainRenderType terrainRenderType : types) {
+            terrainRenderType.setCutoutUniform();
+            final boolean isTranslucent = terrainRenderType == TerrainRenderType.TRANSLUCENT;
+
+            for (Iterator<ChunkArea> iterator = this.sectionGraph.getChunkAreaQueue().iterator(isTranslucent); iterator.hasNext(); ) {
+                ChunkArea chunkArea = iterator.next();
+                DrawBuffers drawBuffers = chunkArea.drawBuffers;
+                if (drawBuffers.getAreaBuffer(terrainRenderType) == null) {
+                    continue;
+                }
+
+                boolean bound = false;
+                for (RenderSection section : chunkArea.sectionQueue) {
+                    if (!section.hasReflective()) {
+                        continue;
+                    }
+                    if (!bound) {
+                        drawBuffers.bindBuffers(Renderer.getCommandBuffer(), pipeline, terrainRenderType, camX, camY, camZ);
+                        renderer.uploadAndBindUBOs(pipeline);
+                        bound = true;
+                    }
+                    drawBuffers.drawSingleSection(section, terrainRenderType);
+                }
+            }
+        }
+
+        VRenderSystem.setChunkOffset(0, 0, 0);
+        renderer.pushConstants(pipeline);
+
+        VRenderSystem.depthTest = sDepthTest;
+        VRenderSystem.depthMask = sDepthMask;
+        VRenderSystem.cull = sCull;
+        VRenderSystem.depthFun = sDepthFun;
+        VRenderSystem.colorMask = sColorMask;
+        VRenderSystem.topology = sTopology;
+        bi.enabled = sBlendEnabled;
+    }
+
     private final java.util.ArrayList<RenderSection> shadowSections = new java.util.ArrayList<>(1024);
     private int lastShadowSecX = Integer.MIN_VALUE, lastShadowSecY, lastShadowSecZ;
     private int lastShadowGeometryVersion = -1;

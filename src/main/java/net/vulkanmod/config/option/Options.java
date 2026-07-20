@@ -41,6 +41,7 @@ public abstract class Options {
     private static Option<Boolean> windOpt;
     private static RangeOption windStrengthOpt;
     private static Option<Integer> aaOpt;
+    private static RangeOption horizonFogOpt;
 
     static Config config = Initializer.CONFIG;
     static Minecraft minecraft = Minecraft.getInstance();
@@ -162,6 +163,14 @@ public abstract class Options {
                 .setTranslator(value -> Component.literal(value == 0 ? "Off" : (value == 1 ? "FXAA" : "SMAA")));
         aaOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille());
 
+        horizonFogOpt = new RangeOption(
+                Component.translatable("vulkanmod.options.horizonFog"),
+                0, 100, 10,
+                value -> value == 0 ? Component.literal("Off") : Component.nullToEmpty(value + "%"),
+                value -> config.horizonFog = value / 100.0f,
+                () -> Math.round(config.horizonFog * 100.0f));
+        horizonFogOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille());
+
         shaderOptsBuilt = true;
     }
 
@@ -175,6 +184,8 @@ public abstract class Options {
                             new Option<?>[]{ shadowsOpt, shadowQualityOpt, shadowDistanceOpt, entityShadowsOpt, coloredShadowsOpt, optimizedShadowsOpt }),
                     new OptionBlock(Component.translatable("vulkanmod.options.category.antialiasing").getString(),
                             new Option<?>[]{ aaOpt }),
+                    new OptionBlock(Component.translatable("vulkanmod.options.category.atmosphere").getString(),
+                            new Option<?>[]{ horizonFogOpt }),
                     new OptionBlock(Component.translatable("vulkanmod.options.category.vegetation").getString(),
                             new Option<?>[]{ windOpt, windStrengthOpt })
             };

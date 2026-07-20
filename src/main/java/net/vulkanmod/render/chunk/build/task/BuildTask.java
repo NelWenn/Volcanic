@@ -19,6 +19,7 @@ import net.vulkanmod.Initializer;
 import net.vulkanmod.render.chunk.RenderSection;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.build.BlockRenderer;
+import net.vulkanmod.render.material.MaterialRegistry;
 import net.vulkanmod.render.chunk.build.LiquidRenderer;
 import net.vulkanmod.render.chunk.build.RenderRegion;
 import net.vulkanmod.render.chunk.build.UploadBuffer;
@@ -115,6 +116,9 @@ public class BuildTask extends ChunkTask {
                     blockPos.set(section.xOffset() + x, section.yOffset() + y, section.zOffset() + z);
 
                     BlockState blockState = this.region.getBlockState(blockPos);
+                    if (!compileResult.hasReflective && MaterialRegistry.materialId(blockState) != 0) {
+                        compileResult.hasReflective = true;
+                    }
                     if (blockState.isSolidRender(this.region, blockPos)) {
                         visGraph.setOpaque(blockPos);
                     }

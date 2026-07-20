@@ -7,6 +7,7 @@ layout(binding = 0) uniform UBO {
     mat4 FogInvMVPMat;
     vec3 FogSunDir;
     float FogShadowIntensity;
+    vec3 FogShadowSplits;
 };
 
 layout(binding = 1) uniform sampler2D Sampler0;
@@ -15,6 +16,8 @@ layout(binding = 3) uniform sampler2D Sampler2;
 layout(binding = 4) uniform sampler2D Sampler3;
 layout(binding = 5) uniform sampler2D Sampler4;
 layout(binding = 6) uniform sampler2D Sampler5;
+layout(binding = 7) uniform sampler2D Sampler6;
+layout(binding = 8) uniform sampler2D Sampler7;
 
 layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
@@ -90,7 +93,9 @@ void main() {
     vec3 lightCol = FogSunDir.y >= 0.0 ? vec3(1.0, 0.92, 0.75) : vec3(0.58, 0.68, 1.0);
 
     vec4 lightBuf = upsampleLight(dist);
-    float shadowTerm = lightBuf.r;
+    float shadowFar = max(FogShadowSplits.z, 1.0);
+    float lightFade = 1.0 - smoothstep(shadowFar * 0.65, shadowFar, dist);
+    float shadowTerm = lightBuf.r * lightFade;
     float ao = lightBuf.g;
     float interior = lightBuf.b;
     float shadowFrac = clamp(shadowTerm / max(FogShadowIntensity, 1e-3), 0.0, 1.0);
@@ -99,7 +104,7 @@ void main() {
 
     if (FogShadowIntensity > 0.0) {
         float ndlLight = max(dot(nrm, lightDirN), 0.0);
-        float lit = (1.0 - shadowFrac) * (1.0 - interior) * ndlLight;
+        float lit = (1.0 - shadowFrac) * (1.0 - interior) * ndlLight * lightFade;
         color += color * lightCol * lit * FogShadowIntensity * HIGHLIGHT;
     }
 
@@ -107,7 +112,8 @@ void main() {
 
     float dOpaqueOnly = texture(Sampler5, texCoord).r;
     float belowCamera = 1.0 - step(-0.05, rel.y);
-    float underWater = step(depthOpaque + 1e-6, dOpaqueOnly) * step(depthOpaque, depthTrans + 1e-6) * belowCamera;
+    float notGlass = int(texture(Sampler7, texCoord).r * 255.0 + 0.5) == 1 ? 0.0 : 1.0;
+    float underWater = step(depthOpaque + 1e-6, dOpaqueOnly) * step(depthOpaque, depthTrans + 1e-6) * belowCamera * notGlass;
     if (underWater > 0.001) {
         float thickness = length(worldAt(texCoord, dOpaqueOnly)) - dist;
         float murk = 1.0 - exp(-max(thickness, 0.0) * MURK_DENSITY);
@@ -116,6 +122,9 @@ void main() {
 
     vec4 refl = texture(Sampler4, texCoord);
     color = mix(color, refl.rgb, refl.a);
+
+    vec4 glassRefl = texture(Sampler6, texCoord);
+    color = mix(color, glassRefl.rgb, glassRefl.a);
 
     vec3 hx = max(color - vec3(0.82), vec3(0.0));
     color = min(color, vec3(0.82)) + hx / (1.0 + 4.0 * hx);

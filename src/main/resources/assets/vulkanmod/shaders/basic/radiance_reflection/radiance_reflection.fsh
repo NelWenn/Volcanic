@@ -12,6 +12,7 @@ layout(binding = 1) uniform sampler2D Sampler0;
 layout(binding = 2) uniform sampler2D Sampler1;
 layout(binding = 3) uniform sampler2D Sampler2;
 layout(binding = 4) uniform sampler2D Sampler3;
+layout(binding = 5) uniform sampler2D Sampler4;
 
 layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
@@ -81,7 +82,7 @@ vec3 skyReflect(vec3 d) {
 vec3 traceReflection(vec3 startPos, vec3 dir, out float hit) {
     hit = 0.0;
     vec4 cs = FogMVPMat * vec4(startPos, 1.0);
-    vec4 ce = FogMVPMat * vec4(startPos + dir * 120.0, 1.0);
+    vec4 ce = FogMVPMat * vec4(startPos + dir * 80.0, 1.0);
     if (ce.w < 0.05) {
         float tc = (0.05 - cs.w) / (ce.w - cs.w);
         ce = mix(cs, ce, tc);
@@ -89,10 +90,10 @@ vec3 traceReflection(vec3 startPos, vec3 dir, out float hit) {
     vec2 uv0 = (cs.xy / cs.w) * vec2(0.5, -0.5) + 0.5;
     vec2 uv1 = (ce.xy / ce.w) * vec2(0.5, -0.5) + 0.5;
     vec2 res = vec2(textureSize(Sampler3, 0));
-    int steps = int(clamp(length((uv1 - uv0) * res) / 8.0, 16.0, 48.0));
+    int steps = int(clamp(length((uv1 - uv0) * res) / 12.0, 10.0, 20.0));
     float dt = 1.0 / float(steps);
     float t = dt;
-    for (int i = 0; i < 48; i++) {
+    for (int i = 0; i < 20; i++) {
         if (i >= steps) break;
         vec4 c = mix(cs, ce, t);
         vec2 uv = (c.xy / c.w) * vec2(0.5, -0.5) + 0.5;
@@ -135,7 +136,8 @@ void main() {
     vec4 rel = FogInvMVPMat * ndc;
     rel.xyz /= rel.w;
 
-    vec3 rayDir = rel.xyz / max(length(rel.xyz), 1e-4);
+    float dist = length(rel.xyz);
+    vec3 rayDir = rel.xyz / max(dist, 1e-4);
     vec3 surfN = normalize(cross(dFdx(rel.xyz), dFdy(rel.xyz)));
     vec3 nrm = dot(surfN, rayDir) > 0.0 ? -surfN : surfN;
 
@@ -144,13 +146,16 @@ void main() {
     float notForeground = step(depthOpaque, depthTrans + 1e-6);
     float flatness = smoothstep(0.4, 0.75, nrm.y);
     float belowCamera = 1.0 - step(-0.05, rel.y);
-    float reflectivity = translucentInWorld * notForeground * flatness * belowCamera;
+    float notGlass = int(texture(Sampler4, texCoord).r * 255.0 + 0.5) == 1 ? 0.0 : 1.0;
+    float reflectivity = translucentInWorld * notForeground * flatness * belowCamera * notGlass;
     if (reflectivity < 0.001) {
         fragColor = vec4(0.0);
         return;
     }
 
     vec3 wN = waterNormal(rel.xz + FogCameraPos.xz, WindTime);
+    float waveFade = 1.0 - smoothstep(25.0, 75.0, dist);
+    wN = normalize(mix(vec3(0.0, 1.0, 0.0), wN, waveFade));
     float ndv = max(dot(-rayDir, wN), 0.0);
     float fres = mix(SSR_BASE, SSR_MAX, pow(1.0 - ndv, 4.0));
     float hit;

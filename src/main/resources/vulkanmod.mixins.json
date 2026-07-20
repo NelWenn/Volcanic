@@ -60,6 +60,7 @@
     "render.BufferUploaderM",
     "render.BufferSourceM",
     "render.EntityShadowBlobMixin",
+    "render.FogRendererMixin",
     "render.GameRendererMixin",
     "render.GuiGraphicsRenderStateMixin",
     "render.GuiRenderStateBoundaryMixin",

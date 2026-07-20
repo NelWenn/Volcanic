@@ -16,6 +16,7 @@ public final class RadianceCompositePipeline implements PipelineDefinition {
         Matrix4f FogInvMVPMat;
         Vector3f FogSunDir;
         float FogShadowIntensity;
+        Vector3f FogShadowSplits;
     }
 
     @Sampler(binding = 1) int Sampler0;
@@ -24,4 +25,6 @@ public final class RadianceCompositePipeline implements PipelineDefinition {
     @Sampler(binding = 4) int Sampler3;
     @Sampler(binding = 5) int Sampler4;
     @Sampler(binding = 6) int Sampler5;
+    @Sampler(binding = 7) int Sampler6;
+    @Sampler(binding = 8) int Sampler7;
 }

@@ -13,8 +13,10 @@ public final class RadianceGraph {
             graph = FrameGraph.fromPasses("radiance",
                     ShadowMapPass.class,
                     ColoredShadowTintPass.class,
+                    RadianceMaterialPass.class,
                     RadianceLightPass.class,
                     RadianceReflectionPass.class,
+                    RadianceGlassReflectionPass.class,
                     RadianceCompositePass.class,
                     RadianceAaPass.class);
         }

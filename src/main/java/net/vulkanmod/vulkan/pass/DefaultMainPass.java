@@ -15,6 +15,8 @@ import net.vulkanmod.vulkan.framebuffer.SwapChain;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
 import net.vulkanmod.vulkan.util.DrawUtil;
+import net.vulkanmod.render.chunk.WorldRenderer;
+import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkClearColorValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
@@ -43,6 +45,14 @@ public class DefaultMainPass implements MainPass {
     private VulkanImage capturedForegroundDepth;
     private int scaledDepthClears;
     private boolean liveDepthIsForeground;
+
+    private Framebuffer materialFramebuffer;
+    private RenderPass materialRenderPass;
+    private int materialW = -1, materialH = -1;
+    private final Matrix4f materialModelView = new Matrix4f();
+    private final Matrix4f materialProjection = new Matrix4f();
+    private double materialCamX, materialCamY, materialCamZ;
+    private boolean materialViewReady;
 
     private final ShadowMap shadowMap = new ShadowMap();
     public static boolean inEntityShadowPass = false;
@@ -415,6 +425,103 @@ public class DefaultMainPass implements MainPass {
         this.capturedOpaqueDepth = snapshotScaledDepth(this.capturedOpaqueDepth);
     }
 
+    private boolean glassMaterialActive() {
+        return postShaderActive() && isUsingScaledFramebuffer()
+                && "radiance".equals(Initializer.CONFIG.selectedShader)
+                && Initializer.CONFIG.glassReflections;
+    }
+
+    private void ensureMaterialTarget(int w, int h) {
+        if (this.materialFramebuffer != null && this.materialW == w && this.materialH == h) {
+            return;
+        }
+        if (this.materialFramebuffer != null) {
+            this.materialFramebuffer.cleanUp();
+            this.materialFramebuffer = null;
+        }
+        if (this.materialRenderPass != null) {
+            this.materialRenderPass.cleanUp();
+            this.materialRenderPass = null;
+        }
+
+        this.materialFramebuffer = Framebuffer.builder(w, h, 1, true)
+                .setFormat(VK_FORMAT_R8_UNORM)
+                .setDepthFormat(VK_FORMAT_D32_SFLOAT)
+                .setLinearFiltering(false)
+                .setDepthLinearFiltering(false)
+                .build();
+
+        RenderPass.Builder builder = RenderPass.builder(this.materialFramebuffer);
+        builder.getColorAttachmentInfo()
+                .setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+                .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        builder.getDepthAttachmentInfo()
+                .setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE)
+                .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        this.materialRenderPass = builder.build();
+
+        this.materialW = w;
+        this.materialH = h;
+    }
+
+    @Override
+    public void prepareMaterialBuffer(double camX, double camY, double camZ, Matrix4f modelView, Matrix4f projection) {
+        this.materialCamX = camX;
+        this.materialCamY = camY;
+        this.materialCamZ = camZ;
+        this.materialModelView.set(modelView);
+        this.materialProjection.set(projection);
+        this.materialViewReady = true;
+    }
+
+    public void renderMaterialBuffer() {
+        boolean ready = this.materialViewReady;
+        this.materialViewReady = false;
+        if (!ready || !glassMaterialActive()) {
+            return;
+        }
+        WorldRenderer worldRenderer = WorldRenderer.getInstance();
+        if (worldRenderer == null) {
+            return;
+        }
+
+        VulkanImage depthSrc = this.scaledFramebuffer.getDepthAttachment();
+        ensureMaterialTarget(depthSrc.width, depthSrc.height);
+        if (this.materialFramebuffer == null) {
+            return;
+        }
+
+        VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
+        Renderer.getInstance().endRenderPass(commandBuffer);
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            this.materialFramebuffer.getColorAttachment().transitionImageLayout(
+                    stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            this.materialFramebuffer.getDepthAttachment().transitionImageLayout(
+                    stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+            Renderer.clearViewportScale();
+            float cr = VRenderSystem.clearColor.get(0), cg = VRenderSystem.clearColor.get(1);
+            float cb = VRenderSystem.clearColor.get(2), ca = VRenderSystem.clearColor.get(3);
+            VRenderSystem.setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            this.materialFramebuffer.beginRenderPass(commandBuffer, this.materialRenderPass, stack);
+            VRenderSystem.setClearColor(cr, cg, cb, ca);
+
+            VkViewport.Buffer viewport = this.materialFramebuffer.viewport(stack);
+            vkCmdSetViewport(commandBuffer, 0, viewport);
+            VkRect2D.Buffer scissor = this.materialFramebuffer.scissor(stack);
+            vkCmdSetScissor(commandBuffer, 0, scissor);
+
+            VRenderSystem.applyMVP(this.materialModelView, this.materialProjection);
+            worldRenderer.renderMaterialTerrain(this.materialCamX, this.materialCamY, this.materialCamZ);
+
+            Renderer.getInstance().endRenderPass(commandBuffer);
+
+            this.scaledFramebuffer.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
+            Renderer.setViewportScale(this.swapChain.getWidth(), this.swapChain.getHeight());
+        }
+    }
+
     @Override
     public void applyColoredShadow() {
         if (!Initializer.CONFIG.coloredShadows || !Initializer.CONFIG.shadowsEnabled
@@ -555,6 +662,8 @@ public class DefaultMainPass implements MainPass {
             case "shadowtex1" -> sh1;
             case "shadowtex2" -> sh2;
             case "opaquedepth" -> this.capturedOpaqueDepth != null ? this.capturedOpaqueDepth : worldDepth;
+            case "material" -> this.materialFramebuffer != null ? this.materialFramebuffer.getColorAttachment() : worldDepth;
+            case "materialdepth" -> this.materialFramebuffer != null ? this.materialFramebuffer.getDepthAttachment() : worldDepth;
             default -> null;
         }, () -> {
             this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);

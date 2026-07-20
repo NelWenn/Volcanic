@@ -9,20 +9,17 @@ import net.vulkanmod.vulkan.shader.pipeline.VertexFormatRef;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-@GfxPipeline(basePath = "radiance_reflection", vertex = "radiance_reflection", fragment = "radiance_reflection", vertexFormat = VertexFormatRef.NONE)
-public final class RadianceReflectionPipeline implements PipelineDefinition {
+@GfxPipeline(basePath = "radiance_glass", vertex = "radiance_glass", fragment = "radiance_glass", vertexFormat = VertexFormatRef.NONE)
+public final class RadianceGlassReflectionPipeline implements PipelineDefinition {
     @Ubo(stage = Stage.FRAGMENT, binding = 0)
     static class FragUbo {
         Matrix4f FogInvMVPMat;
         Matrix4f FogMVPMat;
         Vector3f FogSunDir;
-        Vector3f FogCameraPos;
-        float WindTime;
     }
 
     @Sampler(binding = 1) int Sampler0;
     @Sampler(binding = 2) int Sampler1;
     @Sampler(binding = 3) int Sampler2;
     @Sampler(binding = 4) int Sampler3;
-    @Sampler(binding = 5) int Sampler4;
 }

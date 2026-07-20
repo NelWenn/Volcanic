@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.world.level.block.state.BlockState;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.PipelineManager;
+import net.vulkanmod.render.material.MaterialRegistry;
 import net.vulkanmod.render.util.SortUtil;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
@@ -35,6 +36,9 @@ public class TerrainBufferBuilder {
 
     protected VertexBuilder vertexBuilder;
 
+    private final int materialSlotOffset;
+    private int currentMaterialId;
+
     public TerrainBufferBuilder(int size) {
         this.bufferPtr = ALLOCATOR.malloc(size);
         this.capacity = size;
@@ -42,6 +46,7 @@ public class TerrainBufferBuilder {
         this.format = PipelineManager.TERRAIN_VERTEX_FORMAT;
         this.vertexBuilder = PipelineManager.TERRAIN_VERTEX_FORMAT == CustomVertexFormat.COMPRESSED_TERRAIN
                 ? new VertexBuilder.CompressedVertexBuilder() : new VertexBuilder.DefaultVertexBuilder();
+        this.materialSlotOffset = PipelineManager.TERRAIN_VERTEX_FORMAT == CustomVertexFormat.COMPRESSED_TERRAIN ? 16 : -1;
     }
 
     public void ensureCapacity() {
@@ -205,10 +210,14 @@ public class TerrainBufferBuilder {
     public void vertex(float x, float y, float z, int color, float u, float v, int light, int packedNormal) {
         final long ptr = this.bufferPtr + this.nextElementByte;
         this.vertexBuilder.vertex(ptr, x, y, z, color, u, v, light, packedNormal);
+        if (this.materialSlotOffset >= 0) {
+            MemoryUtil.memPutInt(ptr + this.materialSlotOffset, this.currentMaterialId);
+        }
         this.endVertex();
     }
 
     public void setBlockAttributes(BlockState blockState) {
+        this.currentMaterialId = MaterialRegistry.materialId(blockState);
     }
 
     public long getPtr() {
