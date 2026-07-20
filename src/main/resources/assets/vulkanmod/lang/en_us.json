@@ -87,6 +87,8 @@
   "vulkanmod.options.shadowsEnabled": "Sun Shadows",
   "vulkanmod.options.entityShadows": "Entity Shadows",
   "vulkanmod.options.coloredShadows": "Colored Shadows",
+  "vulkanmod.options.optimizedShadows": "Optimized Shadows",
+  "vulkanmod.options.optimizedShadows.tooltip": "Render shadows at half resolution for a large performance gain. Slightly softer shadow edges.",
   "vulkanmod.options.shadowQuality": "Shadow Definition",
   "vulkanmod.options.shadowDistance": "Shadow Distance",
 

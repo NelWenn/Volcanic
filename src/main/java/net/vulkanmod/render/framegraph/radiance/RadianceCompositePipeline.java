@@ -23,4 +23,5 @@ public final class RadianceCompositePipeline implements PipelineDefinition {
     @Sampler(binding = 3) int Sampler2;
     @Sampler(binding = 4) int Sampler3;
     @Sampler(binding = 5) int Sampler4;
+    @Sampler(binding = 6) int Sampler5;
 }

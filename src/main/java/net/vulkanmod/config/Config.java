@@ -49,6 +49,7 @@ public class Config {
     public int shadowDistance = 48;
     public boolean entityShadows = true;
     public boolean coloredShadows = true;
+    public boolean optimizedShadows = true;
 
     public int aaMode = 1;
 

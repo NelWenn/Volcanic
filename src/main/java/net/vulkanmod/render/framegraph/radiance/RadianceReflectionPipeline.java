@@ -16,6 +16,8 @@ public final class RadianceReflectionPipeline implements PipelineDefinition {
         Matrix4f FogInvMVPMat;
         Matrix4f FogMVPMat;
         Vector3f FogSunDir;
+        Vector3f FogCameraPos;
+        float WindTime;
     }
 
     @Sampler(binding = 1) int Sampler0;

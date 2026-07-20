@@ -14,26 +14,35 @@ layout(binding = 2) uniform sampler2D Sampler1;
 layout(binding = 3) uniform sampler2D Sampler2;
 layout(binding = 4) uniform sampler2D Sampler3;
 layout(binding = 5) uniform sampler2D Sampler4;
+layout(binding = 6) uniform sampler2D Sampler5;
 
 layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
 
-const float GOLDEN = 2.39996323;
 const float AO_STRENGTH = 0.35;
 const float HIGHLIGHT = 0.28;
+const vec3 MURK_COLOR = vec3(0.05, 0.16, 0.20);
+const float MURK_DENSITY = 0.11;
+const float MURK_STRENGTH = 0.85;
 
-vec2 vogel(int i, int n) {
-    float r = sqrt((float(i) + 0.5) / float(n));
-    float theta = float(i) * GOLDEN;
-    return r * vec2(cos(theta), sin(theta));
+vec3 worldAt(vec2 uv, float d) {
+    vec4 n = vec4(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, d, 1.0);
+    vec4 w = FogInvMVPMat * n;
+    return w.xyz / w.w;
 }
+
+const vec2 VOGEL12[12] = vec2[](
+    vec2(0.20412, 0.00000), vec2(-0.26070, 0.23882), vec2(0.03990, -0.45469), vec2(0.32859, 0.42859),
+    vec2(-0.60301, -0.10666), vec2(0.57123, -0.36337), vec2(-0.19106, 0.71075), vec2(-0.36438, -0.70159),
+    vec2(0.79056, 0.28871), vec2(-0.82244, 0.33949), vec2(0.39647, -0.84724), vec2(0.29298, 0.93407)
+);
 
 vec4 upsampleLight(float dist) {
     vec2 ht = 0.8 / vec2(textureSize(Sampler3, 0));
     vec4 sum = texture(Sampler3, texCoord);
     float wSum = 1.0;
     for (int i = 0; i < 12; i++) {
-        vec4 t = texture(Sampler3, texCoord + vogel(i, 12) * ht);
+        vec4 t = texture(Sampler3, texCoord + VOGEL12[i] * ht);
         float w = 1.0 / (1.0 + 30.0 * abs(dist - t.a) / max(dist, 1.0));
         sum += t * w;
         wSum += w;
@@ -95,6 +104,15 @@ void main() {
     }
 
     color *= 1.0 - AO_STRENGTH * (1.0 - ao);
+
+    float dOpaqueOnly = texture(Sampler5, texCoord).r;
+    float belowCamera = 1.0 - step(-0.05, rel.y);
+    float underWater = step(depthOpaque + 1e-6, dOpaqueOnly) * step(depthOpaque, depthTrans + 1e-6) * belowCamera;
+    if (underWater > 0.001) {
+        float thickness = length(worldAt(texCoord, dOpaqueOnly)) - dist;
+        float murk = 1.0 - exp(-max(thickness, 0.0) * MURK_DENSITY);
+        color = mix(color, MURK_COLOR, murk * MURK_STRENGTH);
+    }
 
     vec4 refl = texture(Sampler4, texCoord);
     color = mix(color, refl.rgb, refl.a);

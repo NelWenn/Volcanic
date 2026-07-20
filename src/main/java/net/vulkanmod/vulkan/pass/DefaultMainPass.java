@@ -536,6 +536,7 @@ public class DefaultMainPass implements MainPass {
         if (!graph.pipelinesReady()) {
             return false;
         }
+        graph.setTargetScale("light", Initializer.CONFIG.optimizedShadows ? 0.5f : 1.0f);
         graph.resize(commandBuffer, stack, this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
         if (!graph.targetsReady()) {
             return false;

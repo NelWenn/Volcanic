@@ -7,11 +7,12 @@ import net.vulkanmod.render.framegraph.Texture;
 
 @Pass(name = "composite", pipeline = RadianceCompositePipeline.class)
 public final class RadianceCompositePass {
-    @Input("scene")      Texture scene;
-    @Input("depthtex")   Texture depth;
-    @Input("fgdepth")    Texture fgDepth;
-    @Input("light")      Texture light;
-    @Input("reflection") Texture reflection;
+    @Input("scene")       Texture scene;
+    @Input("depthtex")    Texture depth;
+    @Input("fgdepth")     Texture fgDepth;
+    @Input("light")       Texture light;
+    @Input("reflection")  Texture reflection;
+    @Input("opaquedepth") Texture opaqueDepth;
 
     @Output("aatex") Texture aa;
 }

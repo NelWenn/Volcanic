@@ -38,7 +38,7 @@ public final class FrameGraph {
     static final class Resource {
         final String name;
         final int vkFormat;
-        final float scale;
+        float scale;
         final float clear;
         final boolean pingpong;
 
@@ -158,6 +158,13 @@ public final class FrameGraph {
             target.index = 0;
             target.w = w;
             target.h = h;
+        }
+    }
+
+    public void setTargetScale(String name, float scale) {
+        Resource target = this.targets.get(name);
+        if (target != null) {
+            target.scale = scale;
         }
     }
 

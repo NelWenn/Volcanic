@@ -28,14 +28,24 @@ layout(binding = 6) uniform sampler2D Sampler5;
 layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
 
-const float GOLDEN = 2.39996323;
 const float BLEND = 0.82;
 
-vec2 vogel(int i, int n) {
-    float r = sqrt((float(i) + 0.5) / float(n));
-    float theta = float(i) * GOLDEN;
-    return r * vec2(cos(theta), sin(theta));
-}
+const vec2 VOGEL12[12] = vec2[](
+    vec2(0.20412, 0.00000), vec2(-0.26070, 0.23882), vec2(0.03990, -0.45469), vec2(0.32859, 0.42859),
+    vec2(-0.60301, -0.10666), vec2(0.57123, -0.36337), vec2(-0.19106, 0.71075), vec2(-0.36438, -0.70159),
+    vec2(0.79056, 0.28871), vec2(-0.82244, 0.33949), vec2(0.39647, -0.84724), vec2(0.29298, 0.93407)
+);
+
+const vec2 VOGEL32[32] = vec2[](
+    vec2(0.12500, 0.00000), vec2(-0.15965, 0.14625), vec2(0.02444, -0.27844), vec2(0.20122, 0.26246),
+    vec2(-0.36927, -0.06532), vec2(0.34980, -0.22252), vec2(-0.11700, 0.43524), vec2(-0.22314, -0.42963),
+    vec2(0.48412, 0.17680), vec2(-0.50364, 0.20790), vec2(0.24279, -0.51882), vec2(0.17941, 0.57200),
+    vec2(-0.54076, -0.31338), vec2(0.63437, -0.13946), vec2(-0.38715, 0.55068), vec2(-0.08944, -0.69020),
+    vec2(0.54907, 0.46276), vec2(-0.73888, 0.03055), vec2(0.53896, -0.53633), vec2(-0.03606, 0.77979),
+    vec2(-0.51282, -0.61453), vec2(0.81236, 0.10930), vec2(-0.68831, 0.47891), vec2(0.18809, -0.83606),
+    vec2(0.43503, 0.75919), vec2(-0.85045, -0.27132), vec2(0.82610, -0.38168), vec2(-0.35789, 0.85516),
+    vec2(-0.31941, -0.88803), vec2(0.84991, 0.44669), vec2(-0.94403, 0.24884), vec2(0.53660, -0.83453)
+);
 
 vec3 reconstruct(vec2 uv, float depth) {
     vec4 ndc = vec4(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0, depth, 1.0);
@@ -68,7 +78,7 @@ float cascadeLit(vec3 rel, vec3 N, sampler2D tex, mat4 mvp, float texel, float w
     float searchR = 5.0 * texel;
     float blockerSum = 0.0, blockers = 0.0;
     for (int i = 0; i < 12; i++) {
-        float occ = texture(tex, uv + vogel(i, 12) * searchR).r;
+        float occ = texture(tex, uv + VOGEL12[i] * searchR).r;
         if (occ < d) { blockerSum += occ; blockers += 1.0; }
     }
     if (blockers <= 0.0) return 1.0;
@@ -78,7 +88,7 @@ float cascadeLit(vec3 rel, vec3 N, sampler2D tex, mat4 mvp, float texel, float w
 
     float sum = 0.0;
     for (int i = 0; i < 32; i++) {
-        vec2 o = vogel(i, 32) * penumbra;
+        vec2 o = VOGEL32[i] * penumbra;
         sum += d > texture(tex, uv + o).r ? 0.0 : 1.0;
     }
     return sum / 32.0;

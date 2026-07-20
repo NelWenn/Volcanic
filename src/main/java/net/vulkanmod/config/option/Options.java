@@ -37,6 +37,7 @@ public abstract class Options {
     private static RangeOption shadowDistanceOpt;
     private static Option<Boolean> entityShadowsOpt;
     private static Option<Boolean> coloredShadowsOpt;
+    private static Option<Boolean> optimizedShadowsOpt;
     private static Option<Boolean> windOpt;
     private static RangeOption windStrengthOpt;
     private static Option<Integer> aaOpt;
@@ -134,6 +135,12 @@ public abstract class Options {
                 () -> config.coloredShadows);
         coloredShadowsOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
 
+        optimizedShadowsOpt = new SwitchOption(
+                Component.translatable("vulkanmod.options.optimizedShadows"),
+                value -> config.optimizedShadows = value,
+                () -> config.optimizedShadows);
+        optimizedShadowsOpt.setActivationFn(() -> config.shadersEnabled && config.isCamille() && config.shadowsEnabled);
+
         windOpt = new SwitchOption(
                 Component.translatable("vulkanmod.options.wind"),
                 value -> config.windEnabled = value,
@@ -165,7 +172,7 @@ public abstract class Options {
             return new OptionBlock[]{
                     new OptionBlock("", new Option<?>[]{ backTo(() -> { shaderNav = null; shaderCat = null; }) }),
                     new OptionBlock(Component.translatable("vulkanmod.options.category.shadows").getString(),
-                            new Option<?>[]{ shadowsOpt, shadowQualityOpt, shadowDistanceOpt, entityShadowsOpt, coloredShadowsOpt }),
+                            new Option<?>[]{ shadowsOpt, shadowQualityOpt, shadowDistanceOpt, entityShadowsOpt, coloredShadowsOpt, optimizedShadowsOpt }),
                     new OptionBlock(Component.translatable("vulkanmod.options.category.antialiasing").getString(),
                             new Option<?>[]{ aaOpt }),
                     new OptionBlock(Component.translatable("vulkanmod.options.category.vegetation").getString(),
