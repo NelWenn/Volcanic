@@ -235,6 +235,14 @@ Volcanic stands on the work of the upstream authors — the Vulkan renderer and 
 | VulkanMod Reforged (NeoForge port) | **Rindw / TrulyRin** | <https://github.com/TrulyRin/VulkanMod-Reforged> |
 | **Volcanic** (this fork) | **NelWenn** | <https://github.com/NelWenn/Volcanic> |
 
+**Contributors**
+
+- **[RevoIDE](https://github.com/RevoIDE)** — annotation-driven pipeline engine (`@GfxPipeline` / `@Ubo` /
+  `@Sampler`, `PipelineFactory`) and the Java frame-graph foundation the shader system is built on; plus
+  the Wayland/GLFW startup-crash fix.
+- **[NelWenn](https://github.com/NelWenn)** — macOS/Metal support, the deferred shader & lighting stack,
+  reflections, and the pack/mod compatibility layers (CTM · CIT · Polytone · SCSS).
+
 Please support the upstream projects ⭐.
 
 ---
