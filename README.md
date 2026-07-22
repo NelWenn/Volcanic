@@ -4,7 +4,7 @@
 
 # Volcanic
 
-### A Vulkan renderer for Minecraft — cross-platform, tuned for macOS, with native shaders & lighting.
+### A cross-platform Vulkan renderer for Minecraft — native shaders, lighting & resource-pack compatibility.
 
 <em>Fork of <a href="https://github.com/xCollateral/VulkanMod">VulkanMod</a> (NeoForge 1.21.1). Replaces Minecraft's OpenGL renderer with Vulkan on Windows, Linux and macOS (Apple Silicon &amp; Intel, through MoltenVK).</em>
 
@@ -33,18 +33,20 @@
 ---
 
 **Volcanic** is a performance-focused fork of VulkanMod for **NeoForge 1.21.1**. It swaps Minecraft's
-aging OpenGL renderer for a modern **Vulkan** backend that runs from a single jar on Windows, Linux and
-macOS, with extra work put into running well on macOS (Apple Silicon and Intel) through
-[MoltenVK](https://github.com/KhronosGroup/MoltenVK).
+aging OpenGL renderer for a modern **Vulkan** backend that runs from a single jar on **Windows, Linux and
+macOS** — every platform treated as first-class. macOS (Apple Silicon & Intel) is fully supported through
+[MoltenVK](https://github.com/KhronosGroup/MoltenVK) (Vulkan → **Metal**), which upstream VulkanMod builds
+don't handle.
 
-On top of the renderer it adds a **native Vulkan post-process pipeline**: real-time sun/moon
+On top of the renderer it adds a **native Vulkan deferred shader pipeline**: real-time sun/moon
 **shadow mapping**, **volumetric height fog** with screen-space **god-rays**, a per-pixel
-**point-light and lightmap system**, **color grading**, **TAA**, and **render-scale upscaling** — all
-rendered directly in the Vulkan path, no OpenGL shim.
+**point-light and lightmap system**, screen-space **water & glass reflections**, **color grading**,
+**TAA**, and **render-scale upscaling** — all rendered directly in the Vulkan path, no OpenGL shim.
 
-The wider goal is **mod compatibility**: getting mods that expect OpenGL to render correctly under
-Vulkan, and adding programmable core-shader support (Sodium-style) so packs and mods like Create work
-without falling back to OpenGL. That work is ongoing.
+Just as important is **pack & mod compatibility** — rendering, natively in Vulkan, the resource packs
+that used to need OpenGL, Continuity or OptiFine: **OptiFine CTM** (connected/biome block textures) and
+**CIT** (custom item models), **Polytone** (colormaps, variant textures, block offsets), and
+**Sodium-style core shaders (SCSS)**. See the [changelog](CHANGELOG.md).
 
 > [!IMPORTANT]
 > **Unofficial fork.** Volcanic is not affiliated with, nor endorsed by, the original VulkanMod project
@@ -75,6 +77,10 @@ A Vulkan post pipeline with **color grading** (exposure / contrast / saturation 
 A real shadow map (second camera-relative terrain pass) with **Vogel-disk PCF**, slope-scaled bias
 and texel snapping — day *and* night, with a resolution **quality slider**.
 
+### 💧 Water & glass reflections
+Deterministic **screen-space reflections** — natural water at half resolution in a dedicated pass, plus
+**glass reflections** driven by a material-ID G-buffer.
+
 </td>
 <td width="50%" valign="top">
 
@@ -89,6 +95,10 @@ frames on demand.
 Entity, block-entity, **leaves**, and particle culling, indirect draw, adaptive chunk uploads and
 tunable **performance presets**.
 
+### 🧩 Pack & mod compatibility
+Native **OptiFine CTM & CIT**, **Polytone** and **Sodium-style core shaders (SCSS)** — connected/biome
+textures, custom item models and colormaps render in Vulkan, no OpenGL fallback.
+
 ### 📊 GPU frame timing
 Built-in **Vulkan timestamp** GPU timing so you can see where frame time actually goes.
 
@@ -100,7 +110,7 @@ Built-in **Vulkan timestamp** GPU timing so you can see where frame time actuall
 
 ## 🚀 What this fork adds (vs VulkanMod Reforged)
 
-**macOS / cross-platform**
+**Platform support** *(Windows · Linux · macOS/Metal — one jar, all three)*
 
 - **macOS/NeoForge startup crash fixed** — Reforged crashed on macOS with
   `NoClassDefFoundError: org.lwjgl.vulkan.VK`. NeoForge loads the bundled `lwjgl-vulkan` into the
@@ -117,14 +127,25 @@ Built-in **Vulkan timestamp** GPU timing so you can see where frame time actuall
 
 **New rendering features**
 
-- Native Vulkan **post-process pipeline** (color grading · volumetric height fog · god-rays).
+- Native Vulkan **deferred shader pipeline** (color grading · volumetric height fog · god-rays).
 - **Sun/moon shadow mapping** with PCF, slope bias, day/night and a resolution quality slider.
 - **Lighting system** — custom lightmap (night/cave darkening, warm torch light), per-pixel
   **point lights** from emissive blocks with per-block colours, and a handheld dynamic light.
+- **Screen-space reflections** — natural water (dedicated half-res pass) and **glass reflections** via a
+  material-ID G-buffer.
 - **TAA** temporal accumulation and **render-scale upscaling**.
 - Heavy effects evaluated at **half resolution** with a bilateral upsample to keep the cost down at
   Retina resolutions.
 - **GPU frame timing** via Vulkan timestamp queries.
+
+**Pack & mod compatibility** *(rendered natively in Vulkan — no Continuity / OptiFine / OpenGL fallback)*
+
+- **OptiFine CTM** — connected/biome/random/overlay block textures stitched straight into the Vulkan
+  terrain mesher (biome-varying foliage, leaf overlays, ground detail).
+- **OptiFine CIT** — custom item models by armor trim (pattern + material), swapped at item-render time.
+- **Polytone** — custom colormaps, biome-dependent variant textures and block visual offsets; unsupported
+  custom render types are skipped instead of crashing.
+- **Sodium core shaders (SCSS)** — fragment resource packs render identically to Sodium, without Sodium.
 
 ---
 
@@ -161,10 +182,15 @@ Everything is in **Options → Video Settings**:
 - **Performance** — performance presets, chunk uploads, culling (entities, block entities, leaves,
   particles), indirect draw, render device selection.
 - **Render scale** — dynamic resolution / upscaling (50–100%).
-- **Shaders** tab — enable the post-process pipeline, pick an effect, and tune it live:
+- **Shaders** tab — enable the deferred pipeline, pick an effect, and tune it live:
   - Color grading: exposure · contrast · saturation · temperature
-  - Volumetric fog: density · height
-  - Shadows: on/off · **quality** slider · TAA on/off
+  - Volumetric fog: density · height · horizon fog
+  - Shadows: on/off · **quality** slider · half-res toggle · TAA on/off
+  - Reflections: water (SSR) · **glass reflections**
+- **Connected textures (CTM)** — on/off; renders OptiFine CTM resource packs natively.
+
+Resource-pack compatibility (**CTM · CIT · Polytone · SCSS**) activates automatically when a supported
+pack is loaded — no configuration needed.
 
 ---
 
