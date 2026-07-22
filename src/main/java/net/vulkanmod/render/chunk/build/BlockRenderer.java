@@ -158,6 +158,13 @@ public class BlockRenderer {
             BakedQuad bakedQuad = quads.get(i);
             bakedQuad = net.vulkanmod.compat.PolytoneCompat.maybeModifyQuad(bakedQuad, resources.region, blockState, blockPos);
             QuadView quadView = (QuadView) bakedQuad;
+            if (net.vulkanmod.render.ctm.Ctm.isActive()) {
+                net.vulkanmod.render.ctm.CtmResult ctm = net.vulkanmod.render.ctm.Ctm.resolve(
+                        bakedQuad.getSprite(), blockState, blockPos, cullFace, resources.region);
+                if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.SWAP) {
+                    quadView = new net.vulkanmod.render.ctm.CtmUvQuad(quadView, bakedQuad.getSprite(), ctm.sprite());
+                }
+            }
             lightPipeline.calculate(quadView, blockPos, quadLightData, cullFace, bakedQuad.getDirection(), bakedQuad.isShade());
             putQuadData(bufferBuilder, quadView, quadLightData);
         }
