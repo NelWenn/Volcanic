@@ -50,5 +50,6 @@ public final class CtmPackLoader {
         if (loaded.isEmpty()) { Ctm.clear(); return; }
         CtmStore store = new CtmStore(loaded, CtmAtlasRegistrar.spriteLookup(blocksAtlas));
         Ctm.install(store);
+        Initializer.LOGGER.info("CTM: store active={}", Ctm.isActive());
     }
 }
