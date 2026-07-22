@@ -30,6 +30,7 @@ public final class Ctm {
         CtmStore s = store;
         if (s == null) return CtmResult.none();
         try {
+            if (!s.hasCandidates(sprite, state.getBlock())) return CtmResult.none();
             ResourceLocation biome = null;
             var level = WorldRenderer.getLevel();
             if (level != null) biome = level.getBiome(pos).unwrapKey().map(k -> k.location()).orElse(null);
