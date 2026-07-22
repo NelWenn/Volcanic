@@ -36,6 +36,7 @@ public class Config {
 
     public int ambientOcclusion = 1;
     public boolean textureAnimations = true;
+    public boolean ctmEnabled = true;
 
     public boolean shadersEnabled = false;
     public String selectedShader = "off";
