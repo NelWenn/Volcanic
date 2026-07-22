@@ -1,6 +1,5 @@
 package net.vulkanmod.mixin.texture;
 
-import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.client.renderer.texture.atlas.SpriteSource;
 import net.minecraft.client.renderer.texture.atlas.SpriteSourceList;
 import net.minecraft.resources.ResourceLocation;
@@ -24,7 +23,8 @@ public abstract class MSpriteSourceList {
     @Inject(method = "load", at = @At("RETURN"))
     private static void volcanic$appendCtmSprites(ResourceManager resourceManager, ResourceLocation atlasLocation, CallbackInfoReturnable<SpriteSourceList> cir) {
         try {
-            if (!TextureAtlas.LOCATION_BLOCKS.equals(atlasLocation)) return;
+            Initializer.LOGGER.info("CTM: SpriteSourceList.load atlas={}", atlasLocation);
+            if (!ResourceLocation.withDefaultNamespace("blocks").equals(atlasLocation)) return;
             net.vulkanmod.render.ctm.CtmPackLoader.reload(resourceManager);
             if (CtmAtlasRegistrar.additionalSprites().isEmpty()) return;
             List<SpriteSource> sources = ((SpriteSourceListAccessor) cir.getReturnValue()).getSources();
