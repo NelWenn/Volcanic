@@ -29,6 +29,10 @@ public final class CtmStore {
         return byBlock.isEmpty() && byTile.isEmpty();
     }
 
+    public boolean hasCandidates(TextureAtlasSprite sprite, Block block) {
+        return byBlock.containsKey(block) || byTile.containsKey(sprite.contents().name());
+    }
+
     public CtmResult resolve(CtmContext ctx) {
         ResourceLocation baseId = ctx.sprite().contents().name();
         Block block = ctx.state().getBlock();

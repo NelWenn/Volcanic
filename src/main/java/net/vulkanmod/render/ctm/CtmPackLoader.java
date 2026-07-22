@@ -15,7 +15,7 @@ import java.util.Properties;
 import java.util.Set;
 
 public final class CtmPackLoader {
-    private static List<CtmProperties> loaded = List.of();
+    private static volatile List<CtmProperties> loaded = List.of();
 
     private CtmPackLoader() {}
 

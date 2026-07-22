@@ -13,10 +13,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 
-/**
- * Optional bridge to Polytone's block-render hooks. VulkanMod's terrain builder replaces the vanilla
- * ModelBlockRenderer, so Polytone's own mixins never fire; we call its public API directly instead.
- */
 public final class PolytoneCompat {
 
     private static volatile boolean initialized;

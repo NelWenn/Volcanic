@@ -159,18 +159,26 @@ public class BlockRenderer {
             bakedQuad = net.vulkanmod.compat.PolytoneCompat.maybeModifyQuad(bakedQuad, resources.region, blockState, blockPos);
             QuadView quadView = (QuadView) bakedQuad;
             net.vulkanmod.render.ctm.CtmResult ctm = net.vulkanmod.render.ctm.CtmResult.none();
-            if (net.vulkanmod.render.ctm.Ctm.isActive()) {
-                ctm = net.vulkanmod.render.ctm.Ctm.resolve(bakedQuad.getSprite(), blockState, blockPos, bakedQuad.getDirection(), resources.region);
-                if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.SWAP) {
-                    quadView = new net.vulkanmod.render.ctm.CtmUvQuad(quadView, bakedQuad.getSprite(), ctm.sprite());
+            try {
+                if (net.vulkanmod.render.ctm.Ctm.isActive()) {
+                    ctm = net.vulkanmod.render.ctm.Ctm.resolve(bakedQuad.getSprite(), blockState, blockPos, bakedQuad.getDirection(), resources.region);
+                    if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.SWAP) {
+                        quadView = new net.vulkanmod.render.ctm.CtmUvQuad(quadView, bakedQuad.getSprite(), ctm.sprite());
+                    }
                 }
+            } catch (Throwable t) {
+                ctm = net.vulkanmod.render.ctm.CtmResult.none();
+                quadView = (QuadView) bakedQuad;
             }
             lightPipeline.calculate(quadView, blockPos, quadLightData, cullFace, bakedQuad.getDirection(), bakedQuad.isShade());
             putQuadData(bufferBuilder, quadView, quadLightData);
             if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.OVERLAY) {
-                net.vulkanmod.render.vertex.TerrainBufferBuilder overlayBuffer = resources.builderPack.builder(ctm.layer());
-                net.vulkanmod.render.ctm.CtmUvQuad overlayQuad = new net.vulkanmod.render.ctm.CtmUvQuad((QuadView) bakedQuad, bakedQuad.getSprite(), ctm.sprite());
-                net.vulkanmod.render.ctm.CtmOverlayEmitter.emit(overlayBuffer, overlayQuad, quadLightData, this.pos, this.waveCode, this.blockBaseY, this.upperHalf, ctm.tintIndex(), blockState, resources.region, blockPos);
+                try {
+                    net.vulkanmod.render.vertex.TerrainBufferBuilder overlayBuffer = resources.builderPack.builder(ctm.layer());
+                    net.vulkanmod.render.ctm.CtmUvQuad overlayQuad = new net.vulkanmod.render.ctm.CtmUvQuad((QuadView) bakedQuad, bakedQuad.getSprite(), ctm.sprite());
+                    net.vulkanmod.render.ctm.CtmOverlayEmitter.emit(overlayBuffer, overlayQuad, quadLightData, this.pos, this.waveCode, this.blockBaseY, this.upperHalf, ctm.tintIndex(), blockState, resources.region, blockPos);
+                } catch (Throwable t) {
+                }
             }
         }
     }

@@ -18,8 +18,9 @@ import java.util.Properties;
 import java.util.Set;
 
 public final class CitPackLoader {
-    private static Map<Item, List<CitRule>> byItem = Map.of();
-    private static Set<ResourceLocation> models = Set.of();
+    private static volatile Map<Item, List<CitRule>> byItem = Map.of();
+    private static volatile Set<ResourceLocation> models = Set.of();
+    private static volatile int ruleCount = 0;
 
     private CitPackLoader() {}
 
@@ -48,6 +49,7 @@ public final class CitPackLoader {
         }
         byItem = index;
         models = modelSet;
+        ruleCount = count;
         Initializer.LOGGER.info("CIT: loaded {} rules, {} models", count, modelSet.size());
     }
 
@@ -80,5 +82,5 @@ public final class CitPackLoader {
 
     public static List<CitRule> rulesFor(Item item) { return byItem.getOrDefault(item, List.of()); }
     public static Set<ResourceLocation> modelsToRegister() { return models; }
-    public static int ruleCount() { int n = 0; for (List<CitRule> l : byItem.values()) n += l.size(); return n; }
+    public static int ruleCount() { return ruleCount; }
 }
