@@ -12,8 +12,6 @@ import java.util.Map;
 import java.util.function.Function;
 
 public final class CtmStore {
-    private static final java.util.concurrent.atomic.AtomicInteger DIAG = new java.util.concurrent.atomic.AtomicInteger(0);
-
     private final Map<Block, List<CtmProperties>> byBlock = new HashMap<>();
     private final Map<ResourceLocation, List<CtmProperties>> byTile = new HashMap<>();
     private final Function<ResourceLocation, TextureAtlasSprite> spriteLookup;
@@ -51,11 +49,6 @@ public final class CtmStore {
         };
         TextureAtlasSprite sprite = spriteLookup.apply(match.tileIds.get(idx));
         if (sprite == null) return CtmResult.none();
-
-        if (DIAG.getAndIncrement() < 20) {
-            net.vulkanmod.Initializer.LOGGER.info("CTM match: base={} block={} biome={} method={} kind={}",
-                    baseId, block, biomeId, match.method, (match.method.isOverlay() ? "OVERLAY" : "SWAP"));
-        }
 
         if (match.method.isOverlay()) {
             return CtmResult.overlay(sprite, match.overlayLayer, match.tintIndex);
