@@ -158,15 +158,20 @@ public class BlockRenderer {
             BakedQuad bakedQuad = quads.get(i);
             bakedQuad = net.vulkanmod.compat.PolytoneCompat.maybeModifyQuad(bakedQuad, resources.region, blockState, blockPos);
             QuadView quadView = (QuadView) bakedQuad;
+            net.vulkanmod.render.ctm.CtmResult ctm = net.vulkanmod.render.ctm.CtmResult.none();
             if (net.vulkanmod.render.ctm.Ctm.isActive()) {
-                net.vulkanmod.render.ctm.CtmResult ctm = net.vulkanmod.render.ctm.Ctm.resolve(
-                        bakedQuad.getSprite(), blockState, blockPos, cullFace, resources.region);
+                ctm = net.vulkanmod.render.ctm.Ctm.resolve(bakedQuad.getSprite(), blockState, blockPos, cullFace, resources.region);
                 if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.SWAP) {
                     quadView = new net.vulkanmod.render.ctm.CtmUvQuad(quadView, bakedQuad.getSprite(), ctm.sprite());
                 }
             }
             lightPipeline.calculate(quadView, blockPos, quadLightData, cullFace, bakedQuad.getDirection(), bakedQuad.isShade());
             putQuadData(bufferBuilder, quadView, quadLightData);
+            if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.OVERLAY) {
+                net.vulkanmod.render.vertex.TerrainBufferBuilder overlayBuffer = resources.builderPack.builder(ctm.layer());
+                net.vulkanmod.render.ctm.CtmUvQuad overlayQuad = new net.vulkanmod.render.ctm.CtmUvQuad((QuadView) bakedQuad, bakedQuad.getSprite(), ctm.sprite());
+                net.vulkanmod.render.ctm.CtmOverlayEmitter.emit(overlayBuffer, overlayQuad, quadLightData, this.pos, this.waveCode, this.blockBaseY, this.upperHalf, ctm.tintIndex(), blockState, resources.region, blockPos);
+            }
         }
     }
 
@@ -184,6 +189,10 @@ public class BlockRenderer {
         }
 
         putQuadData(bufferBuilder, pos, quadView, quadLightData, r, g, b, this.waveCode, this.blockBaseY, this.upperHalf);
+    }
+
+    public static int tint(BlockState state, net.minecraft.world.level.BlockAndTintGetter region, BlockPos pos, int tintIndex) {
+        return blockColors.getColor(state, region, pos, tintIndex);
     }
 
     public static void putQuadData(TerrainBufferBuilder bufferBuilder, Vector3f pos, QuadView quad, QuadLightData quadLightData, float red, float green, float blue, int waveCode, float blockBaseY, boolean upperHalf) {
