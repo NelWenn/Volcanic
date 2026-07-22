@@ -35,7 +35,7 @@ public final class CtmPropertiesParser {
 
         Set<ResourceLocation> matchTiles = new HashSet<>();
         for (String t : split(p.getProperty("matchTiles"))) {
-            matchTiles.add(ResourceLocation.parse(TilePath.resolve(t, dir, ns)));
+            matchTiles.add(resolveMatchTileId(t, ns));
         }
         Set<Block> matchBlocks = new HashSet<>();
         for (String b : split(p.getProperty("matchBlocks"))) {
@@ -108,5 +108,13 @@ public final class CtmPropertiesParser {
     private static int parseInt(String s, int def) {
         if (s == null) return def;
         try { return Integer.parseInt(s.trim()); } catch (NumberFormatException e) { return def; }
+    }
+
+    private static ResourceLocation resolveMatchTileId(String token, String ns) {
+        String t = token.trim();
+        if (t.endsWith(".png")) t = t.substring(0, t.length() - 4);
+        if (t.contains(":")) return ResourceLocation.parse(t);
+        if (t.contains("/")) return ResourceLocation.fromNamespaceAndPath(ns, t);
+        return ResourceLocation.fromNamespaceAndPath(ns, "block/" + t);
     }
 }
