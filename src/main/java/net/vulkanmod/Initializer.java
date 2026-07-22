@@ -44,6 +44,7 @@ public class Initializer {
 	public Initializer(IEventBus modEventBus, ModContainer modContainer) {
 		VERSION = modContainer.getModInfo().getVersion().toString();
 		modEventBus.addListener(this::onInitializeClient);
+		modEventBus.addListener(net.vulkanmod.render.cit.CitModelRegistrar::onRegisterAdditional);
 		modContainer.registerExtensionPoint(IConfigScreenFactory.class,
 				(java.util.function.Supplier<IConfigScreenFactory>) () ->
 						(container, parent) -> new VOptionScreen(Component.literal("VulkanMod Settings"), parent));
