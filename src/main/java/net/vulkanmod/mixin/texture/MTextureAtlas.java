@@ -19,5 +19,8 @@ public abstract class MTextureAtlas {
     @Inject(method = "upload", at = @At("TAIL"))
     private void volcanic$buildPbrAtlas(SpriteLoader.Preparations preparations, CallbackInfo ci) {
         PbrAtlas.build(this.location, preparations);
+        if (net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS.equals(this.location)) {
+            net.vulkanmod.render.ctm.CtmPackLoader.buildStore((net.minecraft.client.renderer.texture.TextureAtlas)(Object)this);
+        }
     }
 }
