@@ -100,6 +100,8 @@
     "texture.image.NativeImageAccessor",
     "texture.MAbstractTexture",
     "texture.MSpriteContents",
+    "texture.MSpriteSourceList",
+    "texture.SpriteSourceListAccessor",
     "texture.MTextureAtlas",
     "texture.MTextureManager",
     "texture.MTextureUtil",
