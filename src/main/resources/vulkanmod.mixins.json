@@ -75,6 +75,7 @@
     "render.entity.EntityRenderDispatcherM",
     "render.entity.EntityRendererM",
     "render.entity.ItemRendererM",
+    "render.entity.MItemRenderer",
     "render.entity.LivingEntityRendererM",
     "render.entity.model.AgeableListModelM",
     "render.entity.model.ModelPartCubeM",
