@@ -14,6 +14,9 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,23 +28,12 @@ import static net.vulkanmod.Initializer.getVersion;
 public abstract class DebugScreenOverlayM {
 
     @Shadow
-    @Final
-    private Minecraft minecraft;
-
-    @Shadow
     private static long bytesToMegabytes(long bytes) {
         return 0;
     }
 
-    @Shadow
-    @Final
-    private Font font;
-
-    @Shadow
-    protected abstract List<String> getGameInformation();
-
-    @Shadow
-    protected abstract List<String> getSystemInformation();
+    @Unique
+    private static String volca$cpuInfoCache;
 
     @Redirect(method = "getSystemInformation", at = @At(value = "INVOKE", target = "Lcom/google/common/collect/Lists;newArrayList([Ljava/lang/Object;)Ljava/util/ArrayList;"))
     private ArrayList<String> redirectList(Object[] elements) {
@@ -57,12 +49,12 @@ public abstract class DebugScreenOverlayM {
         strings.add(String.format("Java: %s", System.getProperty("java.version")));
         strings.add(String.format("Mem: % 2d%% %03d/%03dMB", usedMemory * 100L / maxMemory, bytesToMegabytes(usedMemory), bytesToMegabytes(maxMemory)));
         strings.add(String.format("Allocated: % 2d%% %03dMB", totalMemory * 100L / maxMemory, bytesToMegabytes(totalMemory)));
-        strings.add(String.format("Off-heap: " + getOffHeapMemory() + "MB"));
+        strings.add(String.format("Off-heap: " + volca$getOffHeapMemory() + "MB"));
         strings.add("NativeMemory: %dMB".formatted(MemoryManager.getInstance().getNativeMemoryMB()));
         strings.add("DeviceMemory: %dMB".formatted(MemoryManager.getInstance().getAllocatedDeviceMemoryMB()));
         strings.add("");
-        strings.add("VulkanMod " + getVersion());
-        strings.add("CPU: " + vulkanMod$getCpuInfo());
+        strings.add("Volcanic " + getVersion());
+        strings.add("CPU: " + volca$getCpuInfo());
         strings.add("GPU: " + device.deviceName);
         strings.add("Driver: " + device.driverVersion);
         strings.add("Vulkan: " + device.vkVersion);
@@ -74,14 +66,62 @@ public abstract class DebugScreenOverlayM {
         return strings;
     }
 
-    private long getOffHeapMemory() {
+    @Unique
+    private long volca$getOffHeapMemory() {
         return bytesToMegabytes(ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage().getUsed());
     }
 
     @Unique
-    private static String vulkanMod$getCpuInfo() {
-        return "%s, %d logical processors".formatted(
-                System.getProperty("os.arch", "unknown"),
-                Runtime.getRuntime().availableProcessors());
+    private static String volca$getCpuInfo() {
+        if (volca$cpuInfoCache != null)
+            return volca$cpuInfoCache;
+
+        String cpu = "Unknown CPU";
+
+        try {
+            String os = System.getProperty("os.name", "").toLowerCase();
+
+            if (os.contains("win")) {
+                Process process = Runtime.getRuntime().exec(
+                        new String[]{"wmic", "cpu", "get", "name"}
+                );
+
+                try (var reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    cpu = reader.lines()
+                            .map(String::trim)
+                            .filter(trim -> !trim.equalsIgnoreCase("Name"))
+                            .filter(line -> !line.isEmpty())
+                            .findFirst()
+                            .orElse(cpu);
+                }
+            } else if (os.contains("linux")) {
+                try (var reader = new BufferedReader(
+                        new FileReader("/proc/cpuinfo"))) {
+                    cpu = reader.lines()
+                            .filter(line -> line.startsWith("model name"))
+                            .map(line -> line.split(":", 2)[1].trim())
+                            .findFirst()
+                            .orElse(cpu);
+                }
+            } else if (os.contains("mac")) {
+                Process process = Runtime.getRuntime().exec(
+                        new String[]{"sysctl", "-n", "machdep.cpu.brand_string"}
+                );
+
+                try (var reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    cpu = reader.readLine();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        volca$cpuInfoCache = "%s x %d".formatted(
+                cpu,
+                Runtime.getRuntime().availableProcessors()
+        );
+
+        return volca$cpuInfoCache;
     }
 }
