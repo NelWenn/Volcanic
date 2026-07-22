@@ -23,7 +23,6 @@ public abstract class MSpriteSourceList {
     @Inject(method = "load", at = @At("RETURN"))
     private static void volcanic$appendCtmSprites(ResourceManager resourceManager, ResourceLocation atlasLocation, CallbackInfoReturnable<SpriteSourceList> cir) {
         try {
-            Initializer.LOGGER.info("CTM: SpriteSourceList.load atlas={}", atlasLocation);
             if (!ResourceLocation.withDefaultNamespace("blocks").equals(atlasLocation)) return;
             net.vulkanmod.render.ctm.CtmPackLoader.reload(resourceManager);
             if (CtmAtlasRegistrar.additionalSprites().isEmpty()) return;
