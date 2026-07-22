@@ -78,7 +78,10 @@ public class BufferUploaderM {
                 VRenderSystem.depthTest = true;
                 VRenderSystem.depthFun = 515;
             }
-            renderer.bindGraphicsPipeline(pipeline);
+            if (!renderer.bindGraphicsPipeline(pipeline)) {
+                meshData.close();
+                return;
+            }
             VTextureSelector.bindShaderTextures(pipeline);
             renderer.uploadAndBindUBOs(pipeline);
             Renderer.getDrawer().draw(meshData.vertexBuffer(), parameters.mode(), parameters.format(), parameters.vertexCount());

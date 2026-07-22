@@ -116,6 +116,7 @@ public class BlockRenderer {
     public void tessellateBlock(BakedModel bakedModel, ModelData modelData, RenderType renderType,
                                 TerrainBufferBuilder bufferBuilder, long seed) {
         Vec3 offset = blockState.getOffset(resources.region, blockPos);
+        offset = net.vulkanmod.compat.PolytoneCompat.modifyOffset(offset, blockState, resources.region, blockPos);
 
         pos.add((float) offset.x, (float) offset.y, (float) offset.z);
 
@@ -155,6 +156,7 @@ public class BlockRenderer {
 
         for (int i = 0; i < quads.size(); ++i) {
             BakedQuad bakedQuad = quads.get(i);
+            bakedQuad = net.vulkanmod.compat.PolytoneCompat.maybeModifyQuad(bakedQuad, resources.region, blockState, blockPos);
             QuadView quadView = (QuadView) bakedQuad;
             lightPipeline.calculate(quadView, blockPos, quadLightData, cullFace, bakedQuad.getDirection(), bakedQuad.isShade());
             putQuadData(bufferBuilder, quadView, quadLightData);

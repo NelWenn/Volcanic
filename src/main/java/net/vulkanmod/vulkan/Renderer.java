@@ -567,11 +567,15 @@ public class Renderer {
         this.onResizeCallbacks.add(runnable);
     }
 
-    public void bindGraphicsPipeline(GraphicsPipeline pipeline) {
+    public boolean bindGraphicsPipeline(GraphicsPipeline pipeline) {
         VkCommandBuffer commandBuffer = currentCmdBuffer;
 
         PipelineState currentState = PipelineState.getCurrentPipelineState(boundRenderPass);
         final long handle = pipeline.getHandle(currentState);
+
+        if (handle == 0L) {
+            return false;
+        }
 
         if (boundPipelineHandle != handle) {
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, handle);
@@ -616,6 +620,8 @@ public class Renderer {
                 stencilStateApplied = true;
             }
         }
+
+        return true;
     }
 
     public void uploadAndBindUBOs(Pipeline pipeline) {

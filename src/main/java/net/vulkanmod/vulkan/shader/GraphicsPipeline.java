@@ -24,6 +24,7 @@ import static org.lwjgl.vulkan.VK10.*;
 
 public class GraphicsPipeline extends Pipeline {
     private final Object2LongMap<PipelineState> graphicsPipelines = new Object2LongOpenHashMap<>();
+    private static final java.util.Set<String> loggedPipelineFailures = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private final VertexFormat vertexFormat;
     private final VertexInputDescription vertexInputDescription;
@@ -235,8 +236,13 @@ public class GraphicsPipeline extends Pipeline {
 
             LongBuffer pGraphicsPipeline = stack.mallocLong(1);
 
-            if (vkCreateGraphicsPipelines(DeviceManager.vkDevice, PIPELINE_CACHE, pipelineInfo, null, pGraphicsPipeline) != VK_SUCCESS) {
-                throw new RuntimeException("Failed to create graphics pipeline");
+            int pipelineResult = vkCreateGraphicsPipelines(DeviceManager.vkDevice, PIPELINE_CACHE, pipelineInfo, null, pGraphicsPipeline);
+            if (pipelineResult != VK_SUCCESS) {
+                if (loggedPipelineFailures.add(this.name)) {
+                    net.vulkanmod.Initializer.LOGGER.error("Failed to create graphics pipeline '{}' (vertexFormat={}, colorFormat={}, VkResult={}); skipping this render type instead of crashing",
+                            this.name, this.vertexFormat, state.renderPass.getFramebuffer().getFormat(), pipelineResult);
+                }
+                return VK_NULL_HANDLE;
             }
 
             return pGraphicsPipeline.get(0);

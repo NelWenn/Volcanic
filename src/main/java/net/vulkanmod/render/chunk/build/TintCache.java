@@ -59,6 +59,12 @@ public class TintCache {
     }
 
     public int getColor(BlockPos blockPos, ColorResolver colorResolver) {
+        if (colorResolver != BiomeColors.GRASS_COLOR_RESOLVER
+                && colorResolver != BiomeColors.FOLIAGE_COLOR_RESOLVER
+                && colorResolver != BiomeColors.WATER_COLOR_RESOLVER) {
+            return getColorUncached(blockPos, colorResolver);
+        }
+
         int relY = blockPos.getY() & 15;
         Layer layer = layers[relY];
         if(layer.invalidated)
@@ -69,6 +75,32 @@ public class TintCache {
         int relZ = blockPos.getZ() & 15;
         int idx = totalWidth * (relZ + blendRadius) + (relX + blendRadius);
         return values[idx];
+    }
+
+    private int getColorUncached(BlockPos blockPos, ColorResolver colorResolver) {
+        Level level = WorldRenderer.getLevel();
+        int radius = this.blendRadius;
+
+        if (radius <= 0) {
+            return colorResolver.getColor(level.getBiome(blockPos).value(), blockPos.getX(), blockPos.getZ());
+        }
+
+        int total = (radius * 2 + 1) * (radius * 2 + 1);
+        int r = 0, g = 0, b = 0;
+        int y = blockPos.getY();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+
+        for (int dz = -radius; dz <= radius; dz++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                pos.set(blockPos.getX() + dx, y, blockPos.getZ() + dz);
+                int color = colorResolver.getColor(level.getBiome(pos).value(), pos.getX(), pos.getZ());
+                r += (color >> 16) & 0xFF;
+                g += (color >> 8) & 0xFF;
+                b += color & 0xFF;
+            }
+        }
+
+        return ((r / total) << 16) | ((g / total) << 8) | (b / total);
     }
 
     public void calculateLayer(int y) {
