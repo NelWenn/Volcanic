@@ -13,6 +13,7 @@ public final class RadianceLightPass {
     @Input("shadowtex1")    Texture shadow1;
     @Input("shadowtex2")    Texture shadow2;
     @Input("light_history") Texture history;
+    @Input("gnormal")       Texture gnormal;
 
     @Output(value = "light", clear = 1.0f, pingpong = true) Texture light;
 }

@@ -126,6 +126,16 @@ public class ShaderInstanceM implements ShaderMixed {
         this.pipelineFormat = format;
 
         try {
+            if ("minecraft".equals(namespace) && "rendertype_clouds".equals(namePath)
+                    && net.vulkanmod.render.sodium.SodiumShaderBridge.hasCloudsOverride()) {
+                GraphicsPipeline cloudsPipeline = net.vulkanmod.render.sodium.SodiumShaderBridge.buildCloudsPipeline(format);
+                if (cloudsPipeline != null) {
+                    this.pipeline = cloudsPipeline;
+                    this.pipelineFormat = format;
+                    return;
+                }
+            }
+
             String bindPath = String.format("%s/core/%s/%s", namespace, namePath, namePath);
             Class<? extends PipelineDefinition> builtinDefinition = "minecraft".equals(namespace) ? CorePipelineRegistry.get(namePath) : null;
 

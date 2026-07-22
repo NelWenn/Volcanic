@@ -15,6 +15,7 @@ public final class RadianceCompositePass {
     @Input("opaquedepth") Texture opaqueDepth;
     @Input("glassreflection") Texture glassReflection;
     @Input("material")    Texture material;
+    @Input("gnormal")     Texture gnormal;
 
     @Output("aatex") Texture aa;
 }

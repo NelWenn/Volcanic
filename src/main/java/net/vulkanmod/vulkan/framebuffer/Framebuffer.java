@@ -22,6 +22,7 @@ public class Framebuffer {
 //    private long id;
 
     protected int format;
+    protected int format2;
     protected int depthFormat;
     protected int width, height;
     protected boolean linearFiltering;
@@ -32,6 +33,7 @@ public class Framebuffer {
     boolean hasDepthAttachment;
 
     private VulkanImage colorAttachment;
+    private VulkanImage colorAttachment2;
     protected VulkanImage depthAttachment;
 
     private final ObjectArrayList<RenderPass> renderPasses = new ObjectArrayList<>();
@@ -43,6 +45,7 @@ public class Framebuffer {
 
     public Framebuffer(Builder builder) {
         this.format = builder.format;
+        this.format2 = builder.format2;
         this.depthFormat = builder.depthFormat;
         this.width = builder.width;
         this.height = builder.height;
@@ -73,6 +76,15 @@ public class Framebuffer {
                     .createVulkanImage();
         }
 
+        if (this.format2 != 0) {
+            this.colorAttachment2 = VulkanImage.builder(this.width, this.height)
+                    .setFormat(format2)
+                    .setUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                    .setLinearFiltering(false)
+                    .setClamp(true)
+                    .createVulkanImage();
+        }
+
         if (this.hasDepthAttachment) {
             this.depthAttachment = VulkanImage.createDepthImage(depthFormat, this.width, this.height,
                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -96,12 +108,16 @@ public class Framebuffer {
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
             LongBuffer attachments;
-            if (colorAttachment != null && depthAttachment != null) {
-                attachments = stack.longs(colorAttachment.getImageView(), depthAttachment.getImageView());
-            } else if (colorAttachment != null) {
-                attachments = stack.longs(colorAttachment.getImageView());
-            } else {
+            if (colorAttachment == null) {
                 throw new IllegalStateException();
+            } else if (colorAttachment2 != null && depthAttachment != null) {
+                attachments = stack.longs(colorAttachment.getImageView(), colorAttachment2.getImageView(), depthAttachment.getImageView());
+            } else if (colorAttachment2 != null) {
+                attachments = stack.longs(colorAttachment.getImageView(), colorAttachment2.getImageView());
+            } else if (depthAttachment != null) {
+                attachments = stack.longs(colorAttachment.getImageView(), depthAttachment.getImageView());
+            } else {
+                attachments = stack.longs(colorAttachment.getImageView());
             }
 
             LongBuffer pFramebuffer = stack.mallocLong(1);
@@ -170,6 +186,9 @@ public class Framebuffer {
             if (this.colorAttachment != null)
                 this.colorAttachment.free();
 
+            if (this.colorAttachment2 != null)
+                this.colorAttachment2.free();
+
             if (this.depthAttachment != null)
                 this.depthAttachment.free();
         }
@@ -196,6 +215,14 @@ public class Framebuffer {
 
     public VulkanImage getColorAttachment() {
         return colorAttachment;
+    }
+
+    public VulkanImage getColorAttachment2() {
+        return colorAttachment2;
+    }
+
+    public int getColorAttachmentCount() {
+        return this.colorAttachment2 != null ? 2 : (this.colorAttachment != null ? 1 : 0);
     }
 
     public int getWidth() {
@@ -225,7 +252,7 @@ public class Framebuffer {
     public static class Builder {
         final boolean createImages;
         final int width, height;
-        int format, depthFormat;
+        int format, format2, depthFormat;
 
         VulkanImage colorAttachment;
         VulkanImage depthAttachment;
@@ -278,6 +305,12 @@ public class Framebuffer {
 
         public Builder setFormat(int format) {
             this.format = format;
+
+            return this;
+        }
+
+        public Builder setColorAttachment2Format(int format) {
+            this.format2 = format;
 
             return this;
         }

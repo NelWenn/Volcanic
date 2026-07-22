@@ -8,6 +8,7 @@ layout(binding = 0) uniform UBO {
     vec3 FogSunDir;
     float FogShadowIntensity;
     vec3 FogShadowSplits;
+    float PbrDebug;
 };
 
 layout(binding = 1) uniform sampler2D Sampler0;
@@ -18,12 +19,14 @@ layout(binding = 5) uniform sampler2D Sampler4;
 layout(binding = 6) uniform sampler2D Sampler5;
 layout(binding = 7) uniform sampler2D Sampler6;
 layout(binding = 8) uniform sampler2D Sampler7;
+layout(binding = 9) uniform sampler2D Sampler8;
 
 layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
 
 const float AO_STRENGTH = 0.35;
 const float HIGHLIGHT = 0.28;
+const float PBR_RELIEF = 0.0;
 const vec3 MURK_COLOR = vec3(0.05, 0.16, 0.20);
 const float MURK_DENSITY = 0.11;
 const float MURK_STRENGTH = 0.85;
@@ -73,6 +76,7 @@ void main() {
         return;
     }
 
+
 #if CSM_DEBUG
     {
         vec4 L = texture(Sampler3, texCoord);
@@ -106,6 +110,13 @@ void main() {
         float ndlLight = max(dot(nrm, lightDirN), 0.0);
         float lit = (1.0 - shadowFrac) * (1.0 - interior) * ndlLight * lightFade;
         color += color * lightCol * lit * FogShadowIntensity * HIGHLIGHT;
+    }
+
+    vec4 gn = texture(Sampler8, texCoord);
+    if (gn.w > 0.5) {
+        vec3 mappedN = normalize(gn.xyz);
+        float relief = dot(mappedN - nrm, lightDirN) * PBR_RELIEF;
+        color *= clamp(1.0 + relief, 0.5, 1.7);
     }
 
     color *= 1.0 - AO_STRENGTH * (1.0 - ao);

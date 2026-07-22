@@ -41,7 +41,7 @@ public class Config {
     public String selectedShader = "off";
 
     public boolean isCamille() {
-        return "radiance".equals(selectedShader);
+        return "radiance".equals(selectedShader) && !net.vulkanmod.render.sodium.SodiumShaderBridge.isActive();
     }
 
     public boolean shadowsEnabled = true;
@@ -54,6 +54,7 @@ public class Config {
     public int aaMode = 1;
 
     public boolean glassReflections = true;
+    public boolean pbrDebugNormals = false;
 
     public float horizonFog = 1.0f;
 

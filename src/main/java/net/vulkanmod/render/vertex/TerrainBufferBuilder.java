@@ -38,6 +38,8 @@ public class TerrainBufferBuilder {
 
     private final int materialSlotOffset;
     private int currentMaterialId;
+    private float currentMidU;
+    private float currentMidV;
 
     public TerrainBufferBuilder(int size) {
         this.bufferPtr = ALLOCATOR.malloc(size);
@@ -211,13 +213,23 @@ public class TerrainBufferBuilder {
         final long ptr = this.bufferPtr + this.nextElementByte;
         this.vertexBuilder.vertex(ptr, x, y, z, color, u, v, light, packedNormal);
         if (this.materialSlotOffset >= 0) {
-            MemoryUtil.memPutInt(ptr + this.materialSlotOffset, this.currentMaterialId);
+            int midU = Math.round(this.currentMidU * 4095.0f);
+            int midV = Math.round(this.currentMidV * 4095.0f);
+            midU = midU < 0 ? 0 : (midU > 4095 ? 4095 : midU);
+            midV = midV < 0 ? 0 : (midV > 4095 ? 4095 : midV);
+            int packed = ((this.currentMaterialId & 0xFF) << 24) | (midV << 12) | midU;
+            MemoryUtil.memPutInt(ptr + this.materialSlotOffset, packed);
         }
         this.endVertex();
     }
 
     public void setBlockAttributes(BlockState blockState) {
         this.currentMaterialId = MaterialRegistry.materialId(blockState);
+    }
+
+    public void setQuadMidUV(float u, float v) {
+        this.currentMidU = u;
+        this.currentMidV = v;
     }
 
     public long getPtr() {

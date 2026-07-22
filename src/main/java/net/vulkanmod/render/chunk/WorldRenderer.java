@@ -333,6 +333,10 @@ public class WorldRenderer {
         renderer.bindGraphicsPipeline(pipeline);
 
         VTextureSelector.bindShaderTextures(pipeline);
+        net.vulkanmod.vulkan.texture.VulkanImage normalAtlas = net.vulkanmod.render.material.PbrAtlas.getBlockNormalAtlas();
+        if (normalAtlas != null) {
+            VTextureSelector.bindTexture(4, normalAtlas);
+        }
 
         IndexBuffer indexBuffer = Renderer.getDrawer().getQuadsIndexBuffer().getIndexBuffer();
         Renderer.getDrawer().bindIndexBuffer(Renderer.getCommandBuffer(), indexBuffer);

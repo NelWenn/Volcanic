@@ -59,6 +59,16 @@ public final class PipelineFactory {
      * Builds a pipeline for a {@link CoreGfxPipeline}-annotated definition mirroring a vanilla
      * {@code ShaderInstance} shader. The vertex format is supplied by the caller since it comes
      */
+    public static GraphicsPipeline buildFromSources(Class<? extends PipelineDefinition> definition, VertexFormat vertexFormat,
+                                                    String name, String vertexSource, String fragmentSource) {
+        Pipeline.Builder builder = new Pipeline.Builder(vertexFormat, name);
+        builder.setUniforms(collectUbos(definition), collectSamplers(definition));
+        builder.setPushConstants(collectPushConstants(definition));
+        builder.compileShaders(name, vertexSource, fragmentSource);
+
+        return builder.createGraphicsPipeline();
+    }
+
     public static GraphicsPipeline buildCore(Class<? extends PipelineDefinition> definition, VertexFormat vertexFormat) {
         CoreGfxPipeline meta = definition.getAnnotation(CoreGfxPipeline.class);
         if (meta == null)

@@ -92,6 +92,10 @@ public class DefaultMainPass implements MainPass {
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
+        if (builder.getColorAttachmentInfo2() != null) {
+            builder.getColorAttachmentInfo2().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            builder.getColorAttachmentInfo2().setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+        }
 
         this.mainRenderPass = builder.build();
 
@@ -99,6 +103,10 @@ public class DefaultMainPass implements MainPass {
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        if (builder.getColorAttachmentInfo2() != null) {
+            builder.getColorAttachmentInfo2().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            builder.getColorAttachmentInfo2().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
+        }
 
         this.auxRenderPass = builder.build();
     }
@@ -148,6 +156,7 @@ public class DefaultMainPass implements MainPass {
 
             this.scaledFramebuffer = Framebuffer.builder(scaledWidth, scaledHeight, 1, true)
                     .setLinearFiltering(true)
+                    .setColorAttachment2Format(VK_FORMAT_R16G16B16A16_SFLOAT)
                     .setDepthFormat(org.lwjgl.vulkan.VK10.VK_FORMAT_D32_SFLOAT)
                     .build();
             this.scaledColorAttachmentGlId = GlTexture.genTextureId();
@@ -177,7 +186,8 @@ public class DefaultMainPass implements MainPass {
     }
 
     public static boolean postShaderActive() {
-        return Initializer.CONFIG.shadersEnabled && !"off".equals(Initializer.CONFIG.selectedShader);
+        return Initializer.CONFIG.shadersEnabled && !"off".equals(Initializer.CONFIG.selectedShader)
+                && !net.vulkanmod.render.sodium.SodiumShaderBridge.isActive();
     }
 
     private void disposeScaledFramebuffer() {
@@ -584,6 +594,9 @@ public class DefaultMainPass implements MainPass {
     private void resolveScaledFramebufferToSwapchain(VkCommandBuffer commandBuffer, boolean keepRendering) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             this.mainFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            if (this.scaledFramebuffer != null && this.scaledFramebuffer.getColorAttachment2() != null) {
+                this.scaledFramebuffer.getColorAttachment2().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }
 
             if (postShaderActive()) {
                 resolvePostShader(commandBuffer, stack, keepRendering);
@@ -663,6 +676,7 @@ public class DefaultMainPass implements MainPass {
             case "shadowtex2" -> sh2;
             case "opaquedepth" -> this.capturedOpaqueDepth != null ? this.capturedOpaqueDepth : worldDepth;
             case "material" -> this.materialFramebuffer != null ? this.materialFramebuffer.getColorAttachment() : worldDepth;
+            case "gnormal" -> (this.scaledFramebuffer != null && this.scaledFramebuffer.getColorAttachment2() != null) ? this.scaledFramebuffer.getColorAttachment2() : worldDepth;
             case "materialdepth" -> this.materialFramebuffer != null ? this.materialFramebuffer.getDepthAttachment() : worldDepth;
             default -> null;
         }, () -> {

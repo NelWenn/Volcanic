@@ -24,6 +24,7 @@ layout(binding = 3) uniform sampler2D Sampler2;
 layout(binding = 4) uniform sampler2D Sampler3;
 layout(binding = 5) uniform sampler2D Sampler4;
 layout(binding = 6) uniform sampler2D Sampler5;
+layout(binding = 7) uniform sampler2D Sampler6;
 
 layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
@@ -143,7 +144,8 @@ void main() {
 
     vec3 p = reconstruct(fullUV, depth);
     float dist = length(p);
-    vec3 N = normalize(cross(dFdx(p), dFdy(p)));
+    vec4 gn = texture(Sampler6, fullUV);
+    vec3 N = gn.w > 0.5 ? normalize(gn.xyz) : normalize(cross(dFdx(p), dFdy(p)));
 
     float interior = 0.0;
     float cascadeId = 0.0;

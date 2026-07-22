@@ -25,6 +25,11 @@ abstract class TerrainPipelineBase {
         float FogStart;
         float FogEnd;
         float AlphaCutout;
+        float PbrDebug;
+        float CamilleActive;
+        float GameTime;
+        float SunAngle;
+        Vector3f FogSunDir;
     }
 
     @PushConstantBlock

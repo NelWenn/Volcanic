@@ -19,15 +19,19 @@ public class RenderPass {
 
     final int attachmentCount;
     AttachmentInfo colorAttachmentInfo;
+    AttachmentInfo colorAttachmentInfo2;
     AttachmentInfo depthAttachmentInfo;
 
-    public RenderPass(Framebuffer framebuffer, AttachmentInfo colorAttachmentInfo, AttachmentInfo depthAttachmentInfo) {
+    public RenderPass(Framebuffer framebuffer, AttachmentInfo colorAttachmentInfo, AttachmentInfo colorAttachmentInfo2, AttachmentInfo depthAttachmentInfo) {
         this.framebuffer = framebuffer;
         this.colorAttachmentInfo = colorAttachmentInfo;
+        this.colorAttachmentInfo2 = colorAttachmentInfo2;
         this.depthAttachmentInfo = depthAttachmentInfo;
 
         int count = 0;
         if (colorAttachmentInfo != null)
+            count++;
+        if (colorAttachmentInfo2 != null)
             count++;
         if (depthAttachmentInfo != null)
             count++;
@@ -51,11 +55,13 @@ public class RenderPass {
             VkSubpassDescription.Buffer subpass = VkSubpassDescription.calloc(1, stack);
             subpass.pipelineBindPoint(VK_PIPELINE_BIND_POINT_GRAPHICS);
 
+            int colorCount = (colorAttachmentInfo != null ? 1 : 0) + (colorAttachmentInfo2 != null ? 1 : 0);
+            VkAttachmentReference.Buffer colorRefs = colorCount > 0 ? VkAttachmentReference.calloc(colorCount, stack) : null;
             int i = 0;
+            int c = 0;
 
             if (colorAttachmentInfo != null) {
-                VkAttachmentDescription colorAttachment = attachments.get(i);
-                colorAttachment.format(colorAttachmentInfo.format)
+                attachments.get(i).format(colorAttachmentInfo.format)
                         .samples(VK_SAMPLE_COUNT_1_BIT)
                         .loadOp(colorAttachmentInfo.loadOp)
                         .storeOp(colorAttachmentInfo.storeOp)
@@ -63,20 +69,30 @@ public class RenderPass {
                         .stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE)
                         .initialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
                         .finalLayout(colorAttachmentInfo.finalLayout);
-
-                VkAttachmentReference colorAttachmentRef = attachmentRefs.get(0)
-                        .attachment(0)
-                        .layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-                subpass.colorAttachmentCount(1);
-                subpass.pColorAttachments(VkAttachmentReference.calloc(1, stack).put(0, colorAttachmentRef));
-
+                colorRefs.get(c++).attachment(i).layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                 ++i;
             }
 
+            if (colorAttachmentInfo2 != null) {
+                attachments.get(i).format(colorAttachmentInfo2.format)
+                        .samples(VK_SAMPLE_COUNT_1_BIT)
+                        .loadOp(colorAttachmentInfo2.loadOp)
+                        .storeOp(colorAttachmentInfo2.storeOp)
+                        .stencilLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE)
+                        .stencilStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE)
+                        .initialLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+                        .finalLayout(colorAttachmentInfo2.finalLayout);
+                colorRefs.get(c++).attachment(i).layout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                ++i;
+            }
+
+            if (colorCount > 0) {
+                subpass.colorAttachmentCount(colorCount);
+                subpass.pColorAttachments(colorRefs);
+            }
+
             if (depthAttachmentInfo != null) {
-                VkAttachmentDescription depthAttachment = attachments.get(i);
-                depthAttachment.format(depthAttachmentInfo.format)
+                attachments.get(i).format(depthAttachmentInfo.format)
                         .samples(VK_SAMPLE_COUNT_1_BIT)
                         .loadOp(depthAttachmentInfo.loadOp)
                         .storeOp(depthAttachmentInfo.storeOp)
@@ -85,8 +101,8 @@ public class RenderPass {
                         .initialLayout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
                         .finalLayout(depthAttachmentInfo.finalLayout);
 
-                VkAttachmentReference depthAttachmentRef = attachmentRefs.get(1)
-                        .attachment(1)
+                VkAttachmentReference depthAttachmentRef = VkAttachmentReference.calloc(stack)
+                        .attachment(i)
                         .layout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
                 subpass.pDepthStencilAttachment(depthAttachmentRef);
@@ -145,6 +161,9 @@ public class RenderPass {
         if (colorAttachmentInfo != null
                 && framebuffer.getColorAttachment().getCurrentLayout() != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
             framebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        if (colorAttachmentInfo2 != null
+                && framebuffer.getColorAttachment2().getCurrentLayout() != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+            framebuffer.getColorAttachment2().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         if (depthAttachmentInfo != null
                 && framebuffer.getDepthAttachment().getCurrentLayout() != VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
             framebuffer.getDepthAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -159,9 +178,13 @@ public class RenderPass {
         renderArea.extent().set(framebuffer.getWidth(), framebuffer.getHeight());
         renderPassInfo.renderArea(renderArea);
 
-        VkClearValue.Buffer clearValues = VkClearValue.malloc(2, stack);
-        clearValues.get(0).color().float32(VRenderSystem.clearColor);
-        clearValues.get(1).depthStencil().set(VRenderSystem.clearDepthValue, VRenderSystem.clearStencilValue);
+        VkClearValue.Buffer clearValues = VkClearValue.malloc(this.attachmentCount, stack);
+        int cv = 0;
+        clearValues.get(cv++).color().float32(VRenderSystem.clearColor);
+        if (colorAttachmentInfo2 != null)
+            clearValues.get(cv++).color().float32(stack.floats(0.0f, 0.0f, 0.0f, 0.0f));
+        if (depthAttachmentInfo != null)
+            clearValues.get(cv).depthStencil().set(VRenderSystem.clearDepthValue, VRenderSystem.clearStencilValue);
 
         renderPassInfo.pClearValues(clearValues);
 
@@ -175,6 +198,9 @@ public class RenderPass {
 
         if (colorAttachmentInfo != null)
             framebuffer.getColorAttachment().setCurrentLayout(colorAttachmentInfo.finalLayout);
+
+        if (colorAttachmentInfo2 != null)
+            framebuffer.getColorAttachment2().setCurrentLayout(colorAttachmentInfo2.finalLayout);
 
         if (depthAttachmentInfo != null)
             framebuffer.getDepthAttachment().setCurrentLayout(depthAttachmentInfo.finalLayout);
@@ -309,6 +335,7 @@ public class RenderPass {
     public static class Builder {
         Framebuffer framebuffer;
         AttachmentInfo colorAttachmentInfo;
+        AttachmentInfo colorAttachmentInfo2;
         AttachmentInfo depthAttachmentInfo;
 
         public Builder(Framebuffer framebuffer) {
@@ -316,12 +343,14 @@ public class RenderPass {
 
             if (framebuffer.hasColorAttachment)
                 colorAttachmentInfo = new AttachmentInfo(AttachmentInfo.Type.COLOR, framebuffer.format).setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+            if (framebuffer.format2 != 0)
+                colorAttachmentInfo2 = new AttachmentInfo(AttachmentInfo.Type.COLOR, framebuffer.format2).setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
             if (framebuffer.hasDepthAttachment)
                 depthAttachmentInfo = new AttachmentInfo(AttachmentInfo.Type.DEPTH, framebuffer.depthFormat).setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_DONT_CARE);
         }
 
         public RenderPass build() {
-            return new RenderPass(framebuffer, colorAttachmentInfo, depthAttachmentInfo);
+            return new RenderPass(framebuffer, colorAttachmentInfo, colorAttachmentInfo2, depthAttachmentInfo);
         }
 
         public Builder setLoadOp(int loadOp) {
@@ -337,6 +366,10 @@ public class RenderPass {
 
         public AttachmentInfo getColorAttachmentInfo() {
             return colorAttachmentInfo;
+        }
+
+        public AttachmentInfo getColorAttachmentInfo2() {
+            return colorAttachmentInfo2;
         }
 
         public AttachmentInfo getDepthAttachmentInfo() {

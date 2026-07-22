@@ -1,5 +1,7 @@
 #version 460
 
+#include "light.glsl"
+#include "fog.glsl"
 #include "wave.glsl"
 
 layout (binding = 0) uniform UniformBufferObject {
@@ -13,13 +15,19 @@ layout (push_constant) uniform pushConstant {
     vec3 ChunkOffset;
 };
 
-layout (location = 0) out vec2 texCoord0;
-layout (location = 1) flat out int materialId;
+layout (binding = 3) uniform sampler2D Sampler2;
 
 layout (location = 0) in ivec4 Position;
 layout (location = 1) in vec4 Color;
 layout (location = 2) in uvec2 UV0;
 layout (location = 3) in ivec2 UV2;
+
+layout (location = 0) out vec4 v_Color;
+layout (location = 1) out vec2 v_TexCoord;
+layout (location = 2) out float v_FragDistance;
+layout (location = 3) out float v_MaterialMipBias;
+layout (location = 4) out float v_MaterialAlphaCutoff;
+layout (location = 5) out vec3 worldPos;
 
 const float UV_INV = 1.0 / 32768.0;
 const vec3 POSITION_INV = vec3(1.0 / 2048.0);
@@ -30,11 +38,15 @@ void main() {
 
     int waveCode = int(Position.a) & 0xF;
     float heightWeight = float((int(Position.a) >> 8) & 0xF) / 15.0;
-    vec3 worldPos = pos.xyz + CameraWorldPos;
-    pos.xyz = volcanic_wave(worldPos, pos.xyz, waveCode, heightWeight, WindTime, WindStrength);
+    vec3 wavePos = pos.xyz + CameraWorldPos;
+    pos.xyz = volcanic_wave(wavePos, pos.xyz, waveCode, heightWeight, WindTime, WindStrength);
 
     gl_Position = MVP * pos;
 
-    texCoord0 = UV0 * UV_INV;
-    materialId = (UV2.y >> 8) & 0xFF;
+    v_FragDistance = fog_distance(pos.xyz, 0);
+    v_Color = Color * sample_lightmap2(Sampler2, Position.a);
+    v_TexCoord = UV0 * UV_INV;
+    v_MaterialMipBias = SODIUM_MIP_BIAS;
+    v_MaterialAlphaCutoff = SODIUM_ALPHA_CUTOFF;
+    worldPos = pos.xyz;
 }

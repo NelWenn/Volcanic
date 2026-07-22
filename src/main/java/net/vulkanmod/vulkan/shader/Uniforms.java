@@ -39,8 +39,18 @@ public class Uniforms {
         vec1f_uniformMap.put("FogEnd", RenderSystem::getShaderFogEnd);
         vec1f_uniformMap.put("LineWidth", RenderSystem::getShaderLineWidth);
         vec1f_uniformMap.put("GameTime", RenderSystem::getShaderGameTime);
+        vec1f_uniformMap.put("SunAngle", () -> {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.level == null) return 0.0f;
+            return VRenderSystem.smoothTimeOfDay(mc) * (float) (Math.PI * 2.0);
+        });
         vec1f_uniformMap.put("GlintAlpha", RenderSystem::getShaderGlintAlpha);
         vec1f_uniformMap.put("AlphaCutout", () -> VRenderSystem.alphaCutout);
+        vec1f_uniformMap.put("PbrDebug", () -> net.vulkanmod.Initializer.CONFIG.pbrDebugNormals ? 1.0f : 0.0f);
+        vec1f_uniformMap.put("CamilleActive", () -> {
+            var cfg = net.vulkanmod.Initializer.CONFIG;
+            return cfg.shadersEnabled && cfg.isCamille() ? 1.0f : 0.0f;
+        });
 
         mat4f_uniformMap.put("FogInvMVPMat", VRenderSystem::getCapturedInverseMVP);
         mat4f_uniformMap.put("FogMVPMat", VRenderSystem::getCapturedMVP);
@@ -60,8 +70,10 @@ public class Uniforms {
         vec1f_uniformMap.put("FogColoredShadows", () -> net.vulkanmod.Initializer.CONFIG.coloredShadows ? 1.0f : 0.0f);
 
         vec1f_uniformMap.put("WindTime", VRenderSystem::getWindTime);
-        vec1f_uniformMap.put("WindStrength", () -> net.vulkanmod.Initializer.CONFIG.windEnabled
-                ? net.vulkanmod.Initializer.CONFIG.windStrength : 0.0f);
+        vec1f_uniformMap.put("WindStrength", () -> {
+            var cfg = net.vulkanmod.Initializer.CONFIG;
+            return cfg.windEnabled && cfg.shadersEnabled && cfg.isCamille() ? cfg.windStrength : 0.0f;
+        });
         vec3f_uniformMap.put("CameraWorldPos", VRenderSystem::getCapturedCameraPos);
 
         vec2f_uniformMap.put("ScreenSize", VRenderSystem::getScreenSize);

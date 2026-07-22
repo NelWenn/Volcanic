@@ -188,6 +188,14 @@ public class BlockRenderer {
 
         bufferBuilder.ensureCapacity();
 
+        float minU = quad.getU(0), maxU = minU, minV = quad.getV(0), maxV = minV;
+        for (int k = 1; k < 4; ++k) {
+            float qu = quad.getU(k), qv = quad.getV(k);
+            minU = Math.min(minU, qu); maxU = Math.max(maxU, qu);
+            minV = Math.min(minV, qv); maxV = Math.max(maxV, qv);
+        }
+        bufferBuilder.setQuadMidUV((minU + maxU) * 0.5f, (minV + maxV) * 0.5f);
+
         for (byte i = 0; i < 4; ++i) {
             final float x = pos.x() + quad.getX(idx);
             final float y = pos.y() + quad.getY(idx);

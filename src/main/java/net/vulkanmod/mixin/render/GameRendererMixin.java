@@ -104,6 +104,8 @@ public abstract class GameRendererMixin {
     public void reloadShaders(ResourceProvider provider, CallbackInfo ci) {
         RenderSystem.assertOnRenderThread();
 
+        net.vulkanmod.render.sodium.SodiumShaderBridge.refresh(provider);
+
         List<Pair<ShaderInstance, Consumer<ShaderInstance>>> pairs = Lists.newArrayListWithCapacity(this.shaders.size());
 
         try {

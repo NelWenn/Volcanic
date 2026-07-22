@@ -71,7 +71,12 @@ public abstract class PipelineManager {
     }
 
     public static GraphicsPipeline getTerrainShader(TerrainRenderType renderType) {
-        return shaderGetter.apply(renderType);
+        GraphicsPipeline sodiumPipeline = net.vulkanmod.render.sodium.SodiumShaderBridge.getPipeline(renderType);
+        return sodiumPipeline != null ? sodiumPipeline : shaderGetter.apply(renderType);
+    }
+
+    public static GraphicsPipeline getNativeTerrainShader() {
+        return terrainShader;
     }
 
     public static GraphicsPipeline getShadowTerrainShader(TerrainRenderType renderType) {
