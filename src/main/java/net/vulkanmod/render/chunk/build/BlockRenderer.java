@@ -160,7 +160,7 @@ public class BlockRenderer {
             QuadView quadView = (QuadView) bakedQuad;
             net.vulkanmod.render.ctm.CtmResult ctm = net.vulkanmod.render.ctm.CtmResult.none();
             if (net.vulkanmod.render.ctm.Ctm.isActive()) {
-                ctm = net.vulkanmod.render.ctm.Ctm.resolve(bakedQuad.getSprite(), blockState, blockPos, cullFace, resources.region);
+                ctm = net.vulkanmod.render.ctm.Ctm.resolve(bakedQuad.getSprite(), blockState, blockPos, bakedQuad.getDirection(), resources.region);
                 if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.SWAP) {
                     quadView = new net.vulkanmod.render.ctm.CtmUvQuad(quadView, bakedQuad.getSprite(), ctm.sprite());
                 }

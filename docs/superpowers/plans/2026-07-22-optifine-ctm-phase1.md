@@ -211,7 +211,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class UvRemapTest {
     @Test
     void midpointMapsToMidpoint() {
-        assertEquals(0.5f, UvRemap.remap(0.25f, 0.0f, 0.5f, 0.5f, 1.0f), 1e-6f);
+        assertEquals(0.75f, UvRemap.remap(0.25f, 0.0f, 0.5f, 0.5f, 1.0f), 1e-6f);
     }
     @Test
     void edgesMapToEdges() {
