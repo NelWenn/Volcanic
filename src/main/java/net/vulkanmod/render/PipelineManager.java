@@ -2,7 +2,6 @@ package net.vulkanmod.render;
 
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.RenderType;
-import net.vulkanmod.compat.external.ExternalRenderPathSupport;
 import net.vulkanmod.render.chunk.build.thread.ThreadBuilderPack;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.render.vertex.TerrainRenderType;
@@ -64,10 +63,8 @@ public abstract class PipelineManager {
         shadowTerrainTintPipeline = PipelineRegistry.get(ShadowTerrainTintPipeline.class);
         materialPipeline = PipelineRegistry.get(RadianceMaterialPipeline.class);
 
-        if (ExternalRenderPathSupport.shouldCreateExternalLodPipeline()) {
-            PipelineRegistry.register(ExternalLodPipeline.class);
-            externalLodPipeline = PipelineRegistry.get(ExternalLodPipeline.class);
-        }
+        PipelineRegistry.register(ExternalLodPipeline.class);
+        externalLodPipeline = PipelineRegistry.get(ExternalLodPipeline.class);
     }
 
     public static GraphicsPipeline getTerrainShader(TerrainRenderType renderType) {
