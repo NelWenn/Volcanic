@@ -25,9 +25,7 @@ public final class CalderaBridge {
     private static final int INPUT_VERTEX_SIZE_BYTES = 16;
     private static final int INTERNAL_VERTEX_SIZE_BYTES = CustomVertexFormat.EXTERNAL_LOD.getVertexSize();
 
-    private static final float POSITION_QUANTIZATION_SCALE = 1.0f / 16.0f;
-    private static final float POSITION_QUANTIZATION_INV_SCALE = 16.0f;
-    private static final int POSITION_BIAS = 32768;
+    private static final int Y_BIAS = 2048;
     private static final int POSITION_MAX = 0xFFFF;
 
     private static final int FULL_BRIGHT_LIGHT_META = 0xFF;
@@ -38,6 +36,9 @@ public final class CalderaBridge {
 
     private static VertexBuffer cachedVertexBuffer;
     private static IndexBuffer cachedIndexBuffer;
+
+    private static int DIAG = 0;
+    private static boolean indexBoundsWarned = false;
 
     private CalderaBridge() {
     }
@@ -50,15 +51,23 @@ public final class CalderaBridge {
         }
     }
 
-    public static void submitMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
+    public static void submitMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices,
+                                  double cellOriginX, double cellOriginZ, double camX, double camY, double camZ) {
         try {
-            submitMeshInternal(vertices, vertexCount, indices, indexCount, intIndices);
+            submitMeshInternal(vertices, vertexCount, indices, indexCount, intIndices, cellOriginX, cellOriginZ, camX, camY, camZ);
         } catch (Throwable t) {
             Initializer.LOGGER.error("[Caldera] submitMesh failed", t);
         }
     }
 
-    private static void submitMeshInternal(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
+    private static void submitMeshInternal(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices,
+                                           double cellOriginX, double cellOriginZ, double camX, double camY, double camZ) {
+        boolean diag = DIAG < 4;
+        if (diag) {
+            DIAG++;
+            Initializer.LOGGER.info("[Caldera] submitMesh entry: ready={} vCount={} iCount={} pipelineNull={}",
+                    isReady(), vertexCount, indexCount, PipelineManager.getExternalLodPipeline() == null);
+        }
         if (!isReady()) {
             return;
         }
@@ -85,6 +94,19 @@ public final class CalderaBridge {
             return;
         }
 
+        ByteBuffer indexScan = indexSrc.duplicate();
+        indexScan.order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 0; i < indexCount; i++) {
+            int idx = intIndices ? indexScan.getInt() : (indexScan.getShort() & 0xFFFF);
+            if (idx < 0 || idx >= vertexCount) {
+                if (!indexBoundsWarned) {
+                    indexBoundsWarned = true;
+                    Initializer.LOGGER.error("[Caldera] submitMesh: index {} out of bounds (vertexCount={})", idx, vertexCount);
+                }
+                return;
+            }
+        }
+
         ByteBuffer internalVertices = MemoryUtil.memAlloc(vertexCount * INTERNAL_VERTEX_SIZE_BYTES);
         try {
             internalVertices.order(ByteOrder.LITTLE_ENDIAN);
@@ -93,14 +115,15 @@ public final class CalderaBridge {
                 float x = vertexSrc.getFloat();
                 float y = vertexSrc.getFloat();
                 float z = vertexSrc.getFloat();
-                byte r = vertexSrc.get();
-                byte g = vertexSrc.get();
-                byte b = vertexSrc.get();
-                byte a = vertexSrc.get();
+                int c = vertexSrc.getInt();
+                byte r = (byte) ((c >> 16) & 0xFF);
+                byte g = (byte) ((c >>  8) & 0xFF);
+                byte b = (byte) ( c        & 0xFF);
+                byte a = (byte) ((c >>> 24) & 0xFF);
 
-                internalVertices.putShort((short) quantize(x));
-                internalVertices.putShort((short) quantize(y));
-                internalVertices.putShort((short) quantize(z));
+                internalVertices.putShort((short) quantizeXZ(x));
+                internalVertices.putShort((short) quantizeY(y));
+                internalVertices.putShort((short) quantizeXZ(z));
                 internalVertices.putShort((short) FULL_BRIGHT_LIGHT_META);
                 internalVertices.put(r).put(g).put(b).put(a);
                 internalVertices.putInt(0);
@@ -134,19 +157,21 @@ public final class CalderaBridge {
             MemoryUtil.memFree(internalVertices);
         }
 
-        writeUniforms();
+        writeUniforms(cellOriginX, cellOriginZ, camX, camY, camZ);
         bindLightmap();
 
         Renderer renderer = Renderer.getInstance();
         if (!renderer.bindGraphicsPipeline(pipeline)) {
+            if (diag) Initializer.LOGGER.info("[Caldera] submitMesh: bindGraphicsPipeline FAILED");
             return;
         }
         renderer.uploadAndBindUBOs(pipeline);
         Renderer.getDrawer().drawIndexed(cachedVertexBuffer, cachedIndexBuffer, indexCount);
+        if (diag) Initializer.LOGGER.info("[Caldera] submitMesh: DREW {} indices", indexCount);
     }
 
-    private static int quantize(float value) {
-        long raw = Math.round(value * POSITION_QUANTIZATION_INV_SCALE) + POSITION_BIAS;
+    private static int quantizeXZ(float value) {
+        long raw = Math.round(value);
         if (raw < 0) {
             raw = 0;
         } else if (raw > POSITION_MAX) {
@@ -155,20 +180,29 @@ public final class CalderaBridge {
         return (int) raw;
     }
 
-    private static void writeUniforms() {
+    private static int quantizeY(float value) {
+        long raw = Math.round(value) + Y_BIAS;
+        if (raw < 0) {
+            raw = 0;
+        } else if (raw > POSITION_MAX) {
+            raw = POSITION_MAX;
+        }
+        return (int) raw;
+    }
+
+    private static void writeUniforms(double cellOriginX, double cellOriginZ, double camX, double camY, double camZ) {
         FloatBuffer mvpSrc = VRenderSystem.getMVP().buffer.asFloatBuffer();
         mvpSrc.position(0);
         COMBINED_MATRIX_SCRATCH.set(mvpSrc);
-        COMBINED_MATRIX_SCRATCH.scale(POSITION_QUANTIZATION_SCALE);
 
         FloatBuffer combinedDst = ExternalTerrainRenderBridge.getCombinedMatrix().buffer.asFloatBuffer();
         combinedDst.position(0);
         COMBINED_MATRIX_SCRATCH.get(combinedDst);
 
         MappedBuffer modelOffset = ExternalTerrainRenderBridge.getModelOffsetAndYOffset();
-        modelOffset.putFloat(0, -POSITION_BIAS);
-        modelOffset.putFloat(4, -POSITION_BIAS);
-        modelOffset.putFloat(8, -POSITION_BIAS);
+        modelOffset.putFloat(0, (float) (cellOriginX - camX));
+        modelOffset.putFloat(4, (float) (-camY - Y_BIAS));
+        modelOffset.putFloat(8, (float) (cellOriginZ - camZ));
         modelOffset.putFloat(12, 0.0f);
 
         MappedBuffer renderParams = ExternalTerrainRenderBridge.getRenderParams();
