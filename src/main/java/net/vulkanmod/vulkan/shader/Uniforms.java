@@ -2,7 +2,6 @@ package net.vulkanmod.vulkan.shader;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.objects.Object2ReferenceOpenHashMap;
-import net.vulkanmod.compat.external.ExternalRenderPathSupport;
 import net.vulkanmod.compat.external.ExternalTerrainRenderBridge;
 import net.vulkanmod.vulkan.VRenderSystem;
 import net.vulkanmod.vulkan.util.MappedBuffer;
@@ -28,9 +27,7 @@ public class Uniforms {
         mat4f_uniformMap.put("ProjMat", VRenderSystem::getProjectionMatrix);
         mat4f_uniformMap.put("MVP", VRenderSystem::getMVP);
         mat4f_uniformMap.put("TextureMat", VRenderSystem::getTextureMatrix);
-        if (ExternalRenderPathSupport.isExternalLodBridgeEnabled()) {
-            mat4f_uniformMap.put("ExternalLodCombinedMatrix", ExternalTerrainRenderBridge::getCombinedMatrix);
-        }
+        mat4f_uniformMap.put("ExternalLodCombinedMatrix", ExternalTerrainRenderBridge::getCombinedMatrix);
 
         vec1i_uniformMap.put("EndPortalLayers", () -> 15);
         vec1i_uniformMap.put("FogShape", () -> RenderSystem.getShaderFogShape().getIndex());
@@ -84,10 +81,8 @@ public class Uniforms {
 
         vec4f_uniformMap.put("ColorModulator", VRenderSystem::getShaderColor);
         vec4f_uniformMap.put("FogColor", VRenderSystem::getShaderFogColor);
-        if (ExternalRenderPathSupport.isExternalLodBridgeEnabled()) {
-            vec4f_uniformMap.put("ExternalLodModelOffsetAndYOffset", ExternalTerrainRenderBridge::getModelOffsetAndYOffset);
-            vec4f_uniformMap.put("ExternalLodRenderParams", ExternalTerrainRenderBridge::getRenderParams);
-        }
+        vec4f_uniformMap.put("ExternalLodModelOffsetAndYOffset", ExternalTerrainRenderBridge::getModelOffsetAndYOffset);
+        vec4f_uniformMap.put("ExternalLodRenderParams", ExternalTerrainRenderBridge::getRenderParams);
 
     }
 }
