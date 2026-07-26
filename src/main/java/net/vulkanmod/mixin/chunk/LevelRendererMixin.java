@@ -104,6 +104,7 @@ public abstract class LevelRendererMixin {
     private void renderSectionLayer(RenderType renderType, double camX, double camY, double camZ, Matrix4f modelView, Matrix4f projectionMatrix, CallbackInfo ci) {
         net.vulkanmod.vulkan.FrameTimer timer = net.vulkanmod.vulkan.FrameTimer.instance();
         long t = timer != null ? System.nanoTime() : 0;
+        net.vulkanmod.vulkan.VRenderSystem.captureExternalLodViewMatrix(modelView);
         if (net.vulkanmod.vulkan.pass.DefaultMainPass.postShaderActive()) {
             if (renderType == net.minecraft.client.renderer.RenderType.translucent()) {
                 net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().captureOpaqueDepth();

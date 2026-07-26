@@ -66,6 +66,10 @@ public abstract class VRenderSystem {
     private static final Matrix4f scratchModelView = new Matrix4f();
     private static final Matrix4f scratchMVP = new Matrix4f();
 
+    public static final MappedBuffer externalLodMVP = new MappedBuffer(16 * 4);
+    private static final FloatBuffer externalLodMVPView = externalLodMVP.buffer.asFloatBuffer();
+    private static final Matrix4f scratchExternalLodMVP = new Matrix4f();
+
     public static final MappedBuffer inverseProjectionMatrix = new MappedBuffer(16 * 4);
     private static final FloatBuffer inverseProjectionFloatView = inverseProjectionMatrix.buffer.asFloatBuffer();
     private static final Matrix4f scratchInvProj = new Matrix4f();
@@ -366,6 +370,16 @@ public abstract class VRenderSystem {
     public static MappedBuffer getMVP() {
         calculateMVP();
         return MVP;
+    }
+
+    public static void captureExternalLodViewMatrix(Matrix4f cameraView) {
+        scratchExternalLodMVP.set(projectionFloatView);
+        scratchExternalLodMVP.mul(cameraView);
+        scratchExternalLodMVP.get(externalLodMVPView);
+    }
+
+    public static MappedBuffer getExternalLodMVP() {
+        return externalLodMVP;
     }
 
     public static void setChunkOffset(float f1, float f2, float f3) {

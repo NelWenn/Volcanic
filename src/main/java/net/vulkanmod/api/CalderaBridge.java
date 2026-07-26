@@ -1,8 +1,11 @@
 package net.vulkanmod.api;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.compat.external.ExternalTerrainRenderBridge;
 import net.vulkanmod.render.PipelineManager;
+import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -34,13 +37,15 @@ public final class CalderaBridge {
     private static final int LIGHTMAP_TEXTURE_SLOT = 0;
     private static final int LIGHTMAP_SOURCE_SLOT = 2;
 
-    private static VertexBuffer cachedVertexBuffer;
-    private static IndexBuffer cachedIndexBuffer;
+    private static final Int2ObjectOpenHashMap<MeshHandle> HANDLES = new Int2ObjectOpenHashMap<>();
+    private static int nextHandle = 1;
 
-    private static int DIAG = 0;
     private static boolean indexBoundsWarned = false;
 
     private CalderaBridge() {
+    }
+
+    private record MeshHandle(VertexBuffer vertexBuffer, IndexBuffer indexBuffer, int indexCount) {
     }
 
     public static boolean isReady() {
@@ -51,47 +56,51 @@ public final class CalderaBridge {
         }
     }
 
-    public static void submitMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices,
-                                  double cellOriginX, double cellOriginZ, double camX, double camY, double camZ) {
+    public static int uploadMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
         try {
-            submitMeshInternal(vertices, vertexCount, indices, indexCount, intIndices, cellOriginX, cellOriginZ, camX, camY, camZ);
+            return uploadMeshInternal(vertices, vertexCount, indices, indexCount, intIndices);
         } catch (Throwable t) {
-            Initializer.LOGGER.error("[Caldera] submitMesh failed", t);
+            Initializer.LOGGER.error("[Caldera] uploadMesh failed", t);
+            return 0;
         }
     }
 
-    private static void submitMeshInternal(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices,
-                                           double cellOriginX, double cellOriginZ, double camX, double camY, double camZ) {
-        boolean diag = DIAG < 4;
-        if (diag) {
-            DIAG++;
-            Initializer.LOGGER.info("[Caldera] submitMesh entry: ready={} vCount={} iCount={} pipelineNull={}",
-                    isReady(), vertexCount, indexCount, PipelineManager.getExternalLodPipeline() == null);
+    public static void drawMesh(int handle, double cellOriginX, double cellOriginZ) {
+        try {
+            drawMeshInternal(handle, cellOriginX, cellOriginZ);
+        } catch (Throwable t) {
+            Initializer.LOGGER.error("[Caldera] drawMesh failed", t);
         }
-        if (!isReady()) {
-            return;
-        }
+    }
 
+    public static void freeMesh(int handle) {
+        try {
+            MeshHandle mesh = HANDLES.remove(handle);
+            if (mesh != null) {
+                mesh.vertexBuffer().freeBuffer();
+                mesh.indexBuffer().freeBuffer();
+            }
+        } catch (Throwable t) {
+            Initializer.LOGGER.error("[Caldera] freeMesh failed", t);
+        }
+    }
+
+    private static int uploadMeshInternal(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
         if (vertices == null || indices == null || vertexCount <= 0 || indexCount <= 0 || indexCount % 3 != 0) {
-            return;
-        }
-
-        GraphicsPipeline pipeline = PipelineManager.getExternalLodPipeline();
-        if (pipeline == null) {
-            return;
+            return 0;
         }
 
         ByteBuffer vertexSrc = vertices.duplicate();
         vertexSrc.order(ByteOrder.LITTLE_ENDIAN);
         if (vertexSrc.remaining() < vertexCount * INPUT_VERTEX_SIZE_BYTES) {
-            return;
+            return 0;
         }
 
         int indexSize = intIndices ? 4 : 2;
         int indexBytesNeeded = indexCount * indexSize;
         ByteBuffer indexSrc = indices.duplicate();
         if (indexSrc.remaining() < indexBytesNeeded) {
-            return;
+            return 0;
         }
 
         ByteBuffer indexScan = indexSrc.duplicate();
@@ -101,11 +110,14 @@ public final class CalderaBridge {
             if (idx < 0 || idx >= vertexCount) {
                 if (!indexBoundsWarned) {
                     indexBoundsWarned = true;
-                    Initializer.LOGGER.error("[Caldera] submitMesh: index {} out of bounds (vertexCount={})", idx, vertexCount);
+                    Initializer.LOGGER.error("[Caldera] uploadMesh: index {} out of bounds (vertexCount={})", idx, vertexCount);
                 }
-                return;
+                return 0;
             }
         }
+
+        VertexBuffer vertexBuffer;
+        IndexBuffer indexBuffer;
 
         ByteBuffer internalVertices = MemoryUtil.memAlloc(vertexCount * INTERNAL_VERTEX_SIZE_BYTES);
         try {
@@ -138,18 +150,12 @@ public final class CalderaBridge {
                 internalIndices.put(indexBytes);
                 internalIndices.position(0);
 
-                if (cachedVertexBuffer != null) {
-                    cachedVertexBuffer.freeBuffer();
-                }
-                cachedVertexBuffer = new VertexBuffer(vertexCount * INTERNAL_VERTEX_SIZE_BYTES, MemoryTypes.HOST_MEM);
-                cachedVertexBuffer.copyToVertexBuffer(INTERNAL_VERTEX_SIZE_BYTES, vertexCount, internalVertices);
+                vertexBuffer = new VertexBuffer(vertexCount * INTERNAL_VERTEX_SIZE_BYTES, MemoryTypes.HOST_MEM);
+                vertexBuffer.copyToVertexBuffer(INTERNAL_VERTEX_SIZE_BYTES, vertexCount, internalVertices);
 
                 IndexBuffer.IndexType indexType = intIndices ? IndexBuffer.IndexType.INT : IndexBuffer.IndexType.SHORT;
-                if (cachedIndexBuffer != null) {
-                    cachedIndexBuffer.freeBuffer();
-                }
-                cachedIndexBuffer = new IndexBuffer(indexBytesNeeded, MemoryTypes.HOST_MEM, indexType);
-                cachedIndexBuffer.copyBuffer(internalIndices);
+                indexBuffer = new IndexBuffer(indexBytesNeeded, MemoryTypes.HOST_MEM, indexType);
+                indexBuffer.copyBuffer(internalIndices);
             } finally {
                 MemoryUtil.memFree(internalIndices);
             }
@@ -157,17 +163,38 @@ public final class CalderaBridge {
             MemoryUtil.memFree(internalVertices);
         }
 
-        writeUniforms(cellOriginX, cellOriginZ, camX, camY, camZ);
+        int handle = nextHandle++;
+        if (nextHandle == 0) {
+            nextHandle = 1;
+        }
+        HANDLES.put(handle, new MeshHandle(vertexBuffer, indexBuffer, indexCount));
+        return handle;
+    }
+
+    private static void drawMeshInternal(int handle, double cellOriginX, double cellOriginZ) {
+        if (!isReady()) {
+            return;
+        }
+
+        MeshHandle mesh = HANDLES.get(handle);
+        if (mesh == null) {
+            return;
+        }
+
+        GraphicsPipeline pipeline = PipelineManager.getExternalLodPipeline();
+        if (pipeline == null) {
+            return;
+        }
+
+        writeUniforms(cellOriginX, cellOriginZ);
         bindLightmap();
 
         Renderer renderer = Renderer.getInstance();
         if (!renderer.bindGraphicsPipeline(pipeline)) {
-            if (diag) Initializer.LOGGER.info("[Caldera] submitMesh: bindGraphicsPipeline FAILED");
             return;
         }
         renderer.uploadAndBindUBOs(pipeline);
-        Renderer.getDrawer().drawIndexed(cachedVertexBuffer, cachedIndexBuffer, indexCount);
-        if (diag) Initializer.LOGGER.info("[Caldera] submitMesh: DREW {} indices", indexCount);
+        Renderer.getDrawer().drawIndexed(mesh.vertexBuffer(), mesh.indexBuffer(), mesh.indexCount());
     }
 
     private static int quantizeXZ(float value) {
@@ -190,8 +217,13 @@ public final class CalderaBridge {
         return (int) raw;
     }
 
-    private static void writeUniforms(double cellOriginX, double cellOriginZ, double camX, double camY, double camZ) {
-        FloatBuffer mvpSrc = VRenderSystem.getMVP().buffer.asFloatBuffer();
+    private static void writeUniforms(double cellOriginX, double cellOriginZ) {
+        Vec3 liveCam = WorldRenderer.getCameraPos();
+        double camX = liveCam != null ? liveCam.x() : 0.0;
+        double camY = liveCam != null ? liveCam.y() : 0.0;
+        double camZ = liveCam != null ? liveCam.z() : 0.0;
+
+        FloatBuffer mvpSrc = VRenderSystem.getExternalLodMVP().buffer.asFloatBuffer();
         mvpSrc.position(0);
         COMBINED_MATRIX_SCRATCH.set(mvpSrc);
 
