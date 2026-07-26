@@ -31,8 +31,6 @@ public final class CalderaBridge {
     private static final int Y_BIAS = 2048;
     private static final int POSITION_MAX = 0xFFFF;
 
-    private static final int FULL_BRIGHT_LIGHT_META = 0xFF;
-
     private static final Matrix4f COMBINED_MATRIX_SCRATCH = new Matrix4f();
     private static final int LIGHTMAP_TEXTURE_SLOT = 0;
     private static final int LIGHTMAP_SOURCE_SLOT = 2;
@@ -128,16 +126,16 @@ public final class CalderaBridge {
                 float y = vertexSrc.getFloat();
                 float z = vertexSrc.getFloat();
                 int c = vertexSrc.getInt();
+                int light = (c >>> 24) & 0xFF;
                 byte r = (byte) ((c >> 16) & 0xFF);
                 byte g = (byte) ((c >>  8) & 0xFF);
                 byte b = (byte) ( c        & 0xFF);
-                byte a = (byte) ((c >>> 24) & 0xFF);
 
                 internalVertices.putShort((short) quantizeXZ(x));
                 internalVertices.putShort((short) quantizeY(y));
                 internalVertices.putShort((short) quantizeXZ(z));
-                internalVertices.putShort((short) FULL_BRIGHT_LIGHT_META);
-                internalVertices.put(r).put(g).put(b).put(a);
+                internalVertices.putShort((short) light);
+                internalVertices.put(r).put(g).put(b).put((byte) 0xFF);
                 internalVertices.putInt(0);
             }
             internalVertices.position(0);
