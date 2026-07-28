@@ -10,26 +10,39 @@ import net.vulkanmod.compat.external.ExternalTerrainRenderBridge;
 import net.vulkanmod.gl.GlTexture;
 import net.vulkanmod.render.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
+import net.vulkanmod.render.chunk.buffer.AreaBuffer;
+import net.vulkanmod.render.chunk.buffer.DrawBuffers;
+import net.vulkanmod.render.chunk.buffer.UploadManager;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
-import net.vulkanmod.vulkan.memory.IndexBuffer;
+import net.vulkanmod.vulkan.device.DeviceManager;
+import net.vulkanmod.vulkan.memory.IndirectBuffer;
+import net.vulkanmod.vulkan.memory.MemoryManager;
 import net.vulkanmod.vulkan.memory.MemoryTypes;
-import net.vulkanmod.vulkan.memory.VertexBuffer;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.PipelineState;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
 import net.vulkanmod.vulkan.util.MappedBuffer;
 import org.joml.Matrix4f;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VK10;
+import org.lwjgl.vulkan.VkCommandBuffer;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
 public final class CalderaBridge {
+
+    public static final int PASS_FLAT_OPAQUE = 0;
+    public static final int PASS_TEX_OPAQUE = 1;
+    public static final int PASS_FLAT_WATER = 2;
+    public static final int PASS_TEX_WATER = 3;
+    public static final int PASS_FLAT_OPAQUE_SOLID = 4;
+    public static final int PASS_TEX_OPAQUE_SOLID = 5;
 
     private static final int INPUT_VERTEX_SIZE_BYTES = 16;
     private static final int INTERNAL_VERTEX_SIZE_BYTES = CustomVertexFormat.EXTERNAL_LOD.getVertexSize();
@@ -40,6 +53,18 @@ public final class CalderaBridge {
     private static final int Y_BIAS = 2048;
     private static final int POSITION_MAX = 0xFFFF;
 
+    private static final int ARENA_INDEX_SIZE_BYTES = 4;
+    private static final int OPAQUE_ARENA_VERTEX_BYTES = 4_194_304;
+    private static final int OPAQUE_ARENA_INDEX_BYTES = 2_097_152;
+    private static final int WATER_ARENA_VERTEX_BYTES = 1_048_576;
+    private static final int WATER_ARENA_INDEX_BYTES = 524_288;
+
+    private static final int ORIGIN_SLOTS = 1024;
+    private static final int ORIGIN_STRIDE_BYTES = 16;
+    private static final int MAX_BATCH_CELLS = ORIGIN_SLOTS - 1;
+    private static final int INDIRECT_COMMAND_BYTES = 20;
+    private static final int INDIRECT_BUFFER_BYTES = 262_144;
+
     private static final Matrix4f COMBINED_MATRIX_SCRATCH = new Matrix4f();
     private static final int LIGHTMAP_TEXTURE_SLOT = 0;
     private static final int LIGHTMAP_SOURCE_SLOT = 2;
@@ -48,14 +73,81 @@ public final class CalderaBridge {
     private static final Int2ObjectOpenHashMap<MeshHandle> HANDLES = new Int2ObjectOpenHashMap<>();
     private static int nextHandle = 1;
 
+    private static final LodArena[] ARENAS = new LodArena[4];
+
+    private static final MappedBuffer CELL_ORIGINS = new MappedBuffer(ORIGIN_SLOTS * ORIGIN_STRIDE_BYTES);
+    private static final ByteBuffer BATCH_COMMANDS = MemoryUtil.memAlloc(MAX_BATCH_CELLS * INDIRECT_COMMAND_BYTES);
+    private static final long BATCH_COMMANDS_PTR = MemoryUtil.memAddress0(BATCH_COMMANDS);
+
+    static {
+        MemoryUtil.memSet(CELL_ORIGINS.ptr, 0, ORIGIN_SLOTS * ORIGIN_STRIDE_BYTES);
+    }
+
+    private static IndirectBuffer[] indirectBuffers;
+    private static int lastIndirectFrame = -1;
+    private static boolean arenaUploadsPending;
+
     private static boolean indexBoundsWarned = false;
 
     private static volatile float clipDistance = 0.0f;
 
+    private static GraphicsPipeline batchPipeline;
+    private static boolean batchIndirect;
+    private static int batchDrawCount;
+    private static int batchBoundArena = -1;
+    private static boolean batchTexturesSaved;
+    private static boolean batchAtlasSaved;
+    private static boolean batchWaterStateSaved;
+    private static VulkanImage batchPrevSlot0;
+    private static VulkanImage batchPrevSlot3;
+    private static boolean batchPrevDepthTest;
+    private static boolean batchPrevDepthMask;
+    private static boolean batchPrevBlendEnabled;
+    private static int batchPrevSrcRgb;
+    private static int batchPrevDstRgb;
+    private static int batchPrevSrcAlpha;
+    private static int batchPrevDstAlpha;
+    private static int batchPrevBlendOp;
+    private static int batchPrevBlendOpRgb;
+    private static int batchPrevBlendOpAlpha;
+    private static double batchCamX;
+    private static double batchCamY;
+    private static double batchCamZ;
+
     private CalderaBridge() {
     }
 
-    private record MeshHandle(VertexBuffer vertexBuffer, IndexBuffer indexBuffer, int indexCount) {
+    private record MeshHandle(int arena, int indexCount, int firstIndex, int vertexOffset) {
+    }
+
+    private static final class LodArena {
+        final AreaBuffer vertexBuffer;
+        final AreaBuffer indexBuffer;
+        final int vertexSize;
+
+        LodArena(int vertexSize, int vertexBytes, int indexBytes) {
+            this.vertexSize = vertexSize;
+            this.vertexBuffer = new AreaBuffer(AreaBuffer.Usage.VERTEX, vertexBytes / vertexSize, vertexSize);
+            this.indexBuffer = new AreaBuffer(AreaBuffer.Usage.INDEX, indexBytes / ARENA_INDEX_SIZE_BYTES, ARENA_INDEX_SIZE_BYTES);
+        }
+    }
+
+    public static MappedBuffer getCellOrigins() {
+        return CELL_ORIGINS;
+    }
+
+    private static LodArena arenaFor(int pass) {
+        LodArena arena = ARENAS[pass];
+        if (arena == null) {
+            boolean textured = pass == PASS_TEX_OPAQUE || pass == PASS_TEX_WATER;
+            boolean water = pass == PASS_FLAT_WATER || pass == PASS_TEX_WATER;
+            int vertexSize = textured ? INTERNAL_TEXTURED_VERTEX_SIZE_BYTES : INTERNAL_VERTEX_SIZE_BYTES;
+            int vertexBytes = water ? WATER_ARENA_VERTEX_BYTES : OPAQUE_ARENA_VERTEX_BYTES;
+            int indexBytes = water ? WATER_ARENA_INDEX_BYTES : OPAQUE_ARENA_INDEX_BYTES;
+            arena = new LodArena(vertexSize, vertexBytes, indexBytes);
+            ARENAS[pass] = arena;
+        }
+        return arena;
     }
 
     public static boolean isReady() {
@@ -72,7 +164,7 @@ public final class CalderaBridge {
 
     public static int uploadMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
         try {
-            return uploadMeshInternal(vertices, vertexCount, indices, indexCount, intIndices);
+            return uploadMeshInternal(vertices, vertexCount, indices, indexCount, intIndices, PASS_FLAT_OPAQUE);
         } catch (Throwable t) {
             Initializer.LOGGER.error("[Caldera] uploadMesh failed", t);
             return 0;
@@ -91,8 +183,11 @@ public final class CalderaBridge {
         try {
             MeshHandle mesh = HANDLES.remove(handle);
             if (mesh != null) {
-                mesh.vertexBuffer().freeBuffer();
-                mesh.indexBuffer().freeBuffer();
+                LodArena arena = ARENAS[mesh.arena()];
+                if (arena != null) {
+                    MemoryManager.getInstance().addToFreeSegment(arena.vertexBuffer, mesh.vertexOffset());
+                    MemoryManager.getInstance().addToFreeSegment(arena.indexBuffer, mesh.firstIndex());
+                }
             }
         } catch (Throwable t) {
             Initializer.LOGGER.error("[Caldera] freeMesh failed", t);
@@ -101,7 +196,7 @@ public final class CalderaBridge {
 
     public static int uploadTexturedMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
         try {
-            return uploadTexturedMeshInternal(vertices, vertexCount, indices, indexCount, intIndices);
+            return uploadTexturedMeshInternal(vertices, vertexCount, indices, indexCount, intIndices, PASS_TEX_OPAQUE);
         } catch (Throwable t) {
             Initializer.LOGGER.error("[Caldera] uploadTexturedMesh failed", t);
             return 0;
@@ -118,7 +213,7 @@ public final class CalderaBridge {
 
     public static int uploadTexturedWaterMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
         try {
-            return uploadTexturedMeshInternal(vertices, vertexCount, indices, indexCount, intIndices);
+            return uploadTexturedMeshInternal(vertices, vertexCount, indices, indexCount, intIndices, PASS_TEX_WATER);
         } catch (Throwable t) {
             Initializer.LOGGER.error("[Caldera] uploadTexturedWaterMesh failed", t);
             return 0;
@@ -135,7 +230,7 @@ public final class CalderaBridge {
 
     public static int uploadWaterMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
         try {
-            return uploadMeshInternal(vertices, vertexCount, indices, indexCount, intIndices);
+            return uploadMeshInternal(vertices, vertexCount, indices, indexCount, intIndices, PASS_FLAT_WATER);
         } catch (Throwable t) {
             Initializer.LOGGER.error("[Caldera] uploadWaterMesh failed", t);
             return 0;
@@ -150,7 +245,271 @@ public final class CalderaBridge {
         }
     }
 
-    private static int uploadMeshInternal(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
+    public static boolean beginLodDraw(int pass) {
+        try {
+            return beginLodDrawInternal(pass);
+        } catch (Throwable t) {
+            Initializer.LOGGER.error("[Caldera] beginLodDraw failed", t);
+            try {
+                endLodDrawInternal();
+            } catch (Throwable ignored) {
+            }
+            return false;
+        }
+    }
+
+    public static void drawLodCell(int handle, double cellOriginX, double cellOriginZ) {
+        try {
+            drawLodCellInternal(handle, cellOriginX, cellOriginZ);
+        } catch (Throwable t) {
+            Initializer.LOGGER.error("[Caldera] drawLodCell failed", t);
+        }
+    }
+
+    public static void endLodDraw() {
+        try {
+            endLodDrawInternal();
+        } catch (Throwable t) {
+            Initializer.LOGGER.error("[Caldera] endLodDraw failed", t);
+        }
+    }
+
+    private static boolean beginLodDrawInternal(int pass) {
+        if (batchPipeline != null || batchTexturesSaved || batchWaterStateSaved) {
+            batchDrawCount = 0;
+            endLodDrawInternal();
+        }
+        if (!isReady()) {
+            return false;
+        }
+
+        GraphicsPipeline pipeline = switch (pass) {
+            case PASS_FLAT_OPAQUE -> PipelineManager.getExternalLodPipeline();
+            case PASS_TEX_OPAQUE -> PipelineManager.getExternalLodTexturedPipeline();
+            case PASS_FLAT_WATER -> PipelineManager.getExternalLodWaterPipeline();
+            case PASS_TEX_WATER -> PipelineManager.getExternalLodWaterTexturedPipeline();
+            case PASS_FLAT_OPAQUE_SOLID -> PipelineManager.getExternalLodSolidPipeline();
+            case PASS_TEX_OPAQUE_SOLID -> PipelineManager.getExternalLodTexturedSolidPipeline();
+            default -> null;
+        };
+        if (pipeline == null) {
+            return false;
+        }
+
+        boolean textured = pass == PASS_TEX_OPAQUE || pass == PASS_TEX_WATER || pass == PASS_TEX_OPAQUE_SOLID;
+        boolean water = pass == PASS_FLAT_WATER || pass == PASS_TEX_WATER;
+
+        if (arenaUploadsPending) {
+            UploadManager.INSTANCE.submitUploads();
+            arenaUploadsPending = false;
+        }
+
+        Vec3 liveCam = WorldRenderer.getCameraPos();
+        batchCamX = liveCam != null ? liveCam.x() : 0.0;
+        batchCamY = liveCam != null ? liveCam.y() : 0.0;
+        batchCamZ = liveCam != null ? liveCam.z() : 0.0;
+
+        writeSharedUniforms();
+
+        batchPrevSlot0 = VTextureSelector.getImage(LIGHTMAP_TEXTURE_SLOT);
+        batchPrevSlot3 = textured ? VTextureSelector.getImage(BLOCK_ATLAS_TEXTURE_SLOT) : null;
+        batchTexturesSaved = true;
+        batchAtlasSaved = textured;
+        bindLightmap();
+
+        if (textured && !bindAtlas()) {
+            endLodDrawInternal();
+            return false;
+        }
+
+        if (water) {
+            batchPrevDepthTest = VRenderSystem.depthTest;
+            batchPrevDepthMask = VRenderSystem.depthMask;
+            PipelineState.BlendInfo bi = PipelineState.blendInfo;
+            batchPrevBlendEnabled = bi.enabled;
+            batchPrevSrcRgb = bi.srcRgbFactor;
+            batchPrevDstRgb = bi.dstRgbFactor;
+            batchPrevSrcAlpha = bi.srcAlphaFactor;
+            batchPrevDstAlpha = bi.dstAlphaFactor;
+            batchPrevBlendOp = bi.blendOp;
+            batchPrevBlendOpRgb = bi.blendOpRgb;
+            batchPrevBlendOpAlpha = bi.blendOpAlpha;
+            batchWaterStateSaved = true;
+
+            VRenderSystem.depthTest = true;
+            VRenderSystem.depthMask = false;
+            bi.enabled = true;
+            bi.srcRgbFactor = VK10.VK_BLEND_FACTOR_SRC_ALPHA;
+            bi.dstRgbFactor = VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            bi.srcAlphaFactor = VK10.VK_BLEND_FACTOR_ONE;
+            bi.dstAlphaFactor = VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            bi.blendOp = bi.blendOpRgb = bi.blendOpAlpha = VK10.VK_BLEND_OP_ADD;
+        }
+
+        Renderer renderer = Renderer.getInstance();
+        if (!renderer.bindGraphicsPipeline(pipeline)) {
+            endLodDrawInternal();
+            return false;
+        }
+
+        boolean indirect = Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw();
+        if (indirect) {
+            prepareIndirectFrame();
+            pushOrigin(pipeline, 0.0f, (float) (-batchCamY - Y_BIAS), 0.0f);
+            batchDrawCount = 0;
+        } else {
+            renderer.uploadAndBindUBOs(pipeline);
+        }
+
+        batchIndirect = indirect;
+        batchBoundArena = -1;
+        batchPipeline = pipeline;
+        return true;
+    }
+
+    private static void drawLodCellInternal(int handle, double cellOriginX, double cellOriginZ) {
+        GraphicsPipeline pipeline = batchPipeline;
+        if (pipeline == null) {
+            return;
+        }
+
+        MeshHandle mesh = HANDLES.get(handle);
+        if (mesh == null) {
+            return;
+        }
+
+        LodArena arena = ARENAS[mesh.arena()];
+        if (arena == null) {
+            return;
+        }
+
+        if (batchIndirect) {
+            if (mesh.arena() != batchBoundArena) {
+                flushBatch();
+                bindArena(arena);
+                batchBoundArena = mesh.arena();
+            } else if (batchDrawCount == MAX_BATCH_CELLS) {
+                flushBatch();
+            }
+
+            int slot = batchDrawCount + 1;
+            int originOffset = slot * ORIGIN_STRIDE_BYTES;
+            CELL_ORIGINS.putFloat(originOffset, (float) (cellOriginX - batchCamX));
+            CELL_ORIGINS.putFloat(originOffset + 4, 0.0f);
+            CELL_ORIGINS.putFloat(originOffset + 8, (float) (cellOriginZ - batchCamZ));
+            CELL_ORIGINS.putFloat(originOffset + 12, 0.0f);
+
+            long ptr = BATCH_COMMANDS_PTR + (long) batchDrawCount * INDIRECT_COMMAND_BYTES;
+            MemoryUtil.memPutInt(ptr, mesh.indexCount());
+            MemoryUtil.memPutInt(ptr + 4, 1);
+            MemoryUtil.memPutInt(ptr + 8, mesh.firstIndex());
+            MemoryUtil.memPutInt(ptr + 12, mesh.vertexOffset());
+            MemoryUtil.memPutInt(ptr + 16, slot);
+            batchDrawCount++;
+            return;
+        }
+
+        if (mesh.arena() != batchBoundArena) {
+            bindArena(arena);
+            batchBoundArena = mesh.arena();
+        }
+
+        pushOrigin(pipeline, (float) (cellOriginX - batchCamX), (float) (-batchCamY - Y_BIAS), (float) (cellOriginZ - batchCamZ));
+        VK10.vkCmdDrawIndexed(Renderer.getCommandBuffer(), mesh.indexCount(), 1, mesh.firstIndex(), mesh.vertexOffset(), 0);
+    }
+
+    private static void pushOrigin(GraphicsPipeline pipeline, float x, float y, float z) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            ByteBuffer pushData = stack.malloc(16);
+            pushData.putFloat(0, x);
+            pushData.putFloat(4, y);
+            pushData.putFloat(8, z);
+            pushData.putFloat(12, 0.0f);
+            VK10.vkCmdPushConstants(Renderer.getCommandBuffer(), pipeline.getLayout(), VK10.VK_SHADER_STAGE_VERTEX_BIT, 0, pushData);
+        }
+    }
+
+    private static void bindArena(LodArena arena) {
+        VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            VK10.nvkCmdBindVertexBuffers(commandBuffer, 0, 1, stack.npointer(arena.vertexBuffer.getId()), stack.npointer(0L));
+        }
+        VK10.vkCmdBindIndexBuffer(commandBuffer, arena.indexBuffer.getId(), 0, VK10.VK_INDEX_TYPE_UINT32);
+    }
+
+    private static void prepareIndirectFrame() {
+        int framesNum = Renderer.getFramesNum();
+        if (indirectBuffers == null || indirectBuffers.length != framesNum) {
+            if (indirectBuffers != null) {
+                for (IndirectBuffer buffer : indirectBuffers) {
+                    buffer.freeBuffer();
+                }
+            }
+            indirectBuffers = new IndirectBuffer[framesNum];
+            for (int i = 0; i < framesNum; i++) {
+                indirectBuffers[i] = new IndirectBuffer(INDIRECT_BUFFER_BYTES, MemoryTypes.HOST_MEM);
+            }
+            lastIndirectFrame = -1;
+        }
+
+        int frame = Renderer.getCurrentFrame();
+        if (frame != lastIndirectFrame) {
+            indirectBuffers[frame].reset();
+            lastIndirectFrame = frame;
+        }
+    }
+
+    private static void flushBatch() {
+        if (batchDrawCount == 0) {
+            return;
+        }
+
+        Renderer.getInstance().uploadAndBindUBOs(batchPipeline);
+
+        IndirectBuffer indirectBuffer = indirectBuffers[Renderer.getCurrentFrame()];
+        BATCH_COMMANDS.position(0);
+        BATCH_COMMANDS.limit(batchDrawCount * INDIRECT_COMMAND_BYTES);
+        indirectBuffer.recordCopyCmd(BATCH_COMMANDS);
+        BATCH_COMMANDS.clear();
+
+        VK10.vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectBuffer.getOffset(), batchDrawCount, INDIRECT_COMMAND_BYTES);
+        batchDrawCount = 0;
+    }
+
+    private static void endLodDrawInternal() {
+        if (batchIndirect) {
+            flushBatch();
+            batchIndirect = false;
+        }
+        batchBoundArena = -1;
+        batchPipeline = null;
+        if (batchWaterStateSaved) {
+            batchWaterStateSaved = false;
+            VRenderSystem.depthTest = batchPrevDepthTest;
+            VRenderSystem.depthMask = batchPrevDepthMask;
+            PipelineState.BlendInfo bi = PipelineState.blendInfo;
+            bi.enabled = batchPrevBlendEnabled;
+            bi.srcRgbFactor = batchPrevSrcRgb;
+            bi.dstRgbFactor = batchPrevDstRgb;
+            bi.srcAlphaFactor = batchPrevSrcAlpha;
+            bi.dstAlphaFactor = batchPrevDstAlpha;
+            bi.blendOp = batchPrevBlendOp;
+            bi.blendOpRgb = batchPrevBlendOpRgb;
+            bi.blendOpAlpha = batchPrevBlendOpAlpha;
+        }
+        if (batchTexturesSaved) {
+            batchTexturesSaved = false;
+            VTextureSelector.bindTexture(LIGHTMAP_TEXTURE_SLOT, batchPrevSlot0);
+            if (batchAtlasSaved) {
+                batchAtlasSaved = false;
+                VTextureSelector.bindTexture(BLOCK_ATLAS_TEXTURE_SLOT, batchPrevSlot3);
+            }
+            batchPrevSlot0 = null;
+            batchPrevSlot3 = null;
+        }
+    }
+
+    private static int uploadMeshInternal(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices, int pass) {
         if (vertices == null || indices == null || vertexCount <= 0 || indexCount <= 0 || indexCount % 3 != 0) {
             return 0;
         }
@@ -181,8 +540,8 @@ public final class CalderaBridge {
             }
         }
 
-        VertexBuffer vertexBuffer;
-        IndexBuffer indexBuffer;
+        int vertexOffset;
+        int firstIndex;
 
         ByteBuffer internalVertices = MemoryUtil.memAlloc(vertexCount * INTERNAL_VERTEX_SIZE_BYTES);
         try {
@@ -207,68 +566,51 @@ public final class CalderaBridge {
             }
             internalVertices.position(0);
 
-            byte[] indexBytes = new byte[indexBytesNeeded];
-            indexSrc.get(indexBytes);
-
-            ByteBuffer internalIndices = MemoryUtil.memAlloc(indexBytesNeeded);
+            ByteBuffer internalIndices = MemoryUtil.memAlloc(indexCount * ARENA_INDEX_SIZE_BYTES);
             try {
-                internalIndices.put(indexBytes);
+                writeArenaIndices(internalIndices, indexSrc, indexCount, intIndices);
                 internalIndices.position(0);
 
-                vertexBuffer = new VertexBuffer(vertexCount * INTERNAL_VERTEX_SIZE_BYTES, MemoryTypes.HOST_MEM);
-                vertexBuffer.copyToVertexBuffer(INTERNAL_VERTEX_SIZE_BYTES, vertexCount, internalVertices);
-
-                IndexBuffer.IndexType indexType = intIndices ? IndexBuffer.IndexType.INT : IndexBuffer.IndexType.SHORT;
-                indexBuffer = new IndexBuffer(indexBytesNeeded, MemoryTypes.HOST_MEM, indexType);
-                indexBuffer.copyBuffer(internalIndices);
+                LodArena arena = arenaFor(pass);
+                vertexOffset = arena.vertexBuffer.upload(internalVertices, -1, new DrawBuffers.DrawParameters()).getOffset() / INTERNAL_VERTEX_SIZE_BYTES;
+                firstIndex = arena.indexBuffer.upload(internalIndices, -1, new DrawBuffers.DrawParameters()).getOffset() / ARENA_INDEX_SIZE_BYTES;
             } finally {
                 MemoryUtil.memFree(internalIndices);
             }
         } finally {
             MemoryUtil.memFree(internalVertices);
         }
+        arenaUploadsPending = true;
 
         int handle = nextHandle++;
         if (nextHandle == 0) {
             nextHandle = 1;
         }
-        HANDLES.put(handle, new MeshHandle(vertexBuffer, indexBuffer, indexCount));
+        HANDLES.put(handle, new MeshHandle(pass, indexCount, firstIndex, vertexOffset));
         return handle;
     }
 
-    private static void drawMeshInternal(int handle, double cellOriginX, double cellOriginZ) {
-        if (!isReady()) {
-            return;
-        }
-
-        MeshHandle mesh = HANDLES.get(handle);
-        if (mesh == null) {
-            return;
-        }
-
-        GraphicsPipeline pipeline = PipelineManager.getExternalLodPipeline();
-        if (pipeline == null) {
-            return;
-        }
-
-        writeUniforms(cellOriginX, cellOriginZ);
-
-        final VulkanImage prevSlot0 = VTextureSelector.getImage(LIGHTMAP_TEXTURE_SLOT);
-        bindLightmap();
-
-        try {
-            Renderer renderer = Renderer.getInstance();
-            if (!renderer.bindGraphicsPipeline(pipeline)) {
-                return;
-            }
-            renderer.uploadAndBindUBOs(pipeline);
-            Renderer.getDrawer().drawIndexed(mesh.vertexBuffer(), mesh.indexBuffer(), mesh.indexCount());
-        } finally {
-            VTextureSelector.bindTexture(LIGHTMAP_TEXTURE_SLOT, prevSlot0);
+    private static void writeArenaIndices(ByteBuffer dst, ByteBuffer src, int indexCount, boolean intIndices) {
+        dst.order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer indices = src.duplicate();
+        indices.order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 0; i < indexCount; i++) {
+            dst.putInt(intIndices ? indices.getInt() : (indices.getShort() & 0xFFFF));
         }
     }
 
-    private static int uploadTexturedMeshInternal(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
+    private static void drawMeshInternal(int handle, double cellOriginX, double cellOriginZ) {
+        if (!beginLodDrawInternal(PASS_FLAT_OPAQUE)) {
+            return;
+        }
+        try {
+            drawLodCellInternal(handle, cellOriginX, cellOriginZ);
+        } finally {
+            endLodDrawInternal();
+        }
+    }
+
+    private static int uploadTexturedMeshInternal(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices, int pass) {
         if (vertices == null || indices == null || vertexCount <= 0 || indexCount <= 0 || indexCount % 3 != 0) {
             return 0;
         }
@@ -299,8 +641,8 @@ public final class CalderaBridge {
             }
         }
 
-        VertexBuffer vertexBuffer;
-        IndexBuffer indexBuffer;
+        int vertexOffset;
+        int firstIndex;
 
         ByteBuffer internalVertices = MemoryUtil.memAlloc(vertexCount * INTERNAL_TEXTURED_VERTEX_SIZE_BYTES);
         try {
@@ -337,186 +679,60 @@ public final class CalderaBridge {
             }
             internalVertices.position(0);
 
-            byte[] indexBytes = new byte[indexBytesNeeded];
-            indexSrc.get(indexBytes);
-
-            ByteBuffer internalIndices = MemoryUtil.memAlloc(indexBytesNeeded);
+            ByteBuffer internalIndices = MemoryUtil.memAlloc(indexCount * ARENA_INDEX_SIZE_BYTES);
             try {
-                internalIndices.put(indexBytes);
+                writeArenaIndices(internalIndices, indexSrc, indexCount, intIndices);
                 internalIndices.position(0);
 
-                vertexBuffer = new VertexBuffer(vertexCount * INTERNAL_TEXTURED_VERTEX_SIZE_BYTES, MemoryTypes.HOST_MEM);
-                vertexBuffer.copyToVertexBuffer(INTERNAL_TEXTURED_VERTEX_SIZE_BYTES, vertexCount, internalVertices);
-
-                IndexBuffer.IndexType indexType = intIndices ? IndexBuffer.IndexType.INT : IndexBuffer.IndexType.SHORT;
-                indexBuffer = new IndexBuffer(indexBytesNeeded, MemoryTypes.HOST_MEM, indexType);
-                indexBuffer.copyBuffer(internalIndices);
+                LodArena arena = arenaFor(pass);
+                vertexOffset = arena.vertexBuffer.upload(internalVertices, -1, new DrawBuffers.DrawParameters()).getOffset() / INTERNAL_TEXTURED_VERTEX_SIZE_BYTES;
+                firstIndex = arena.indexBuffer.upload(internalIndices, -1, new DrawBuffers.DrawParameters()).getOffset() / ARENA_INDEX_SIZE_BYTES;
             } finally {
                 MemoryUtil.memFree(internalIndices);
             }
         } finally {
             MemoryUtil.memFree(internalVertices);
         }
+        arenaUploadsPending = true;
 
         int handle = nextHandle++;
         if (nextHandle == 0) {
             nextHandle = 1;
         }
-        HANDLES.put(handle, new MeshHandle(vertexBuffer, indexBuffer, indexCount));
+        HANDLES.put(handle, new MeshHandle(pass, indexCount, firstIndex, vertexOffset));
         return handle;
     }
 
     private static void drawTexturedMeshInternal(int handle, double cellOriginX, double cellOriginZ) {
-        if (!isReady()) {
+        if (!beginLodDrawInternal(PASS_TEX_OPAQUE)) {
             return;
         }
-
-        MeshHandle mesh = HANDLES.get(handle);
-        if (mesh == null) {
-            return;
-        }
-
-        GraphicsPipeline pipeline = PipelineManager.getExternalLodTexturedPipeline();
-        if (pipeline == null) {
-            return;
-        }
-
-        writeUniforms(cellOriginX, cellOriginZ);
-
-        final VulkanImage prevSlot0 = VTextureSelector.getImage(LIGHTMAP_TEXTURE_SLOT);
-        final VulkanImage prevSlot3 = VTextureSelector.getImage(BLOCK_ATLAS_TEXTURE_SLOT);
-        bindLightmap();
-
         try {
-            if (!bindAtlas()) {
-                return;
-            }
-
-            Renderer renderer = Renderer.getInstance();
-            if (!renderer.bindGraphicsPipeline(pipeline)) {
-                return;
-            }
-            renderer.uploadAndBindUBOs(pipeline);
-            Renderer.getDrawer().drawIndexed(mesh.vertexBuffer(), mesh.indexBuffer(), mesh.indexCount());
+            drawLodCellInternal(handle, cellOriginX, cellOriginZ);
         } finally {
-            VTextureSelector.bindTexture(LIGHTMAP_TEXTURE_SLOT, prevSlot0);
-            VTextureSelector.bindTexture(BLOCK_ATLAS_TEXTURE_SLOT, prevSlot3);
+            endLodDrawInternal();
         }
     }
 
     private static void drawTexturedWaterMeshInternal(int handle, double cellOriginX, double cellOriginZ) {
-        if (!isReady()) {
+        if (!beginLodDrawInternal(PASS_TEX_WATER)) {
             return;
         }
-
-        MeshHandle mesh = HANDLES.get(handle);
-        if (mesh == null) {
-            return;
-        }
-
-        GraphicsPipeline pipeline = PipelineManager.getExternalLodWaterTexturedPipeline();
-        if (pipeline == null) {
-            return;
-        }
-
-        writeUniforms(cellOriginX, cellOriginZ);
-
-        final VulkanImage prevSlot0 = VTextureSelector.getImage(LIGHTMAP_TEXTURE_SLOT);
-        final VulkanImage prevSlot3 = VTextureSelector.getImage(BLOCK_ATLAS_TEXTURE_SLOT);
-        bindLightmap();
-
-        final boolean sDepthTest = VRenderSystem.depthTest, sDepthMask = VRenderSystem.depthMask;
-        final PipelineState.BlendInfo bi = PipelineState.blendInfo;
-        final boolean sBlendEnabled = bi.enabled;
-        final int sSrcRgb = bi.srcRgbFactor, sDstRgb = bi.dstRgbFactor, sSrcA = bi.srcAlphaFactor, sDstA = bi.dstAlphaFactor;
-        final int sBlendOp = bi.blendOp, sBlendOpRgb = bi.blendOpRgb, sBlendOpAlpha = bi.blendOpAlpha;
-
-        VRenderSystem.depthTest = true;
-        VRenderSystem.depthMask = false;
-        bi.enabled = true;
-        bi.srcRgbFactor = VK10.VK_BLEND_FACTOR_SRC_ALPHA;
-        bi.dstRgbFactor = VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        bi.srcAlphaFactor = VK10.VK_BLEND_FACTOR_ONE;
-        bi.dstAlphaFactor = VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        bi.blendOp = bi.blendOpRgb = bi.blendOpAlpha = VK10.VK_BLEND_OP_ADD;
-
         try {
-            if (bindAtlas()) {
-                Renderer renderer = Renderer.getInstance();
-                if (renderer.bindGraphicsPipeline(pipeline)) {
-                    renderer.uploadAndBindUBOs(pipeline);
-                    Renderer.getDrawer().drawIndexed(mesh.vertexBuffer(), mesh.indexBuffer(), mesh.indexCount());
-                }
-            }
+            drawLodCellInternal(handle, cellOriginX, cellOriginZ);
         } finally {
-            VRenderSystem.depthTest = sDepthTest;
-            VRenderSystem.depthMask = sDepthMask;
-            bi.enabled = sBlendEnabled;
-            bi.srcRgbFactor = sSrcRgb;
-            bi.dstRgbFactor = sDstRgb;
-            bi.srcAlphaFactor = sSrcA;
-            bi.dstAlphaFactor = sDstA;
-            bi.blendOp = sBlendOp;
-            bi.blendOpRgb = sBlendOpRgb;
-            bi.blendOpAlpha = sBlendOpAlpha;
-            VTextureSelector.bindTexture(LIGHTMAP_TEXTURE_SLOT, prevSlot0);
-            VTextureSelector.bindTexture(BLOCK_ATLAS_TEXTURE_SLOT, prevSlot3);
+            endLodDrawInternal();
         }
     }
 
     private static void drawWaterMeshInternal(int handle, double cellOriginX, double cellOriginZ) {
-        if (!isReady()) {
+        if (!beginLodDrawInternal(PASS_FLAT_WATER)) {
             return;
         }
-
-        MeshHandle mesh = HANDLES.get(handle);
-        if (mesh == null) {
-            return;
-        }
-
-        GraphicsPipeline pipeline = PipelineManager.getExternalLodWaterPipeline();
-        if (pipeline == null) {
-            return;
-        }
-
-        writeUniforms(cellOriginX, cellOriginZ);
-
-        final VulkanImage prevSlot0 = VTextureSelector.getImage(LIGHTMAP_TEXTURE_SLOT);
-        bindLightmap();
-
-        final boolean sDepthTest = VRenderSystem.depthTest, sDepthMask = VRenderSystem.depthMask;
-        final PipelineState.BlendInfo bi = PipelineState.blendInfo;
-        final boolean sBlendEnabled = bi.enabled;
-        final int sSrcRgb = bi.srcRgbFactor, sDstRgb = bi.dstRgbFactor, sSrcA = bi.srcAlphaFactor, sDstA = bi.dstAlphaFactor;
-        final int sBlendOp = bi.blendOp, sBlendOpRgb = bi.blendOpRgb, sBlendOpAlpha = bi.blendOpAlpha;
-
-        VRenderSystem.depthTest = true;
-        VRenderSystem.depthMask = false;
-        bi.enabled = true;
-        bi.srcRgbFactor = VK10.VK_BLEND_FACTOR_SRC_ALPHA;
-        bi.dstRgbFactor = VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        bi.srcAlphaFactor = VK10.VK_BLEND_FACTOR_ONE;
-        bi.dstAlphaFactor = VK10.VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-        bi.blendOp = bi.blendOpRgb = bi.blendOpAlpha = VK10.VK_BLEND_OP_ADD;
-
         try {
-            Renderer renderer = Renderer.getInstance();
-            if (renderer.bindGraphicsPipeline(pipeline)) {
-                renderer.uploadAndBindUBOs(pipeline);
-                Renderer.getDrawer().drawIndexed(mesh.vertexBuffer(), mesh.indexBuffer(), mesh.indexCount());
-            }
+            drawLodCellInternal(handle, cellOriginX, cellOriginZ);
         } finally {
-            VRenderSystem.depthTest = sDepthTest;
-            VRenderSystem.depthMask = sDepthMask;
-            bi.enabled = sBlendEnabled;
-            bi.srcRgbFactor = sSrcRgb;
-            bi.dstRgbFactor = sDstRgb;
-            bi.srcAlphaFactor = sSrcA;
-            bi.dstAlphaFactor = sDstA;
-            bi.blendOp = sBlendOp;
-            bi.blendOpRgb = sBlendOpRgb;
-            bi.blendOpAlpha = sBlendOpAlpha;
-            VTextureSelector.bindTexture(LIGHTMAP_TEXTURE_SLOT, prevSlot0);
+            endLodDrawInternal();
         }
     }
 
@@ -545,12 +761,7 @@ public final class CalderaBridge {
         return (int) raw;
     }
 
-    private static void writeUniforms(double cellOriginX, double cellOriginZ) {
-        Vec3 liveCam = WorldRenderer.getCameraPos();
-        double camX = liveCam != null ? liveCam.x() : 0.0;
-        double camY = liveCam != null ? liveCam.y() : 0.0;
-        double camZ = liveCam != null ? liveCam.z() : 0.0;
-
+    private static void writeSharedUniforms() {
         FloatBuffer mvpSrc = VRenderSystem.getExternalLodMVP().buffer.asFloatBuffer();
         mvpSrc.position(0);
         COMBINED_MATRIX_SCRATCH.set(mvpSrc);
@@ -558,12 +769,6 @@ public final class CalderaBridge {
         FloatBuffer combinedDst = ExternalTerrainRenderBridge.getCombinedMatrix().buffer.asFloatBuffer();
         combinedDst.position(0);
         COMBINED_MATRIX_SCRATCH.get(combinedDst);
-
-        MappedBuffer modelOffset = ExternalTerrainRenderBridge.getModelOffsetAndYOffset();
-        modelOffset.putFloat(0, (float) (cellOriginX - camX));
-        modelOffset.putFloat(4, (float) (-camY - Y_BIAS));
-        modelOffset.putFloat(8, (float) (cellOriginZ - camZ));
-        modelOffset.putFloat(12, 0.0f);
 
         float clip = clipDistance;
         MappedBuffer renderParams = ExternalTerrainRenderBridge.getRenderParams();

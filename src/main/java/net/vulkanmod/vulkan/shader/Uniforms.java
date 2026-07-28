@@ -28,6 +28,7 @@ public class Uniforms {
         mat4f_uniformMap.put("MVP", VRenderSystem::getMVP);
         mat4f_uniformMap.put("TextureMat", VRenderSystem::getTextureMatrix);
         mat4f_uniformMap.put("ExternalLodCombinedMatrix", ExternalTerrainRenderBridge::getCombinedMatrix);
+        floatArr_uniformMap.put("ExternalLodCellOrigins", net.vulkanmod.api.CalderaBridge::getCellOrigins);
 
         vec1i_uniformMap.put("EndPortalLayers", () -> 15);
         vec1i_uniformMap.put("FogShape", () -> RenderSystem.getShaderFogShape().getIndex());
