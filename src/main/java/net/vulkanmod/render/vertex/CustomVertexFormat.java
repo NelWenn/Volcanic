@@ -11,6 +11,8 @@ public class CustomVertexFormat {
     public static final VertexFormatElement ELEMENT_UV2 = new VertexFormatElement(3, 2, VertexFormatElement.Type.SHORT, VertexFormatElement.Usage.UV, 2);
     public static final VertexFormatElement ELEMENT_EXTERNAL_LOD_POSITION = new VertexFormatElement(0, 0, VertexFormatElement.Type.USHORT, VertexFormatElement.Usage.POSITION, 4);
     public static final VertexFormatElement ELEMENT_EXTERNAL_LOD_PADDING = new VertexFormatElement(2, 0, VertexFormatElement.Type.BYTE, VertexFormatElement.Usage.NORMAL, 4);
+    public static final VertexFormatElement ELEMENT_EXTERNAL_LOD_SPRITE_RECT = new VertexFormatElement(2, 0, VertexFormatElement.Type.USHORT, VertexFormatElement.Usage.UV, 4);
+    public static final VertexFormatElement ELEMENT_EXTERNAL_LOD_TILE_UV = new VertexFormatElement(3, 1, VertexFormatElement.Type.USHORT, VertexFormatElement.Usage.UV, 2);
 
     public static final VertexFormat COMPRESSED_TERRAIN = VertexFormat.builder()
             .add("Position", ELEMENT_POSITION)
@@ -23,6 +25,13 @@ public class CustomVertexFormat {
             .add("Position", ELEMENT_EXTERNAL_LOD_POSITION)
             .add("Color", ELEMENT_COLOR)
             .add("Padding", ELEMENT_EXTERNAL_LOD_PADDING)
+            .build();
+
+    public static final VertexFormat EXTERNAL_LOD_TEXTURED = VertexFormat.builder()
+            .add("Position", ELEMENT_EXTERNAL_LOD_POSITION)
+            .add("Color", ELEMENT_COLOR)
+            .add("SpriteRect", ELEMENT_EXTERNAL_LOD_SPRITE_RECT)
+            .add("TileUV", ELEMENT_EXTERNAL_LOD_TILE_UV)
             .build();
 
     public static final VertexFormat NONE = VertexFormat.builder().build();

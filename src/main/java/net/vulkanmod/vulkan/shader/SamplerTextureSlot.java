@@ -32,6 +32,7 @@ public final class SamplerTextureSlot {
             case "Sampler10" -> 10;
             case "Sampler11" -> 11;
             case "uLightMap" -> 0;
+            case "uBlockAtlas" -> 3;
             default -> null;
         };
     }

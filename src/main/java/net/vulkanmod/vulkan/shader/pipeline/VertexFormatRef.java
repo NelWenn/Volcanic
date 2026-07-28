@@ -16,6 +16,11 @@ public enum VertexFormatRef {
             return CustomVertexFormat.EXTERNAL_LOD;
         }
     },
+    EXTERNAL_LOD_TEXTURED {
+        public VertexFormat resolve() {
+            return CustomVertexFormat.EXTERNAL_LOD_TEXTURED;
+        }
+    },
     NONE {
         public VertexFormat resolve() {
             return CustomVertexFormat.NONE;

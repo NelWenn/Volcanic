@@ -19,7 +19,7 @@ public abstract class PipelineManager {
         TERRAIN_VERTEX_FORMAT = format;
     }
 
-    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline;
+    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline;
     static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline;
     static GraphicsPipeline materialPipeline;
 
@@ -65,6 +65,15 @@ public abstract class PipelineManager {
 
         PipelineRegistry.register(ExternalLodPipeline.class);
         externalLodPipeline = PipelineRegistry.get(ExternalLodPipeline.class);
+
+        PipelineRegistry.register(ExternalLodTexturedPipeline.class);
+        externalLodTexturedPipeline = PipelineRegistry.get(ExternalLodTexturedPipeline.class);
+
+        PipelineRegistry.register(ExternalLodWaterPipeline.class);
+        externalLodWaterPipeline = PipelineRegistry.get(ExternalLodWaterPipeline.class);
+
+        PipelineRegistry.register(ExternalLodWaterTexturedPipeline.class);
+        externalLodWaterTexturedPipeline = PipelineRegistry.get(ExternalLodWaterTexturedPipeline.class);
     }
 
     public static GraphicsPipeline getTerrainShader(TerrainRenderType renderType) {
@@ -105,6 +114,12 @@ public abstract class PipelineManager {
     public static GraphicsPipeline getRenderScaleBlitPipeline() { return renderScaleBlitPipeline; }
 
     public static GraphicsPipeline getExternalLodPipeline() { return externalLodPipeline; }
+
+    public static GraphicsPipeline getExternalLodTexturedPipeline() { return externalLodTexturedPipeline; }
+
+    public static GraphicsPipeline getExternalLodWaterPipeline() { return externalLodWaterPipeline; }
+
+    public static GraphicsPipeline getExternalLodWaterTexturedPipeline() { return externalLodWaterTexturedPipeline; }
 
     public static void destroyPipelines() {
         PipelineRegistry.cleanUp();
