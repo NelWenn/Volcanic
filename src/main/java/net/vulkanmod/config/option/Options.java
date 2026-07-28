@@ -488,6 +488,13 @@ public abstract class Options {
                                 .setTooltip(Component.translatable("vulkanmod.options.performancePreset.tooltip"))
                 }),
                 new OptionBlock("", new Option[]{
+                        new SwitchOption(Component.translatable("vulkanmod.options.occlusionCulling"),
+                                value -> {
+                                    config.lodDepthSnapshot = value;
+                                },
+                                () -> config.lodDepthSnapshot)
+                                .setTooltip(Component.translatable("vulkanmod.options.occlusionCulling.tooltip"))
+                                .setImpact(PerformanceImpact.HIGH),
                         new SwitchOption(Component.translatable("vulkanmod.options.uniqueOpaqueLayer"),
                                 value -> {
                                     markPerformancePresetCustom();
