@@ -45,6 +45,9 @@ public class Initializer {
 		VERSION = modContainer.getModInfo().getVersion().toString();
 		modEventBus.addListener(this::onInitializeClient);
 		modEventBus.addListener(net.vulkanmod.render.cit.CitModelRegistrar::onRegisterAdditional);
+		modEventBus.addListener((net.neoforged.neoforge.client.event.ModelEvent.RegisterGeometryLoaders event) ->
+				event.register(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("fusion", "model"),
+						net.vulkanmod.render.fusion.FusionModelLoader.INSTANCE));
 		modContainer.registerExtensionPoint(IConfigScreenFactory.class,
 				(java.util.function.Supplier<IConfigScreenFactory>) () ->
 						(container, parent) -> new VOptionScreen(Component.literal("VulkanMod Settings"), parent));

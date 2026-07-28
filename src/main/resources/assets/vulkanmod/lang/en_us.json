@@ -49,7 +49,7 @@
   "vulkanmod.options.frameQueue.tooltip": "Higher values might help stabilize frametime but will increase input lag.",
 
   "vulkanmod.options.indirectDraw": "Indirect Draw",
-  "vulkanmod.options.indirectDraw.tooltip": "Reduces CPU overhead but increases GPU overhead. Enabling it might help in CPU limited systems.",
+  "vulkanmod.options.indirectDraw.tooltip": "Reduces CPU overhead but increases GPU overhead. Enabling it might help in CPU limited systems. Unavailable on Intel GPUs and devices without multi-draw-indirect support.",
   "vulkanmod.options.adaptiveChunkUploads": "Adaptive Chunk Uploads",
   "vulkanmod.options.adaptiveChunkUploads.tooltip": "Adjusts chunk upload work from recent frame time to reduce stutter while moving or flying.",
 

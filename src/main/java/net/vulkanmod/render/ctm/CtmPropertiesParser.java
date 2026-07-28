@@ -19,8 +19,12 @@ public final class CtmPropertiesParser {
     private CtmPropertiesParser() {}
 
     public static CtmProperties parse(Properties p, ResourceLocation file) {
-        CtmMethod method = CtmMethod.fromString(p.getProperty("method", "ctm"));
-        if (method == CtmMethod.UNSUPPORTED) return null;
+        String methodStr = p.getProperty("method", "ctm");
+        CtmMethod method = CtmMethod.fromString(methodStr);
+        if (method == CtmMethod.UNSUPPORTED) {
+            net.vulkanmod.Initializer.LOGGER.warn("CTM: unsupported method '{}' in {}", methodStr, file);
+            return null;
+        }
 
         String ns = file.getNamespace();
         String path = file.getPath();
