@@ -7,6 +7,10 @@ public final class DepthOcclusion {
     private static float[] grid;
     private static int width;
     private static int height;
+    private static float[][] mips;
+    private static int[] mipW;
+    private static int[] mipH;
+    private static int mipLevels;
     private static float[] m;
     private static double camX;
     private static double camY;
@@ -38,6 +42,53 @@ public final class DepthOcclusion {
         camX = cam[0];
         camY = cam[1];
         camZ = cam[2];
+        buildMips();
+    }
+
+    private static void buildMips() {
+        int levels = 1;
+        int w = width;
+        int h = height;
+        while (w > 6 || h > 6) {
+            w = (w + 1) >> 1;
+            h = (h + 1) >> 1;
+            levels++;
+        }
+        if (mips == null || mips.length != levels) {
+            mips = new float[levels][];
+            mipW = new int[levels];
+            mipH = new int[levels];
+        }
+        mips[0] = grid;
+        mipW[0] = width;
+        mipH[0] = height;
+        for (int l = 1; l < levels; l++) {
+            int pw = mipW[l - 1];
+            int ph = mipH[l - 1];
+            int cw = (pw + 1) >> 1;
+            int ch = (ph + 1) >> 1;
+            if (mips[l] == null || mips[l].length < cw * ch) {
+                mips[l] = new float[cw * ch];
+            }
+            float[] prev = mips[l - 1];
+            float[] cur = mips[l];
+            for (int y = 0; y < ch; y++) {
+                int y0 = y << 1;
+                int y1 = Math.min(y0 + 1, ph - 1);
+                for (int x = 0; x < cw; x++) {
+                    int x0 = x << 1;
+                    int x1 = Math.min(x0 + 1, pw - 1);
+                    float a = prev[y0 * pw + x0];
+                    float b = prev[y0 * pw + x1];
+                    float c = prev[y1 * pw + x0];
+                    float d = prev[y1 * pw + x1];
+                    cur[y * cw + x] = Math.max(Math.max(a, b), Math.max(c, d));
+                }
+            }
+            mipW[l] = cw;
+            mipH[l] = ch;
+        }
+        mipLevels = levels;
     }
 
     public static boolean active() {
@@ -92,10 +143,21 @@ public final class DepthOcclusion {
         if (tx1 < tx0 || ty1 < ty0) {
             return false;
         }
-        for (int ty = ty0; ty <= ty1; ty++) {
-            int row = ty * width;
-            for (int tx = tx0; tx <= tx1; tx++) {
-                float t = grid[row + tx];
+        int level = 0;
+        while (level < mipLevels - 1 && ((tx1 >> level) - (tx0 >> level) > 3 || (ty1 >> level) - (ty0 >> level) > 3)) {
+            level++;
+        }
+        int lw = mipW[level];
+        int lh = mipH[level];
+        int lx0 = tx0 >> level;
+        int lx1 = Math.min(tx1 >> level, lw - 1);
+        int ly0 = ty0 >> level;
+        int ly1 = Math.min(ty1 >> level, lh - 1);
+        float[] data = mips[level];
+        for (int ty = ly0; ty <= ly1; ty++) {
+            int row = ty * lw;
+            for (int tx = lx0; tx <= lx1; tx++) {
+                float t = data[row + tx];
                 if (t >= 0.9999f || d <= t) {
                     return false;
                 }
