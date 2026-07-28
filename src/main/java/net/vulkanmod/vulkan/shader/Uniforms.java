@@ -84,6 +84,8 @@ public class Uniforms {
         vec4f_uniformMap.put("FogColor", VRenderSystem::getShaderFogColor);
         vec4f_uniformMap.put("ExternalLodModelOffsetAndYOffset", ExternalTerrainRenderBridge::getModelOffsetAndYOffset);
         vec4f_uniformMap.put("ExternalLodRenderParams", ExternalTerrainRenderBridge::getRenderParams);
+        vec4f_uniformMap.put("ExternalLodFogColor", net.vulkanmod.api.CalderaBridge::getFogColor);
+        vec4f_uniformMap.put("ExternalLodFogParams", net.vulkanmod.api.CalderaBridge::getFogParams);
 
     }
 }

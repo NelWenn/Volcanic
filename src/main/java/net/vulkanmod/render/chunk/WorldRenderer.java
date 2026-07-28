@@ -32,6 +32,7 @@ import net.vulkanmod.render.chunk.build.RenderRegionBuilder;
 import net.vulkanmod.render.chunk.build.TaskDispatcher;
 import net.vulkanmod.render.chunk.build.task.ChunkTask;
 import net.vulkanmod.render.chunk.graph.SectionGraph;
+import net.vulkanmod.render.chunk.util.StaticQueue;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -324,6 +325,9 @@ public class WorldRenderer {
 
         final boolean isTranslucent = terrainRenderType == TerrainRenderType.TRANSLUCENT;
         final boolean indirectDraw = Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw();
+        final long fadeNow = System.nanoTime();
+        final boolean fadeSplit = !isTranslucent && RenderSection.anyFading(fadeNow)
+                && !net.vulkanmod.render.sodium.SodiumShaderBridge.isActive();
 
         VRenderSystem.applyMVP(modelView, projection);
         VRenderSystem.setPrimitiveTopologyGL(GL11.GL_TRIANGLES);
@@ -357,9 +361,35 @@ public class WorldRenderer {
                     renderer.uploadAndBindUBOs(pipeline);
 
                     if (indirectDraw)
-                        drawBuffers.buildDrawBatchesIndirect(indirectBuffers[currentFrame], queue, terrainRenderType);
+                        drawBuffers.buildDrawBatchesIndirect(indirectBuffers[currentFrame], queue, terrainRenderType, fadeSplit ? fadeNow : 0L, false);
                     else
-                        drawBuffers.buildDrawBatchesDirect(queue, terrainRenderType);
+                        drawBuffers.buildDrawBatchesDirect(queue, terrainRenderType, fadeSplit ? fadeNow : 0L, false);
+                }
+            }
+
+            if (fadeSplit) {
+                GraphicsPipeline fadePipeline = PipelineManager.getTerrainFadeShader();
+                renderer.bindGraphicsPipeline(fadePipeline);
+                VTextureSelector.bindShaderTextures(fadePipeline);
+                if (normalAtlas != null) {
+                    VTextureSelector.bindTexture(4, normalAtlas);
+                }
+
+                for (Iterator<ChunkArea> iterator = this.sectionGraph.getChunkAreaQueue().iterator(isTranslucent); iterator.hasNext(); ) {
+                    ChunkArea chunkArea = iterator.next();
+                    var queue = chunkArea.sectionQueue;
+                    DrawBuffers drawBuffers = chunkArea.drawBuffers;
+
+                    if (drawBuffers.getAreaBuffer(terrainRenderType) != null && queue.size() > 0 && queueHasFading(queue, fadeNow)) {
+
+                        drawBuffers.bindBuffers(Renderer.getCommandBuffer(), fadePipeline, terrainRenderType, camX, camY, camZ);
+                        renderer.uploadAndBindUBOs(fadePipeline);
+
+                        if (indirectDraw)
+                            drawBuffers.buildDrawBatchesIndirect(indirectBuffers[currentFrame], queue, terrainRenderType, fadeNow, true);
+                        else
+                            drawBuffers.buildDrawBatchesDirect(queue, terrainRenderType, fadeNow, true);
+                    }
                 }
             }
         }
@@ -378,6 +408,15 @@ public class WorldRenderer {
         renderType.clearRenderState();
 
         VRenderSystem.applyMVP(RenderSystem.getModelViewMatrix(), RenderSystem.getProjectionMatrix());
+    }
+
+    private static boolean queueHasFading(StaticQueue<RenderSection> queue, long fadeNow) {
+        final int queueSize = queue.size();
+        for (int idx = 0; idx < queueSize; idx++) {
+            if (queue.get(idx).fadeAlpha127(fadeNow) < 127)
+                return true;
+        }
+        return false;
     }
 
     public void renderMaterialTerrain(double camX, double camY, double camZ) {

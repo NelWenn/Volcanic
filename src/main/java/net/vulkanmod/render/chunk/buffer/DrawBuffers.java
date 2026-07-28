@@ -120,6 +120,10 @@ public class DrawBuffers {
     }
 
     public void buildDrawBatchesIndirect(IndirectBuffer indirectBuffer, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType) {
+        buildDrawBatchesIndirect(indirectBuffer, queue, terrainRenderType, 0L, false);
+    }
+
+    public void buildDrawBatchesIndirect(IndirectBuffer indirectBuffer, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType, long fadeNow, boolean fadingOnly) {
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
@@ -127,6 +131,7 @@ public class DrawBuffers {
             long bufferPtr = MemoryUtil.memAddress0(byteBuffer);
 
             boolean isTranslucent = terrainRenderType == TerrainRenderType.TRANSLUCENT;
+            boolean fadeFilter = fadeNow != 0L;
 
             int drawCount = 0;
 
@@ -139,12 +144,21 @@ public class DrawBuffers {
                 if (drawParameters.indexCount <= 0)
                     continue;
 
+                int baseInstance = drawParameters.baseInstance;
+                if (fadeFilter) {
+                    int fadeAlpha = section.fadeAlpha127(fadeNow);
+                    if ((fadeAlpha < 127) != fadingOnly)
+                        continue;
+                    if (fadingOnly)
+                        baseInstance |= fadeAlpha << 24;
+                }
+
                 long ptr = bufferPtr + (drawCount * 20L);
                 MemoryUtil.memPutInt(ptr, drawParameters.indexCount);
                 MemoryUtil.memPutInt(ptr + 4, 1);
                 MemoryUtil.memPutInt(ptr + 8, drawParameters.firstIndex == -1 ? 0 : drawParameters.firstIndex);
                 MemoryUtil.memPutInt(ptr + 12, drawParameters.vertexOffset);
-                MemoryUtil.memPutInt(ptr + 16, drawParameters.baseInstance);
+                MemoryUtil.memPutInt(ptr + 16, baseInstance);
 
                 drawCount++;
             }
@@ -159,7 +173,12 @@ public class DrawBuffers {
     }
 
     public void buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType) {
+        buildDrawBatchesDirect(queue, renderType, 0L, false);
+    }
+
+    public void buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType, long fadeNow, boolean fadingOnly) {
         boolean isTranslucent = renderType == TerrainRenderType.TRANSLUCENT;
+        boolean fadeFilter = fadeNow != 0L;
         VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
 
         final int queueSize = queue.size();
@@ -170,8 +189,17 @@ public class DrawBuffers {
             if (drawParameters.indexCount <= 0)
                 continue;
 
+            int baseInstance = drawParameters.baseInstance;
+            if (fadeFilter) {
+                int fadeAlpha = section.fadeAlpha127(fadeNow);
+                if ((fadeAlpha < 127) != fadingOnly)
+                    continue;
+                if (fadingOnly)
+                    baseInstance |= fadeAlpha << 24;
+            }
+
             final int firstIndex = drawParameters.firstIndex == -1 ? 0 : drawParameters.firstIndex;
-            vkCmdDrawIndexed(commandBuffer, drawParameters.indexCount, 1, firstIndex, drawParameters.vertexOffset, drawParameters.baseInstance);
+            vkCmdDrawIndexed(commandBuffer, drawParameters.indexCount, 1, firstIndex, drawParameters.vertexOffset, baseInstance);
         }
     }
 

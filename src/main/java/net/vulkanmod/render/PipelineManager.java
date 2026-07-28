@@ -19,7 +19,7 @@ public abstract class PipelineManager {
         TERRAIN_VERTEX_FORMAT = format;
     }
 
-    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline, externalLodSolidPipeline, externalLodTexturedSolidPipeline;
+    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, terrainFadeShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline, externalLodSolidPipeline, externalLodTexturedSolidPipeline;
     static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline;
     static GraphicsPipeline materialPipeline;
 
@@ -40,6 +40,7 @@ public abstract class PipelineManager {
         PipelineRegistry.register(
                 TerrainPipeline.class,
                 TerrainEarlyZPipeline.class,
+                TerrainFadePipeline.class,
                 FastBlitPipeline.class,
                 RenderScaleBlitPipeline.class,
                 ShadowTerrainSolidPipeline.class,
@@ -56,6 +57,7 @@ public abstract class PipelineManager {
 
         terrainShaderEarlyZ = PipelineRegistry.get(TerrainEarlyZPipeline.class);
         terrainShader = PipelineRegistry.get(TerrainPipeline.class);
+        terrainFadeShader = PipelineRegistry.get(TerrainFadePipeline.class);
         fastBlitPipeline = PipelineRegistry.get(FastBlitPipeline.class);
         renderScaleBlitPipeline = PipelineRegistry.get(RenderScaleBlitPipeline.class);
         shadowTerrainSolidPipeline = PipelineRegistry.get(ShadowTerrainSolidPipeline.class);
@@ -89,6 +91,10 @@ public abstract class PipelineManager {
 
     public static GraphicsPipeline getNativeTerrainShader() {
         return terrainShader;
+    }
+
+    public static GraphicsPipeline getTerrainFadeShader() {
+        return terrainFadeShader;
     }
 
     public static GraphicsPipeline getShadowTerrainShader(TerrainRenderType renderType) {

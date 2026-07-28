@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.objects.Reference2ReferenceOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.vulkanmod.Initializer;
 import net.vulkanmod.render.chunk.buffer.DrawBuffers;
 import net.vulkanmod.render.chunk.build.RenderRegion;
 import net.vulkanmod.render.chunk.build.RenderRegionBuilder;
@@ -25,6 +26,9 @@ import java.util.Set;
 public class RenderSection {
     static final Map<RenderSection, Set<BlockEntity>> globalBlockEntitiesMap = new Reference2ReferenceOpenHashMap<>();
 
+    private static final long FADE_DURATION_NANOS = 400_000_000L;
+    private static long lastFadeStartNanos = System.nanoTime() - FADE_DURATION_NANOS;
+
     private ChunkArea chunkArea;
     public byte frustumIndex;
     public short lastFrame = -1;
@@ -43,6 +47,7 @@ public class RenderSection {
     private boolean completelyEmpty = true;
     private boolean containsBlockEntities = false;
     private boolean reflective = false;
+    private long fadeStartNanos = System.nanoTime() - FADE_DURATION_NANOS;
 
     public long visibility;
 
@@ -298,6 +303,24 @@ public class RenderSection {
 
     public DrawBuffers.DrawParameters getDrawParameters(TerrainRenderType renderType) {
         return drawParametersArray[renderType.ordinal()];
+    }
+
+    public void markFadeStart(long now) {
+        this.fadeStartNanos = now;
+        lastFadeStartNanos = now;
+    }
+
+    public int fadeAlpha127(long now) {
+        long age = now - this.fadeStartNanos;
+        if (age >= FADE_DURATION_NANOS)
+            return 127;
+        if (age <= 0)
+            return 0;
+        return (int) (age * 127L / FADE_DURATION_NANOS);
+    }
+
+    public static boolean anyFading(long now) {
+        return Initializer.CONFIG.chunkFadeIn && now - lastFadeStartNanos < FADE_DURATION_NANOS;
     }
 
     public void setChunkArea(ChunkArea chunkArea) {

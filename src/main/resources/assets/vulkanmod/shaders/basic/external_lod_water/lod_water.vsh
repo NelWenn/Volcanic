@@ -3,6 +3,8 @@
 layout (binding = 0) uniform ExternalLodUniforms {
     mat4 ExternalLodCombinedMatrix;
     vec4 ExternalLodRenderParams;
+    vec4 ExternalLodFogColor;
+    vec4 ExternalLodFogParams;
     vec4 ExternalLodCellOrigins[1024];
 };
 

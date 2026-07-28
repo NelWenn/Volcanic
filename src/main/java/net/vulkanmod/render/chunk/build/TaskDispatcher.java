@@ -212,6 +212,7 @@ public class TaskDispatcher {
         DrawBuffers drawBuffers = renderArea.getDrawBuffers();
 
         if(compileResult.fullUpdate) {
+            boolean firstBuild = !section.isCompiled();
             var renderLayers = compileResult.renderedLayers;
             for(TerrainRenderType renderType : TerrainRenderType.VALUES) {
                 UploadBuffer uploadBuffer = renderLayers.get(renderType);
@@ -224,6 +225,9 @@ public class TaskDispatcher {
             }
 
             compileResult.updateSection();
+
+            if (firstBuild && Initializer.CONFIG.chunkFadeIn)
+                section.markFadeStart(System.nanoTime());
 
             // geometry reached the GPU; bump so shadow consumers refresh (translucent-only re-sorts don't)
             WorldRenderer.bumpGeometryVersion();

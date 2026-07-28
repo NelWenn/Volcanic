@@ -18,6 +18,8 @@ public final class ExternalLodWaterPipeline implements PipelineDefinition {
     static class LodUbo {
         Matrix4f ExternalLodCombinedMatrix;
         Vector4f ExternalLodRenderParams;
+        Vector4f ExternalLodFogColor;
+        Vector4f ExternalLodFogParams;
         @Uniform(count = 4096)
         float[] ExternalLodCellOrigins;
     }
