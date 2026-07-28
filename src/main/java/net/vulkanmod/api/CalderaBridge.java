@@ -100,6 +100,8 @@ public final class CalderaBridge {
 
     private static volatile float fogStartBlocks = Float.MAX_VALUE;
     private static volatile float fogEndBlocks = Float.MAX_VALUE;
+    private static volatile float fadeBandStart = 0.0f;
+    private static volatile float fadeBandEnd = 0.0f;
     private static volatile float fogRed = 0.0f;
     private static volatile float fogGreen = 0.0f;
     private static volatile float fogBlue = 0.0f;
@@ -220,6 +222,11 @@ public final class CalderaBridge {
 
     public static void setDrawCaves(boolean value) {
         drawCaves = value;
+    }
+
+    public static void setLodFadeBand(float startBlocks, float endBlocks) {
+        fadeBandStart = startBlocks;
+        fadeBandEnd = endBlocks;
     }
 
     public static void setSurfaceIndexCount(int handle, int surfaceIndexCount) {
@@ -945,8 +952,8 @@ public final class CalderaBridge {
         FOG_COLOR.putFloat(12, 0.0f);
         FOG_PARAMS.putFloat(0, start);
         FOG_PARAMS.putFloat(4, end);
-        FOG_PARAMS.putFloat(8, 0.0f);
-        FOG_PARAMS.putFloat(12, 0.0f);
+        FOG_PARAMS.putFloat(8, fadeBandStart);
+        FOG_PARAMS.putFloat(12, fadeBandEnd);
     }
 
     private static void bindLightmap() {
