@@ -26,6 +26,10 @@ public final class MoltenVKConfig {
         SAFE_CONFIG.put("MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS", "1");
         SAFE_CONFIG.put("MVK_CONFIG_SHOULD_MAXIMIZE_CONCURRENT_COMPILATION", "1");
         SAFE_CONFIG.put("MVK_CONFIG_FAST_MATH_ENABLED", "1");
+        if ("aarch64".equals(System.getProperty("os.arch"))) {
+            SAFE_CONFIG.put("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS", "0");
+            SAFE_CONFIG.put("MVK_CONFIG_PREFILL_METAL_COMMAND_BUFFERS", "1");
+        }
     }
 
     // Aggressive profile: -Dvulkanmod.mvk.aggressive=true or a moltenvk-aggressive marker file. May hurt stability.

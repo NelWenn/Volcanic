@@ -48,6 +48,7 @@ public class RenderSection {
     private boolean containsBlockEntities = false;
     private boolean reflective = false;
     private long fadeStartNanos = System.nanoTime() - FADE_DURATION_NANOS;
+    private int occlusionCache;
 
     public long visibility;
 
@@ -321,6 +322,19 @@ public class RenderSection {
 
     public static boolean anyFading(long now) {
         return Initializer.CONFIG.chunkFadeIn && now - lastFadeStartNanos < FADE_DURATION_NANOS;
+    }
+
+    public boolean occlusionHidden() {
+        int stamp = net.vulkanmod.render.culling.DepthOcclusion.frameStamp() & 0x7FFFFFFF;
+        int cached = this.occlusionCache;
+        if ((cached >>> 1) == stamp) {
+            return (cached & 1) != 0;
+        }
+        boolean hidden = net.vulkanmod.render.culling.DepthOcclusion.hidden(
+                this.xOffset, this.yOffset, this.zOffset,
+                this.xOffset + 16.0, this.yOffset + 16.0, this.zOffset + 16.0, 0.5);
+        this.occlusionCache = (stamp << 1) | (hidden ? 1 : 0);
+        return hidden;
     }
 
     public void setChunkArea(ChunkArea chunkArea) {

@@ -18,8 +18,7 @@ layout (location = 0) in uvec4 Position;
 layout (location = 1) in vec4 Color;
 
 layout (location = 0) out vec4 vertexColor;
-layout (location = 1) out vec3 vertexWorldPos;
-layout (location = 2) out vec4 vertexPackedPos;
+layout (location = 1) out float vViewDist;
 
 void main() {
     vec3 modelOffset = ExternalLodModelOffsetAndYOffset.xyz + ExternalLodCellOrigins[gl_InstanceIndex].xyz;
@@ -27,8 +26,7 @@ void main() {
     float microOffset = ExternalLodRenderParams.x;
     bool isWhiteWorld = ExternalLodRenderParams.z != 0.0;
 
-    vertexPackedPos = vec4(Position);
-    vertexWorldPos = vec3(Position.xyz) + modelOffset;
+    vec3 worldPos = vec3(Position.xyz) + modelOffset;
 
     uint meta = Position.w;
     uint micro = (meta & 0xFF00u) >> 8u;
@@ -38,8 +36,8 @@ void main() {
     float mz = (micro & 16u) != 0u ? microOffset : 0.0;
     mz = (micro & 32u) != 0u ? -mz : mz;
 
-    vertexWorldPos.x += mx;
-    vertexWorldPos.z += mz;
+    worldPos.x += mx;
+    worldPos.z += mz;
 
     uint lights = meta & 0xFFu;
     uint skyLight = lights & 15u;
@@ -48,7 +46,8 @@ void main() {
 
     vertexColor = isWhiteWorld ? lightMapColor : Color * lightMapColor;
 
-    vec4 clip = ExternalLodCombinedMatrix * vec4(vertexWorldPos, 1.0);
+    vViewDist = length(worldPos);
+    vec4 clip = ExternalLodCombinedMatrix * vec4(worldPos, 1.0);
     clip.z = (clip.z + clip.w) * 0.5;
     gl_Position = clip;
 }

@@ -119,15 +119,17 @@ public class DrawBuffers {
         vkCmdPushConstants(commandBuffer, pipeline.getLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, byteBuffer);
     }
 
-    public void buildDrawBatchesIndirect(IndirectBuffer indirectBuffer, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType) {
-        buildDrawBatchesIndirect(indirectBuffer, queue, terrainRenderType, 0L, false, false);
+    public boolean buildDrawBatchesIndirect(IndirectBuffer indirectBuffer, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType) {
+        return buildDrawBatchesIndirect(indirectBuffer, queue, terrainRenderType, 0L, false, false);
     }
 
-    public void buildDrawBatchesIndirect(IndirectBuffer indirectBuffer, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType, long fadeNow, boolean fadingOnly) {
-        buildDrawBatchesIndirect(indirectBuffer, queue, terrainRenderType, fadeNow, fadingOnly, true);
+    public boolean buildDrawBatchesIndirect(IndirectBuffer indirectBuffer, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType, long fadeNow, boolean fadingOnly) {
+        return buildDrawBatchesIndirect(indirectBuffer, queue, terrainRenderType, fadeNow, fadingOnly, true);
     }
 
-    public void buildDrawBatchesIndirect(IndirectBuffer indirectBuffer, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType, long fadeNow, boolean fadingOnly, boolean occlusion) {
+    public boolean buildDrawBatchesIndirect(IndirectBuffer indirectBuffer, StaticQueue<RenderSection> queue, TerrainRenderType terrainRenderType, long fadeNow, boolean fadingOnly, boolean occlusion) {
+
+        boolean sawFading = false;
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
 
@@ -149,14 +151,14 @@ public class DrawBuffers {
                 if (drawParameters.indexCount <= 0)
                     continue;
 
-                if (occlusionActive && net.vulkanmod.render.culling.DepthOcclusion.hidden(
-                        section.xOffset(), section.yOffset(), section.zOffset(),
-                        section.xOffset() + 16.0, section.yOffset() + 16.0, section.zOffset() + 16.0, 0.5))
+                if (occlusionActive && section.occlusionHidden())
                     continue;
 
                 int baseInstance = drawParameters.baseInstance;
                 if (fadeFilter) {
                     int fadeAlpha = section.fadeAlpha127(fadeNow);
+                    if (fadeAlpha < 127)
+                        sawFading = true;
                     if ((fadeAlpha < 127) != fadingOnly)
                         continue;
                     if (fadingOnly)
@@ -173,28 +175,31 @@ public class DrawBuffers {
                 drawCount++;
             }
 
-            if (drawCount == 0) return;
+            if (drawCount == 0) return sawFading;
 
             indirectBuffer.recordCopyCmd(byteBuffer.position(0));
 
             vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectBuffer.getOffset(), drawCount, 20);
         }
 
+        return sawFading;
     }
 
-    public void buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType) {
-        buildDrawBatchesDirect(queue, renderType, 0L, false, false);
+    public boolean buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType) {
+        return buildDrawBatchesDirect(queue, renderType, 0L, false, false);
     }
 
-    public void buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType, long fadeNow, boolean fadingOnly) {
-        buildDrawBatchesDirect(queue, renderType, fadeNow, fadingOnly, true);
+    public boolean buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType, long fadeNow, boolean fadingOnly) {
+        return buildDrawBatchesDirect(queue, renderType, fadeNow, fadingOnly, true);
     }
 
-    public void buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType, long fadeNow, boolean fadingOnly, boolean occlusion) {
+    public boolean buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType, long fadeNow, boolean fadingOnly, boolean occlusion) {
         boolean isTranslucent = renderType == TerrainRenderType.TRANSLUCENT;
         boolean fadeFilter = fadeNow != 0L;
         boolean occlusionActive = occlusion && net.vulkanmod.render.culling.DepthOcclusion.active();
         VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
+
+        boolean sawFading = false;
 
         final int queueSize = queue.size();
         for (int idx = 0; idx < queueSize; idx++) {
@@ -204,14 +209,14 @@ public class DrawBuffers {
             if (drawParameters.indexCount <= 0)
                 continue;
 
-            if (occlusionActive && net.vulkanmod.render.culling.DepthOcclusion.hidden(
-                    section.xOffset(), section.yOffset(), section.zOffset(),
-                    section.xOffset() + 16.0, section.yOffset() + 16.0, section.zOffset() + 16.0, 0.5))
+            if (occlusionActive && section.occlusionHidden())
                 continue;
 
             int baseInstance = drawParameters.baseInstance;
             if (fadeFilter) {
                 int fadeAlpha = section.fadeAlpha127(fadeNow);
+                if (fadeAlpha < 127)
+                    sawFading = true;
                 if ((fadeAlpha < 127) != fadingOnly)
                     continue;
                 if (fadingOnly)
@@ -221,6 +226,8 @@ public class DrawBuffers {
             final int firstIndex = drawParameters.firstIndex == -1 ? 0 : drawParameters.firstIndex;
             vkCmdDrawIndexed(commandBuffer, drawParameters.indexCount, 1, firstIndex, drawParameters.vertexOffset, baseInstance);
         }
+
+        return sawFading;
     }
 
     // buffers must already be bound via bindBuffers; used by the shadow pass
