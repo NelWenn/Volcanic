@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.client.Minecraft;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.api.CalderaBridge;
 import net.vulkanmod.compat.observer.GuiRenderTrace;
 import net.vulkanmod.gl.GlFramebuffer;
 import net.vulkanmod.mixin.window.WindowAccessor;
@@ -280,7 +281,11 @@ public class Renderer {
             frameTimestampArmed = false;
         }
 
+        boolean frameStart = !recordingCmds;
         recordingCmds = true;
+        if (frameStart) {
+            CalderaBridge.onFrameBegin(commandBuffer);
+        }
         mainPass.begin(commandBuffer, stack);
 
         resetDynamicState(commandBuffer);

@@ -3,6 +3,8 @@
 layout (binding = 0) uniform ExternalLodUniforms {
     mat4 ExternalLodCombinedMatrix;
     vec4 ExternalLodRenderParams;
+    vec4 ExternalLodFogColor;
+    vec4 ExternalLodFogParams;
     vec4 ExternalLodCellOrigins[1024];
 };
 
@@ -26,4 +28,8 @@ void main() {
         vec4 texel = textureGrad(uBlockAtlas, atlasUV, dX, dY);
         fragColor = texel * vertexColor;
     }
+
+    float viewDistance = length(vertexWorldPos);
+    float fogFactor = smoothstep(ExternalLodFogParams.x, ExternalLodFogParams.y, viewDistance);
+    fragColor.rgb = mix(fragColor.rgb, ExternalLodFogColor.rgb, fogFactor);
 }

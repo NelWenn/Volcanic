@@ -547,6 +547,14 @@ public abstract class Options {
                                 .setTooltip(Component.translatable("vulkanmod.options.indirectDraw.tooltip"))
                                 .setImpact(PerformanceImpact.HIGH)
                                 .setActivationFn(DeviceManager::supportsFastIndirectDraw),
+                        new SwitchOption(Component.translatable("vulkanmod.options.lodGpuCulling"),
+                                value -> {
+                                    config.lodGpuCulling = value;
+                                },
+                                () -> config.lodGpuCulling)
+                                .setTooltip(Component.translatable("vulkanmod.options.lodGpuCulling.tooltip"))
+                                .setImpact(PerformanceImpact.HIGH)
+                                .setActivationFn(DeviceManager::supportsFastIndirectDraw),
                         new SwitchOption(Component.translatable("vulkanmod.options.adaptiveChunkUploads"),
                                 value -> {
                                     markPerformancePresetCustom();
@@ -554,6 +562,12 @@ public abstract class Options {
                                 },
                                 () -> config.adaptiveChunkUploads)
                                 .setTooltip(Component.translatable("vulkanmod.options.adaptiveChunkUploads.tooltip")),
+                        new SwitchOption(Component.translatable("vulkanmod.options.chunkFadeIn"),
+                                value -> {
+                                    config.chunkFadeIn = value;
+                                },
+                                () -> config.chunkFadeIn)
+                                .setTooltip(Component.translatable("vulkanmod.options.chunkFadeIn.tooltip")),
                         new CyclingOption<>(Component.translatable("vulkanmod.options.particleCulling"),
                                 new Integer[]{0, 1, 2, 3},
                                 value -> {

@@ -19,6 +19,7 @@ public class Config {
     public int performancePreset = PerformancePreset.BALANCED.id;
     public int chunkUploadsPerFrame = PerformancePreset.BALANCED.chunkUploadsPerFrame;
     public boolean adaptiveChunkUploads = true;
+    public boolean chunkFadeIn = true;
     public int renderScale = RenderScale.DEFAULT;
 
     public boolean disableHiDPI = false;
@@ -26,6 +27,7 @@ public class Config {
     public int advCulling = 2;
 
     public boolean indirectDraw = true;
+    public boolean lodGpuCulling = false;
 
     public boolean uniqueOpaqueLayer = true;
     public boolean entityCulling = true;

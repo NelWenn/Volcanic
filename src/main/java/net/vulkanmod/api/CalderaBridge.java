@@ -8,6 +8,7 @@ import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.compat.external.ExternalTerrainRenderBridge;
 import net.vulkanmod.gl.GlTexture;
+import net.vulkanmod.render.HiZPyramid;
 import net.vulkanmod.render.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.buffer.AreaBuffer;
@@ -76,11 +77,17 @@ public final class CalderaBridge {
     private static final LodArena[] ARENAS = new LodArena[4];
 
     private static final MappedBuffer CELL_ORIGINS = new MappedBuffer(ORIGIN_SLOTS * ORIGIN_STRIDE_BYTES);
+    private static final MappedBuffer FOG_COLOR = new MappedBuffer(4 * Float.BYTES);
+    private static final MappedBuffer FOG_PARAMS = new MappedBuffer(4 * Float.BYTES);
     private static final ByteBuffer BATCH_COMMANDS = MemoryUtil.memAlloc(MAX_BATCH_CELLS * INDIRECT_COMMAND_BYTES);
     private static final long BATCH_COMMANDS_PTR = MemoryUtil.memAddress0(BATCH_COMMANDS);
+    private static final ByteBuffer BATCH_AABBS = MemoryUtil.memAlloc(MAX_BATCH_CELLS * LodCulling.AABB_STRIDE_BYTES);
+    private static final long BATCH_AABBS_PTR = MemoryUtil.memAddress0(BATCH_AABBS);
+    private static final Matrix4f CULL_MATRIX_SCRATCH = new Matrix4f();
 
     static {
         MemoryUtil.memSet(CELL_ORIGINS.ptr, 0, ORIGIN_SLOTS * ORIGIN_STRIDE_BYTES);
+        writeFogUniforms();
     }
 
     private static IndirectBuffer[] indirectBuffers;
@@ -91,8 +98,18 @@ public final class CalderaBridge {
 
     private static volatile float clipDistance = 0.0f;
 
+    private static volatile float fogStartBlocks = Float.MAX_VALUE;
+    private static volatile float fogEndBlocks = Float.MAX_VALUE;
+    private static volatile float fogRed = 0.0f;
+    private static volatile float fogGreen = 0.0f;
+    private static volatile float fogBlue = 0.0f;
+
+    private static boolean lodSessionActive;
+    private static boolean pyramidReady;
+
     private static GraphicsPipeline batchPipeline;
     private static boolean batchIndirect;
+    private static boolean batchCull;
     private static int batchDrawCount;
     private static int batchBoundArena = -1;
     private static boolean batchTexturesSaved;
@@ -117,7 +134,8 @@ public final class CalderaBridge {
     private CalderaBridge() {
     }
 
-    private record MeshHandle(int arena, int indexCount, int firstIndex, int vertexOffset) {
+    private record MeshHandle(int arena, int indexCount, int firstIndex, int vertexOffset,
+                              float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
     }
 
     private static final class LodArena {
@@ -134,6 +152,33 @@ public final class CalderaBridge {
 
     public static MappedBuffer getCellOrigins() {
         return CELL_ORIGINS;
+    }
+
+    public static MappedBuffer getFogColor() {
+        return FOG_COLOR;
+    }
+
+    public static MappedBuffer getFogParams() {
+        return FOG_PARAMS;
+    }
+
+    public static void onFrameBegin(VkCommandBuffer commandBuffer) {
+        pyramidReady = false;
+
+        if (!lodSessionActive || commandBuffer == null
+                || !Initializer.CONFIG.lodGpuCulling
+                || !Initializer.CONFIG.indirectDraw
+                || !DeviceManager.supportsFastIndirectDraw()
+                || !LodCulling.isAvailable()) {
+            return;
+        }
+
+        try {
+            pyramidReady = HiZPyramid.build(commandBuffer);
+        } catch (Throwable t) {
+            pyramidReady = false;
+            Initializer.LOGGER.error("[Caldera] HiZ pyramid build failed", t);
+        }
     }
 
     private static LodArena arenaFor(int pass) {
@@ -160,6 +205,14 @@ public final class CalderaBridge {
 
     public static void setClipDistance(float blocks) {
         clipDistance = blocks > 0.0f ? blocks : 0.0f;
+    }
+
+    public static void setLodFog(float startBlocks, float endBlocks, float r, float g, float b) {
+        fogStartBlocks = startBlocks;
+        fogEndBlocks = endBlocks;
+        fogRed = r;
+        fogGreen = g;
+        fogBlue = b;
     }
 
     public static int uploadMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
@@ -357,8 +410,10 @@ public final class CalderaBridge {
             prepareIndirectFrame();
             pushOrigin(pipeline, 0.0f, (float) (-batchCamY - Y_BIAS), 0.0f);
             batchDrawCount = 0;
+            batchCull = Initializer.CONFIG.lodGpuCulling && LodCulling.isAvailable();
         } else {
             renderer.uploadAndBindUBOs(pipeline);
+            batchCull = false;
         }
 
         batchIndirect = indirect;
@@ -405,6 +460,21 @@ public final class CalderaBridge {
             MemoryUtil.memPutInt(ptr + 8, mesh.firstIndex());
             MemoryUtil.memPutInt(ptr + 12, mesh.vertexOffset());
             MemoryUtil.memPutInt(ptr + 16, slot);
+
+            if (batchCull) {
+                long aabbPtr = BATCH_AABBS_PTR + (long) batchDrawCount * LodCulling.AABB_STRIDE_BYTES;
+                float baseX = (float) (cellOriginX - batchCamX);
+                float baseZ = (float) (cellOriginZ - batchCamZ);
+                MemoryUtil.memPutFloat(aabbPtr, baseX + mesh.minX());
+                MemoryUtil.memPutFloat(aabbPtr + 4, (float) (mesh.minY() - batchCamY));
+                MemoryUtil.memPutFloat(aabbPtr + 8, baseZ + mesh.minZ());
+                MemoryUtil.memPutFloat(aabbPtr + 12, 0.0f);
+                MemoryUtil.memPutFloat(aabbPtr + 16, baseX + mesh.maxX());
+                MemoryUtil.memPutFloat(aabbPtr + 20, (float) (mesh.maxY() - batchCamY));
+                MemoryUtil.memPutFloat(aabbPtr + 24, baseZ + mesh.maxZ());
+                MemoryUtil.memPutFloat(aabbPtr + 28, 0.0f);
+            }
+
             batchDrawCount++;
             return;
         }
@@ -472,8 +542,38 @@ public final class CalderaBridge {
         indirectBuffer.recordCopyCmd(BATCH_COMMANDS);
         BATCH_COMMANDS.clear();
 
-        VK10.vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectBuffer.getOffset(), batchDrawCount, INDIRECT_COMMAND_BYTES);
+        long indirectOffset = indirectBuffer.getOffset();
+        if (dispatchCull(indirectBuffer, indirectOffset, batchDrawCount)) {
+            pushOrigin(batchPipeline, 0.0f, (float) (-batchCamY - Y_BIAS), 0.0f);
+        }
+
+        VK10.vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectOffset, batchDrawCount, INDIRECT_COMMAND_BYTES);
         batchDrawCount = 0;
+    }
+
+    private static boolean dispatchCull(IndirectBuffer indirectBuffer, long indirectOffset, int drawCount) {
+        if (!batchCull) {
+            return false;
+        }
+
+        try {
+            BATCH_AABBS.position(0);
+            BATCH_AABBS.limit(drawCount * LodCulling.AABB_STRIDE_BYTES);
+            long aabbOffset = LodCulling.uploadAabbs(BATCH_AABBS);
+            BATCH_AABBS.clear();
+
+            FloatBuffer mvpSrc = VRenderSystem.getExternalLodMVP().buffer.asFloatBuffer();
+            mvpSrc.position(0);
+            CULL_MATRIX_SCRATCH.set(mvpSrc);
+
+            int flags = pyramidReady ? LodCulling.FLAG_OCCLUSION : 0;
+            return LodCulling.prepare(Renderer.getCommandBuffer(), LodCulling.getAabbBuffer(), aabbOffset,
+                    indirectBuffer, indirectOffset, drawCount, CULL_MATRIX_SCRATCH, flags);
+        } catch (Throwable t) {
+            batchCull = false;
+            Initializer.LOGGER.error("[Caldera] LOD cull dispatch failed", t);
+            return false;
+        }
     }
 
     private static void endLodDrawInternal() {
@@ -481,6 +581,7 @@ public final class CalderaBridge {
             flushBatch();
             batchIndirect = false;
         }
+        batchCull = false;
         batchBoundArena = -1;
         batchPipeline = null;
         if (batchWaterStateSaved) {
@@ -543,6 +644,13 @@ public final class CalderaBridge {
         int vertexOffset;
         int firstIndex;
 
+        float boundMinX = Float.POSITIVE_INFINITY;
+        float boundMinY = Float.POSITIVE_INFINITY;
+        float boundMinZ = Float.POSITIVE_INFINITY;
+        float boundMaxX = Float.NEGATIVE_INFINITY;
+        float boundMaxY = Float.NEGATIVE_INFINITY;
+        float boundMaxZ = Float.NEGATIVE_INFINITY;
+
         ByteBuffer internalVertices = MemoryUtil.memAlloc(vertexCount * INTERNAL_VERTEX_SIZE_BYTES);
         try {
             internalVertices.order(ByteOrder.LITTLE_ENDIAN);
@@ -552,6 +660,12 @@ public final class CalderaBridge {
                 float y = vertexSrc.getFloat();
                 float z = vertexSrc.getFloat();
                 int c = vertexSrc.getInt();
+                boundMinX = Math.min(boundMinX, x);
+                boundMinY = Math.min(boundMinY, y);
+                boundMinZ = Math.min(boundMinZ, z);
+                boundMaxX = Math.max(boundMaxX, x);
+                boundMaxY = Math.max(boundMaxY, y);
+                boundMaxZ = Math.max(boundMaxZ, z);
                 int light = (c >>> 24) & 0xFF;
                 byte r = (byte) ((c >> 16) & 0xFF);
                 byte g = (byte) ((c >>  8) & 0xFF);
@@ -585,7 +699,9 @@ public final class CalderaBridge {
         if (nextHandle == 0) {
             nextHandle = 1;
         }
-        HANDLES.put(handle, new MeshHandle(pass, indexCount, firstIndex, vertexOffset));
+        HANDLES.put(handle, new MeshHandle(pass, indexCount, firstIndex, vertexOffset,
+                boundMinX, boundMinY, boundMinZ, boundMaxX, boundMaxY, boundMaxZ));
+        lodSessionActive = true;
         return handle;
     }
 
@@ -643,6 +759,13 @@ public final class CalderaBridge {
         int vertexOffset;
         int firstIndex;
 
+        float boundMinX = Float.POSITIVE_INFINITY;
+        float boundMinY = Float.POSITIVE_INFINITY;
+        float boundMinZ = Float.POSITIVE_INFINITY;
+        float boundMaxX = Float.NEGATIVE_INFINITY;
+        float boundMaxY = Float.NEGATIVE_INFINITY;
+        float boundMaxZ = Float.NEGATIVE_INFINITY;
+
         ByteBuffer internalVertices = MemoryUtil.memAlloc(vertexCount * INTERNAL_TEXTURED_VERTEX_SIZE_BYTES);
         try {
             internalVertices.order(ByteOrder.LITTLE_ENDIAN);
@@ -652,6 +775,12 @@ public final class CalderaBridge {
                 float y = vertexSrc.getFloat();
                 float z = vertexSrc.getFloat();
                 int c = vertexSrc.getInt();
+                boundMinX = Math.min(boundMinX, x);
+                boundMinY = Math.min(boundMinY, y);
+                boundMinZ = Math.min(boundMinZ, z);
+                boundMaxX = Math.max(boundMaxX, x);
+                boundMaxY = Math.max(boundMaxY, y);
+                boundMaxZ = Math.max(boundMaxZ, z);
                 float u0 = vertexSrc.getFloat();
                 float v0 = vertexSrc.getFloat();
                 float u1 = vertexSrc.getFloat();
@@ -698,7 +827,9 @@ public final class CalderaBridge {
         if (nextHandle == 0) {
             nextHandle = 1;
         }
-        HANDLES.put(handle, new MeshHandle(pass, indexCount, firstIndex, vertexOffset));
+        HANDLES.put(handle, new MeshHandle(pass, indexCount, firstIndex, vertexOffset,
+                boundMinX, boundMinY, boundMinZ, boundMaxX, boundMaxY, boundMaxZ));
+        lodSessionActive = true;
         return handle;
     }
 
@@ -775,6 +906,25 @@ public final class CalderaBridge {
         renderParams.putFloat(4, clip > 0.0f ? clip : 0.0f);
         renderParams.putFloat(8, 0.0f);
         renderParams.putFloat(12, clip > 0.0f ? 1.0f : 0.0f);
+
+        writeFogUniforms();
+    }
+
+    private static void writeFogUniforms() {
+        float start = fogStartBlocks;
+        float end = fogEndBlocks;
+        if (!(end > start)) {
+            start = Float.MAX_VALUE * 0.5f;
+            end = Float.MAX_VALUE;
+        }
+        FOG_COLOR.putFloat(0, fogRed);
+        FOG_COLOR.putFloat(4, fogGreen);
+        FOG_COLOR.putFloat(8, fogBlue);
+        FOG_COLOR.putFloat(12, 0.0f);
+        FOG_PARAMS.putFloat(0, start);
+        FOG_PARAMS.putFloat(4, end);
+        FOG_PARAMS.putFloat(8, 0.0f);
+        FOG_PARAMS.putFloat(12, 0.0f);
     }
 
     private static void bindLightmap() {
