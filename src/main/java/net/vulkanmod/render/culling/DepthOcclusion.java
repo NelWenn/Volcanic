@@ -11,11 +11,13 @@ public final class DepthOcclusion {
     private static double camX;
     private static double camY;
     private static double camZ;
+    private static int frameStamp;
 
     private DepthOcclusion() {
     }
 
     public static void refresh() {
+        frameStamp++;
         grid = null;
         if (!DepthSnapshot.available()) {
             return;
@@ -40,6 +42,10 @@ public final class DepthOcclusion {
 
     public static boolean active() {
         return grid != null;
+    }
+
+    public static int frameStamp() {
+        return frameStamp;
     }
 
     public static boolean hidden(double minX, double minY, double minZ,

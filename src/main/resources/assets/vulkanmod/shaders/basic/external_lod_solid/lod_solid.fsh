@@ -9,15 +9,14 @@ layout (binding = 0) uniform ExternalLodUniforms {
 };
 
 layout (location = 0) in vec4 vertexColor;
-layout (location = 1) in vec3 vertexWorldPos;
-layout (location = 2) in vec4 vertexPackedPos;
+layout (location = 1) in float vViewDist;
 
 layout (location = 0) out vec4 fragColor;
 
 void main() {
     fragColor = vertexColor;
 
-    float viewDistance = length(vertexWorldPos);
+    float viewDistance = vViewDist;
     float fogFactor = smoothstep(ExternalLodFogParams.x, ExternalLodFogParams.y, viewDistance);
     fragColor.rgb = mix(fragColor.rgb, ExternalLodFogColor.rgb, fogFactor);
 }

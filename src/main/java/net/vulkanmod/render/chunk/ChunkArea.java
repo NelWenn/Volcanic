@@ -17,6 +17,8 @@ public class ChunkArea {
 
     DrawBuffers drawBuffers;
 
+    public boolean fadePending;
+
     //Help JIT optimisations by hardcoding the queue size to the max possible ChunkArea limit
     public final StaticQueue<RenderSection> sectionQueue = new StaticQueue<>(512);
 

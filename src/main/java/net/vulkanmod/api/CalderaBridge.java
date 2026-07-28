@@ -139,7 +139,7 @@ public final class CalderaBridge {
 
     private record MeshHandle(int arena, int indexCount, int firstIndex, int vertexOffset,
                               float minX, float minY, float minZ, float maxX, float maxY, float maxZ,
-                              int surfaceIndexCount) {
+                              int surfaceIndexCount, int surfaceNonDownIndexCount, int maxDownY) {
     }
 
     private static volatile boolean drawCaves = true;
@@ -306,7 +306,19 @@ public final class CalderaBridge {
         }
         int clamped = Math.max(0, Math.min(surfaceIndexCount, mesh.indexCount()));
         HANDLES.put(handle, new MeshHandle(mesh.arena(), mesh.indexCount(), mesh.firstIndex(), mesh.vertexOffset(),
-                mesh.minX(), mesh.minY(), mesh.minZ(), mesh.maxX(), mesh.maxY(), mesh.maxZ(), clamped));
+                mesh.minX(), mesh.minY(), mesh.minZ(), mesh.maxX(), mesh.maxY(), mesh.maxZ(), clamped,
+                Math.min(mesh.surfaceNonDownIndexCount(), clamped), mesh.maxDownY()));
+    }
+
+    public static void setLodIndexRanges(int handle, int surfaceNonDownIndexCount, int maxDownY) {
+        MeshHandle mesh = HANDLES.get(handle);
+        if (mesh == null) {
+            return;
+        }
+        int clamped = Math.max(0, Math.min(surfaceNonDownIndexCount, mesh.surfaceIndexCount()));
+        HANDLES.put(handle, new MeshHandle(mesh.arena(), mesh.indexCount(), mesh.firstIndex(), mesh.vertexOffset(),
+                mesh.minX(), mesh.minY(), mesh.minZ(), mesh.maxX(), mesh.maxY(), mesh.maxZ(),
+                mesh.surfaceIndexCount(), clamped, maxDownY));
     }
 
     public static int uploadMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
@@ -506,7 +518,9 @@ public final class CalderaBridge {
             batchDrawCount = 0;
             batchCull = Initializer.CONFIG.lodGpuCulling && LodCulling.isAvailable();
         } else {
+            CELL_ORIGINS.buffer.limit(ORIGIN_STRIDE_BYTES);
             renderer.uploadAndBindUBOs(pipeline);
+            CELL_ORIGINS.buffer.limit(ORIGIN_SLOTS * ORIGIN_STRIDE_BYTES);
             batchCull = false;
         }
 
@@ -527,7 +541,8 @@ public final class CalderaBridge {
             return;
         }
 
-        int drawIndexCount = drawCaves ? mesh.indexCount() : mesh.surfaceIndexCount();
+        int drawIndexCount = drawCaves ? mesh.indexCount()
+                : (batchCamY >= mesh.maxDownY() ? mesh.surfaceNonDownIndexCount() : mesh.surfaceIndexCount());
         if (drawIndexCount <= 0) {
             return;
         }
@@ -633,7 +648,9 @@ public final class CalderaBridge {
             return;
         }
 
+        CELL_ORIGINS.buffer.limit((batchDrawCount + 1) * ORIGIN_STRIDE_BYTES);
         Renderer.getInstance().uploadAndBindUBOs(batchPipeline);
+        CELL_ORIGINS.buffer.limit(ORIGIN_SLOTS * ORIGIN_STRIDE_BYTES);
 
         IndirectBuffer indirectBuffer = indirectBuffers[Renderer.getCurrentFrame()];
         BATCH_COMMANDS.position(0);
@@ -799,7 +816,7 @@ public final class CalderaBridge {
             nextHandle = 1;
         }
         HANDLES.put(handle, new MeshHandle(pass, indexCount, firstIndex, vertexOffset,
-                boundMinX, boundMinY, boundMinZ, boundMaxX, boundMaxY, boundMaxZ, indexCount));
+                boundMinX, boundMinY, boundMinZ, boundMaxX, boundMaxY, boundMaxZ, indexCount, indexCount, Integer.MIN_VALUE));
         lodSessionActive = true;
         return handle;
     }
@@ -927,7 +944,7 @@ public final class CalderaBridge {
             nextHandle = 1;
         }
         HANDLES.put(handle, new MeshHandle(pass, indexCount, firstIndex, vertexOffset,
-                boundMinX, boundMinY, boundMinZ, boundMaxX, boundMaxY, boundMaxZ, indexCount));
+                boundMinX, boundMinY, boundMinZ, boundMaxX, boundMaxY, boundMaxZ, indexCount, indexCount, Integer.MIN_VALUE));
         lodSessionActive = true;
         return handle;
     }

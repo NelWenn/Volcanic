@@ -32,7 +32,6 @@ import net.vulkanmod.render.chunk.build.RenderRegionBuilder;
 import net.vulkanmod.render.chunk.build.TaskDispatcher;
 import net.vulkanmod.render.chunk.build.task.ChunkTask;
 import net.vulkanmod.render.chunk.graph.SectionGraph;
-import net.vulkanmod.render.chunk.util.StaticQueue;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -350,6 +349,7 @@ public class WorldRenderer {
         if (allowedRenderTypes.contains(terrainRenderType)) {
             terrainRenderType.setCutoutUniform();
 
+            boolean ubosBound = false;
             for (Iterator<ChunkArea> iterator = this.sectionGraph.getChunkAreaQueue().iterator(isTranslucent); iterator.hasNext(); ) {
                 ChunkArea chunkArea = iterator.next();
                 var queue = chunkArea.sectionQueue;
@@ -358,12 +358,15 @@ public class WorldRenderer {
                 if (drawBuffers.getAreaBuffer(terrainRenderType) != null && queue.size() > 0) {
 
                     drawBuffers.bindBuffers(Renderer.getCommandBuffer(), pipeline, terrainRenderType, camX, camY, camZ);
-                    renderer.uploadAndBindUBOs(pipeline);
+                    if (!ubosBound) {
+                        renderer.uploadAndBindUBOs(pipeline);
+                        ubosBound = true;
+                    }
 
                     if (indirectDraw)
-                        drawBuffers.buildDrawBatchesIndirect(indirectBuffers[currentFrame], queue, terrainRenderType, fadeSplit ? fadeNow : 0L, false);
+                        chunkArea.fadePending = drawBuffers.buildDrawBatchesIndirect(indirectBuffers[currentFrame], queue, terrainRenderType, fadeSplit ? fadeNow : 0L, false);
                     else
-                        drawBuffers.buildDrawBatchesDirect(queue, terrainRenderType, fadeSplit ? fadeNow : 0L, false);
+                        chunkArea.fadePending = drawBuffers.buildDrawBatchesDirect(queue, terrainRenderType, fadeSplit ? fadeNow : 0L, false);
                 }
             }
 
@@ -375,15 +378,19 @@ public class WorldRenderer {
                     VTextureSelector.bindTexture(4, normalAtlas);
                 }
 
+                boolean fadeUbosBound = false;
                 for (Iterator<ChunkArea> iterator = this.sectionGraph.getChunkAreaQueue().iterator(isTranslucent); iterator.hasNext(); ) {
                     ChunkArea chunkArea = iterator.next();
                     var queue = chunkArea.sectionQueue;
                     DrawBuffers drawBuffers = chunkArea.drawBuffers;
 
-                    if (drawBuffers.getAreaBuffer(terrainRenderType) != null && queue.size() > 0 && queueHasFading(queue, fadeNow)) {
+                    if (drawBuffers.getAreaBuffer(terrainRenderType) != null && queue.size() > 0 && chunkArea.fadePending) {
 
                         drawBuffers.bindBuffers(Renderer.getCommandBuffer(), fadePipeline, terrainRenderType, camX, camY, camZ);
-                        renderer.uploadAndBindUBOs(fadePipeline);
+                        if (!fadeUbosBound) {
+                            renderer.uploadAndBindUBOs(fadePipeline);
+                            fadeUbosBound = true;
+                        }
 
                         if (indirectDraw)
                             drawBuffers.buildDrawBatchesIndirect(indirectBuffers[currentFrame], queue, terrainRenderType, fadeNow, true);
@@ -408,15 +415,6 @@ public class WorldRenderer {
         renderType.clearRenderState();
 
         VRenderSystem.applyMVP(RenderSystem.getModelViewMatrix(), RenderSystem.getProjectionMatrix());
-    }
-
-    private static boolean queueHasFading(StaticQueue<RenderSection> queue, long fadeNow) {
-        final int queueSize = queue.size();
-        for (int idx = 0; idx < queueSize; idx++) {
-            if (queue.get(idx).fadeAlpha127(fadeNow) < 127)
-                return true;
-        }
-        return false;
     }
 
     public void renderMaterialTerrain(double camX, double camY, double camZ) {
@@ -489,9 +487,47 @@ public class WorldRenderer {
         bi.enabled = sBlendEnabled;
     }
 
+    private static final double SHADOW_PRESPLIT_SLACK = 39.0;
+
     private final java.util.ArrayList<RenderSection> shadowSections = new java.util.ArrayList<>(1024);
+    private final java.util.ArrayList<RenderSection>[] cascadeShadowSections = createCascadeShadowLists();
+    private final float[] cascadeShadowRadius = new float[net.vulkanmod.vulkan.pass.ShadowMap.CASCADES];
+    private double shadowListCamX, shadowListCamZ;
     private int lastShadowSecX = Integer.MIN_VALUE, lastShadowSecY, lastShadowSecZ;
     private int lastShadowGeometryVersion = -1;
+
+    @SuppressWarnings("unchecked")
+    private static java.util.ArrayList<RenderSection>[] createCascadeShadowLists() {
+        java.util.ArrayList<RenderSection>[] lists = new java.util.ArrayList[net.vulkanmod.vulkan.pass.ShadowMap.CASCADES];
+        for (int i = 0; i < lists.length; i++) {
+            lists[i] = new java.util.ArrayList<>(1024);
+        }
+        return lists;
+    }
+
+    private void splitShadowCascade(int cascade, float radius) {
+        java.util.ArrayList<RenderSection> list = this.cascadeShadowSections[cascade];
+        list.clear();
+        final double presplitRange = radius + SHADOW_PRESPLIT_SLACK;
+        final double presplitRangeSq = presplitRange * presplitRange;
+        for (RenderSection s : this.shadowSections) {
+            double dx = (s.xOffset() + 8) - this.shadowListCamX;
+            double dz = (s.zOffset() + 8) - this.shadowListCamZ;
+            if (dx * dx + dz * dz > presplitRangeSq) continue;
+            list.add(s);
+        }
+        this.cascadeShadowRadius[cascade] = radius;
+    }
+
+    private java.util.List<RenderSection> shadowSectionsForCascade(int cascade, float radius) {
+        if (cascade < 0 || cascade >= this.cascadeShadowSections.length) {
+            return this.shadowSections;
+        }
+        if (this.cascadeShadowRadius[cascade] != radius) {
+            splitShadowCascade(cascade, radius);
+        }
+        return this.cascadeShadowSections[cascade];
+    }
 
     private static int geometryVersion;
 
@@ -551,6 +587,8 @@ public class WorldRenderer {
         if (indirectDraw)
             shadowIndirect.reset();
 
+        final java.util.List<RenderSection> cascadeSections = shadowSectionsForCascade(cascade, cascadeRadius);
+
         for (TerrainRenderType terrainRenderType : types) {
             RenderType renderType = TerrainRenderType.getRenderType(terrainRenderType);
             renderType.setupRenderState();
@@ -568,7 +606,7 @@ public class WorldRenderer {
             if (indirectDraw) {
                 ChunkArea curArea = null;
                 this.shadowScratchQueue.clear();
-                for (RenderSection s : this.shadowSections) {
+                for (RenderSection s : cascadeSections) {
                     double dx = (s.xOffset() + 8) - camX;
                     double dz = (s.zOffset() + 8) - camZ;
                     if (dx * dx + dz * dz > cullRangeSq) continue;
@@ -583,7 +621,7 @@ public class WorldRenderer {
                 flushShadowArea(curArea, terrainRenderType, pipeline, renderer, shadowIndirect, camX, camY, camZ);
             } else {
                 ChunkArea lastArea = null;
-                for (RenderSection s : this.shadowSections) {
+                for (RenderSection s : cascadeSections) {
                     double dx = (s.xOffset() + 8) - camX;
                     double dz = (s.zOffset() + 8) - camZ;
                     if (dx * dx + dz * dz > cullRangeSq) continue;
@@ -662,11 +700,12 @@ public class WorldRenderer {
 
         final boolean indirectDraw = Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw();
         IndirectBuffer shadowIndirect = indirectDraw ? this.shadowTintIndirectBuffers[cascade][Renderer.getCurrentFrame()] : null;
+        final java.util.List<RenderSection> cascadeSections = shadowSectionsForCascade(cascade, radius);
         if (indirectDraw) {
             shadowIndirect.reset();
             ChunkArea curArea = null;
             this.shadowScratchQueue.clear();
-            for (RenderSection s : this.shadowSections) {
+            for (RenderSection s : cascadeSections) {
                 double dx = (s.xOffset() + 8) - camX;
                 double dz = (s.zOffset() + 8) - camZ;
                 if (dx * dx + dz * dz > cullRangeSq) continue;
@@ -682,7 +721,7 @@ public class WorldRenderer {
             shadowIndirect.submitUploads();
         } else {
             ChunkArea lastArea = null;
-            for (RenderSection s : this.shadowSections) {
+            for (RenderSection s : cascadeSections) {
                 double dx = (s.xOffset() + 8) - camX;
                 double dz = (s.zOffset() + 8) - camZ;
                 if (dx * dx + dz * dz > cullRangeSq) continue;
@@ -737,6 +776,12 @@ public class WorldRenderer {
             this.shadowSections.add(s);
         }
         this.shadowSections.sort((a, b) -> Integer.compare(a.getChunkArea().index, b.getChunkArea().index));
+
+        this.shadowListCamX = camX;
+        this.shadowListCamZ = camZ;
+        for (int i = 0; i < this.cascadeShadowSections.length; i++) {
+            splitShadowCascade(i, net.vulkanmod.vulkan.pass.ShadowMap.cascadeRadius(i));
+        }
     }
 
     private void sortTranslucentSections(double camX, double camY, double camZ) {

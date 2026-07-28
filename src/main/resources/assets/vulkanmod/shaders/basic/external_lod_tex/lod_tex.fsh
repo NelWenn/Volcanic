@@ -11,7 +11,7 @@ layout (binding = 0) uniform ExternalLodUniforms {
 layout (binding = 2) uniform sampler2D uBlockAtlas;
 
 layout (location = 0) in vec4 vertexColor;
-layout (location = 1) in vec3 vertexWorldPos;
+layout (location = 1) in float vViewDist;
 layout (location = 2) flat in vec4 vSpriteRect;
 layout (location = 3) smooth in vec2 vTileUV;
 
@@ -37,7 +37,7 @@ float bayer8x8(vec2 st) {
 void main() {
     float clipDistance = ExternalLodRenderParams.y;
     bool dither = ExternalLodRenderParams.w != 0.0;
-    float viewDistance = length(vertexWorldPos);
+    float viewDistance = vViewDist;
 
     if (clipDistance > 0.0) {
         if (dither) {

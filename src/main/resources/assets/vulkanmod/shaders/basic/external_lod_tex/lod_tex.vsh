@@ -20,7 +20,7 @@ layout (location = 2) in vec4 SpriteRect;
 layout (location = 3) in uvec2 TileUV;
 
 layout (location = 0) out vec4 vertexColor;
-layout (location = 1) out vec3 vertexWorldPos;
+layout (location = 1) out float vViewDist;
 layout (location = 2) flat out vec4 vSpriteRect;
 layout (location = 3) smooth out vec2 vTileUV;
 
@@ -30,7 +30,7 @@ void main() {
     float microOffset = ExternalLodRenderParams.x;
     bool isWhiteWorld = ExternalLodRenderParams.z != 0.0;
 
-    vertexWorldPos = vec3(Position.xyz) + modelOffset;
+    vec3 worldPos = vec3(Position.xyz) + modelOffset;
 
     uint meta = Position.w;
     uint micro = (meta & 0xFF00u) >> 8u;
@@ -40,8 +40,8 @@ void main() {
     float mz = (micro & 16u) != 0u ? microOffset : 0.0;
     mz = (micro & 32u) != 0u ? -mz : mz;
 
-    vertexWorldPos.x += mx;
-    vertexWorldPos.z += mz;
+    worldPos.x += mx;
+    worldPos.z += mz;
 
     uint lights = meta & 0xFFu;
     uint skyLight = lights & 15u;
@@ -53,7 +53,8 @@ void main() {
     vSpriteRect = SpriteRect;
     vTileUV = vec2(TileUV);
 
-    vec4 clip = ExternalLodCombinedMatrix * vec4(vertexWorldPos, 1.0);
+    vViewDist = length(worldPos);
+    vec4 clip = ExternalLodCombinedMatrix * vec4(worldPos, 1.0);
     clip.z = (clip.z + clip.w) * 0.5;
     gl_Position = clip;
 }

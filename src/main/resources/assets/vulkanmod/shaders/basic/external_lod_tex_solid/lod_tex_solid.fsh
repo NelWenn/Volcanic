@@ -11,7 +11,7 @@ layout (binding = 0) uniform ExternalLodUniforms {
 layout (binding = 2) uniform sampler2D uBlockAtlas;
 
 layout (location = 0) in vec4 vertexColor;
-layout (location = 1) in vec3 vertexWorldPos;
+layout (location = 1) in float vViewDist;
 layout (location = 2) flat in vec4 vSpriteRect;
 layout (location = 3) smooth in vec2 vTileUV;
 
@@ -29,7 +29,7 @@ void main() {
         fragColor = texel * vertexColor;
     }
 
-    float viewDistance = length(vertexWorldPos);
+    float viewDistance = vViewDist;
     float fogFactor = smoothstep(ExternalLodFogParams.x, ExternalLodFogParams.y, viewDistance);
     fragColor.rgb = mix(fragColor.rgb, ExternalLodFogColor.rgb, fogFactor);
 }

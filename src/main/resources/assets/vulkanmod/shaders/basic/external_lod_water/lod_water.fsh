@@ -9,8 +9,7 @@ layout (binding = 0) uniform ExternalLodUniforms {
 };
 
 layout (location = 0) in vec4 vertexColor;
-layout (location = 1) in vec3 vertexWorldPos;
-layout (location = 2) in vec4 vertexPackedPos;
+layout (location = 1) in float vViewDist;
 
 layout (location = 0) out vec4 fragColor;
 
@@ -34,7 +33,7 @@ float bayer8x8(vec2 st) {
 void main() {
     float clipDistance = ExternalLodRenderParams.y;
     bool dither = ExternalLodRenderParams.w != 0.0;
-    float viewDistance = length(vertexWorldPos);
+    float viewDistance = vViewDist;
 
     if (clipDistance > 0.0) {
         if (dither) {
