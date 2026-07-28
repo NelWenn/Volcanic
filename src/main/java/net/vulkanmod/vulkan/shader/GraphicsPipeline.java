@@ -372,10 +372,17 @@ public class GraphicsPipeline extends Pipeline {
                             offset += 4;
                         }
                         case USHORT -> {
-                            posDescription.format(VK_FORMAT_R16G16_UINT);
-                            posDescription.offset(offset);
+                            if (elementCount == 4) {
+                                posDescription.format(VK_FORMAT_R16G16B16A16_UNORM);
+                                posDescription.offset(offset);
 
-                            offset += 4;
+                                offset += 8;
+                            } else {
+                                posDescription.format(VK_FORMAT_R16G16_UINT);
+                                posDescription.offset(offset);
+
+                                offset += 4;
+                            }
                         }
                         default -> throw new RuntimeException(String.format("Unknown type %s for UV", type));
                     }
