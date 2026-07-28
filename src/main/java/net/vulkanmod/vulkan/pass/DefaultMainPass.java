@@ -191,10 +191,11 @@ public class DefaultMainPass implements MainPass {
     }
 
     private void disposeScaledFramebuffer() {
-        if (this.scaledFramebuffer != null) {
-            this.scaledFramebuffer.cleanUp();
-            this.scaledFramebuffer = null;
+        if (this.scaledFramebuffer == null) {
+            return;
         }
+        this.scaledFramebuffer.cleanUp();
+        this.scaledFramebuffer = null;
 
         if (this.capturedWorldDepth != null) {
             this.capturedWorldDepth.free();
@@ -428,11 +429,19 @@ public class DefaultMainPass implements MainPass {
 
     @Override
     public void captureOpaqueDepth() {
-        if (!postShaderActive() || !isUsingScaledFramebuffer()
-                || !"radiance".equals(Initializer.CONFIG.selectedShader)) {
+        if (postShaderActive() && isUsingScaledFramebuffer()
+                && "radiance".equals(Initializer.CONFIG.selectedShader)) {
+            this.capturedOpaqueDepth = snapshotScaledDepth(this.capturedOpaqueDepth);
             return;
         }
-        this.capturedOpaqueDepth = snapshotScaledDepth(this.capturedOpaqueDepth);
+        if (!Initializer.CONFIG.lodDepthSnapshot) {
+            return;
+        }
+        Framebuffer source = this.mainFramebuffer;
+        if (source == null || source.getDepthAttachment() == null) {
+            return;
+        }
+        this.capturedOpaqueDepth = snapshotDepth(this.capturedOpaqueDepth, source);
     }
 
     @Override
@@ -759,13 +768,17 @@ public class DefaultMainPass implements MainPass {
     }
 
     private VulkanImage snapshotScaledDepth(VulkanImage target) {
-        VulkanImage src = this.scaledFramebuffer.getDepthAttachment();
+        return snapshotDepth(target, this.scaledFramebuffer);
+    }
+
+    private VulkanImage snapshotDepth(VulkanImage target, Framebuffer source) {
+        VulkanImage src = source.getDepthAttachment();
         int w = src.width;
         int h = src.height;
-        if (target == null || target.width != w || target.height != h) {
+        if (target == null || target.width != w || target.height != h || target.format != src.format) {
             if (target != null) target.free();
             target = VulkanImage.createDepthImage(
-                    VK_FORMAT_D32_SFLOAT, w, h,
+                    src.format, w, h,
                     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                     false, true);
         }
@@ -792,8 +805,12 @@ public class DefaultMainPass implements MainPass {
             target.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             src.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
-            this.scaledFramebuffer.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
-            Renderer.setViewportScale(this.swapChain.getWidth(), this.swapChain.getHeight());
+            source.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
+            if (isUsingScaledFramebuffer()) {
+                Renderer.setViewportScale(this.swapChain.getWidth(), this.swapChain.getHeight());
+            } else {
+                Renderer.clearViewportScale();
+            }
         }
         return target;
     }

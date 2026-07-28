@@ -105,9 +105,10 @@ public abstract class LevelRendererMixin {
         net.vulkanmod.vulkan.FrameTimer timer = net.vulkanmod.vulkan.FrameTimer.instance();
         long t = timer != null ? System.nanoTime() : 0;
         net.vulkanmod.vulkan.VRenderSystem.captureExternalLodViewMatrix(modelView);
-        if (net.vulkanmod.vulkan.pass.DefaultMainPass.postShaderActive()) {
-            if (renderType == net.minecraft.client.renderer.RenderType.translucent()) {
-                net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().captureOpaqueDepth();
+        boolean postShader = net.vulkanmod.vulkan.pass.DefaultMainPass.postShaderActive();
+        if (renderType == net.minecraft.client.renderer.RenderType.translucent()) {
+            net.vulkanmod.vulkan.Renderer.getInstance().getMainPass().captureOpaqueDepth();
+            if (postShader) {
                 net.vulkanmod.vulkan.Renderer.getInstance().getMainPass()
                         .prepareMaterialBuffer(camX, camY, camZ, modelView, projectionMatrix);
                 try (org.lwjgl.system.MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
@@ -116,6 +117,8 @@ public abstract class LevelRendererMixin {
                             net.vulkanmod.vulkan.Renderer.getCommandBuffer(), stack, name -> null, () -> {});
                 }
             }
+        }
+        if (postShader) {
             net.vulkanmod.vulkan.VRenderSystem.captureWorldViewMatrix(modelView, camX, camY, camZ);
         }
         this.worldRenderer.renderSectionLayer(renderType, camX, camY, camZ, modelView, projectionMatrix);
