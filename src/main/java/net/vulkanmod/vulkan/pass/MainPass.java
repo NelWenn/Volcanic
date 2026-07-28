@@ -22,6 +22,10 @@ public interface MainPass {
         return false;
     }
 
+    default net.vulkanmod.vulkan.texture.VulkanImage getCapturedOpaqueDepth() {
+        return null;
+    }
+
     default void mainTargetBindWrite() {}
 
     default void mainTargetUnbindWrite() {}

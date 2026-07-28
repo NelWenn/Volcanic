@@ -186,12 +186,7 @@ public final class HiZPyramid {
             if (renderer == null) {
                 return null;
             }
-            int glId = renderer.getMainPass().getDepthAttachmentGlId();
-            if (glId < 0) {
-                return null;
-            }
-            GlTexture texture = GlTexture.getTexture(glId);
-            return texture != null ? texture.getVulkanImage() : null;
+            return renderer.getMainPass().getCapturedOpaqueDepth();
         } catch (Throwable t) {
             return null;
         }
@@ -229,7 +224,7 @@ public final class HiZPyramid {
         mipCount = 32 - Integer.numberOfLeadingZeros(Math.max(width, height));
         pyramid = VulkanImage.builder(width, height)
                 .setFormat(VK_FORMAT_R32_SFLOAT)
-                .setUsage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)
+                .setUsage(VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
                 .setMipLevels(mipCount)
                 .setLinearFiltering(false)
                 .setClamp(true)

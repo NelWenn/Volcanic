@@ -52,6 +52,8 @@
   "vulkanmod.options.indirectDraw.tooltip": "Reduces CPU overhead but increases GPU overhead. Enabling it might help in CPU limited systems. Unavailable on Intel GPUs and devices without multi-draw-indirect support.",
   "vulkanmod.options.lodGpuCulling": "LOD GPU Culling",
   "vulkanmod.options.lodGpuCulling.tooltip": "Culls distant LOD terrain cells on the GPU using frustum and depth-based occlusion tests before vertex shading. Only applies when a LOD companion mod is active and Indirect Draw is enabled.",
+  "vulkanmod.options.lodDepthSnapshot": "LOD Depth Snapshot",
+  "vulkanmod.options.lodDepthSnapshot.tooltip": "Copies a small depth grid of the previous frame to the CPU so a LOD companion mod can occlusion-cull distant terrain cells. Only active when a LOD companion mod is loaded.",
   "vulkanmod.options.adaptiveChunkUploads": "Adaptive Chunk Uploads",
   "vulkanmod.options.adaptiveChunkUploads.tooltip": "Adjusts chunk upload work from recent frame time to reduce stutter while moving or flying.",
   "vulkanmod.options.chunkFadeIn": "Chunk Fade-In",
