@@ -11,8 +11,8 @@ import net.vulkanmod.vulkan.shader.pipeline.VertexFormatRef;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
-@GfxPipeline(basePath = "external_lod", vertex = "lod", fragment = "lod", vertexFormat = VertexFormatRef.EXTERNAL_LOD)
-public final class ExternalLodPipeline implements PipelineDefinition {
+@GfxPipeline(basePath = "external_lod_solid", vertex = "lod_solid", fragment = "lod_solid", vertexFormat = VertexFormatRef.EXTERNAL_LOD)
+public final class ExternalLodSolidPipeline implements PipelineDefinition {
 
     @Ubo(stage = Stage.ALL, binding = 0)
     static class LodUbo {

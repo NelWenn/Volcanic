@@ -19,7 +19,7 @@ public abstract class PipelineManager {
         TERRAIN_VERTEX_FORMAT = format;
     }
 
-    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline;
+    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline, externalLodSolidPipeline, externalLodTexturedSolidPipeline;
     static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline;
     static GraphicsPipeline materialPipeline;
 
@@ -74,6 +74,12 @@ public abstract class PipelineManager {
 
         PipelineRegistry.register(ExternalLodWaterTexturedPipeline.class);
         externalLodWaterTexturedPipeline = PipelineRegistry.get(ExternalLodWaterTexturedPipeline.class);
+
+        PipelineRegistry.register(ExternalLodSolidPipeline.class);
+        externalLodSolidPipeline = PipelineRegistry.get(ExternalLodSolidPipeline.class);
+
+        PipelineRegistry.register(ExternalLodTexturedSolidPipeline.class);
+        externalLodTexturedSolidPipeline = PipelineRegistry.get(ExternalLodTexturedSolidPipeline.class);
     }
 
     public static GraphicsPipeline getTerrainShader(TerrainRenderType renderType) {
@@ -120,6 +126,10 @@ public abstract class PipelineManager {
     public static GraphicsPipeline getExternalLodWaterPipeline() { return externalLodWaterPipeline; }
 
     public static GraphicsPipeline getExternalLodWaterTexturedPipeline() { return externalLodWaterTexturedPipeline; }
+
+    public static GraphicsPipeline getExternalLodSolidPipeline() { return externalLodSolidPipeline; }
+
+    public static GraphicsPipeline getExternalLodTexturedSolidPipeline() { return externalLodTexturedSolidPipeline; }
 
     public static void destroyPipelines() {
         PipelineRegistry.cleanUp();

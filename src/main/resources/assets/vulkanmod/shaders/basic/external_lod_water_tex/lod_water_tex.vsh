@@ -2,8 +2,12 @@
 
 layout (binding = 0) uniform ExternalLodUniforms {
     mat4 ExternalLodCombinedMatrix;
-    vec4 ExternalLodModelOffsetAndYOffset;
     vec4 ExternalLodRenderParams;
+    vec4 ExternalLodCellOrigins[1024];
+};
+
+layout (push_constant) uniform pushConstant {
+    vec4 ExternalLodModelOffsetAndYOffset;
 };
 
 layout (binding = 1) uniform sampler2D uLightMap;
@@ -19,7 +23,7 @@ layout (location = 2) flat out vec4 vSpriteRect;
 layout (location = 3) smooth out vec2 vTileUV;
 
 void main() {
-    vec3 modelOffset = ExternalLodModelOffsetAndYOffset.xyz;
+    vec3 modelOffset = ExternalLodModelOffsetAndYOffset.xyz + ExternalLodCellOrigins[gl_InstanceIndex].xyz;
     float worldYOffset = ExternalLodModelOffsetAndYOffset.w;
     float microOffset = ExternalLodRenderParams.x;
     bool isWhiteWorld = ExternalLodRenderParams.z != 0.0;

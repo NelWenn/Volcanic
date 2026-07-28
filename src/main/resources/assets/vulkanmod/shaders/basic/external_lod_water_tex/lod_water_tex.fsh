@@ -2,8 +2,8 @@
 
 layout (binding = 0) uniform ExternalLodUniforms {
     mat4 ExternalLodCombinedMatrix;
-    vec4 ExternalLodModelOffsetAndYOffset;
     vec4 ExternalLodRenderParams;
+    vec4 ExternalLodCellOrigins[1024];
 };
 
 layout (binding = 2) uniform sampler2D uBlockAtlas;

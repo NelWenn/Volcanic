@@ -139,6 +139,7 @@ public final class ExternalTerrainRenderBridge {
         VRenderSystem.setPrimitiveTopologyGL(mode);
         Renderer renderer = Renderer.getInstance();
         renderer.bindGraphicsPipeline(pipeline);
+        renderer.pushConstants(pipeline);
         renderer.uploadAndBindUBOs(pipeline);
         Renderer.getDrawer().drawIndexed(vertexBuffer, indexBuffer, indexBytes / indexType.size);
         record(DrawOutcome.SUBMITTED, () -> "vertices=%d indices=%d type=%s offset=%d matrix=%s model=%s clip=%.2f dither=%s".formatted(
