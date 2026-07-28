@@ -14,7 +14,6 @@ layout (binding = 1) uniform sampler2D uLightMap;
 
 layout (location = 0) in uvec4 Position;
 layout (location = 1) in vec4 Color;
-layout (location = 2) in vec4 Padding;
 
 layout (location = 0) out vec4 vertexColor;
 layout (location = 1) out vec3 vertexWorldPos;

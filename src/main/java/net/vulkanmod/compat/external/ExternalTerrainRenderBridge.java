@@ -16,6 +16,7 @@ import net.vulkanmod.vulkan.util.MappedBuffer;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL32;
+import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -180,10 +181,25 @@ public final class ExternalTerrainRenderBridge {
             upload.buffer.freeBuffer();
         }
 
-        VertexBuffer vertexBuffer = new VertexBuffer(glBuffer.getSize(), MemoryTypes.HOST_MEM);
-        vertexBuffer.copyToVertexBuffer(CustomVertexFormat.EXTERNAL_LOD.getVertexSize(), vertexCount, glBuffer.copyData());
-        VERTEX_UPLOADS.put(glBuffer.getId(), new VertexUpload(vertexBuffer, glBuffer.getVersion()));
-        return vertexBuffer;
+        int internalVertexSize = CustomVertexFormat.EXTERNAL_LOD.getVertexSize();
+        ByteBuffer source = glBuffer.copyData();
+        ByteBuffer packed = MemoryUtil.memAlloc(vertexCount * internalVertexSize);
+        try {
+            for (int i = 0; i < vertexCount; i++) {
+                int base = i * EXTERNAL_LOD_VERTEX_SIZE_BYTES;
+                for (int b = 0; b < internalVertexSize; b++) {
+                    packed.put(source.get(base + b));
+                }
+            }
+            packed.position(0);
+
+            VertexBuffer vertexBuffer = new VertexBuffer(vertexCount * internalVertexSize, MemoryTypes.HOST_MEM);
+            vertexBuffer.copyToVertexBuffer(internalVertexSize, vertexCount, packed);
+            VERTEX_UPLOADS.put(glBuffer.getId(), new VertexUpload(vertexBuffer, glBuffer.getVersion()));
+            return vertexBuffer;
+        } finally {
+            MemoryUtil.memFree(packed);
+        }
     }
 
     private static IndexUpload getReusableIndexUpload(GlBuffer glBuffer, IndexBuffer.IndexType indexType, int offset, int size, int vertexCount) {

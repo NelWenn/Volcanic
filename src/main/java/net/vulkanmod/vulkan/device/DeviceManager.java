@@ -115,19 +115,24 @@ public abstract class DeviceManager {
             surfaceProperties = querySurfaceProperties(physicalDevice, stack);
 
             Initializer.LOGGER.info(
-                    "Selected Vulkan device: {} ({}) driver {} Vulkan {} indirectDrawSupported={} fastIndirectDraw={}",
+                    "Selected Vulkan device: {} ({}) driver {} Vulkan {} indirectDrawSupported={} fastIndirectDraw={} drawIndirectCount={}",
                     device.deviceName,
                     device.vendorIdString,
                     device.driverVersion,
                     device.vkVersion,
                     device.isDrawIndirectSupported(),
-                    supportsFastIndirectDraw()
+                    supportsFastIndirectDraw(),
+                    supportsDrawIndirectCount()
             );
         }
     }
 
     public static boolean supportsFastIndirectDraw() {
         return device != null && device.isDrawIndirectSupported() && !device.isIntel();
+    }
+
+    public static boolean supportsDrawIndirectCount() {
+        return device != null && device.isDrawIndirectCountSupported();
     }
 
     static Device autoPickDevice() {
@@ -215,6 +220,9 @@ public abstract class DeviceManager {
             java.util.Set<String> deviceExtensions = new java.util.HashSet<>(Vulkan.REQUIRED_EXTENSION);
             if (net.vulkanmod.vulkan.MoltenVKConfig.validationEnabled()) {
                 deviceExtensions.add(org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
+            }
+            if (device.isDrawIndirectCountSupported()) {
+                deviceExtensions.add(KHRDrawIndirectCount.VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
             }
             createInfo.ppEnabledExtensionNames(asPointerBuffer(deviceExtensions));
 
