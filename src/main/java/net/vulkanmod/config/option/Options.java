@@ -491,6 +491,7 @@ public abstract class Options {
                         new SwitchOption(Component.translatable("vulkanmod.options.occlusionCulling"),
                                 value -> {
                                     config.lodDepthSnapshot = value;
+                                    minecraft.levelRenderer.allChanged();
                                 },
                                 () -> config.lodDepthSnapshot)
                                 .setTooltip(Component.translatable("vulkanmod.options.occlusionCulling.tooltip"))
