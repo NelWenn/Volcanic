@@ -562,7 +562,6 @@ public final class CalderaBridge {
                 internalVertices.putShort((short) quantizeXZ(z));
                 internalVertices.putShort((short) light);
                 internalVertices.put(r).put(g).put(b).put((byte) 0xFF);
-                internalVertices.putInt(0);
             }
             internalVertices.position(0);
 

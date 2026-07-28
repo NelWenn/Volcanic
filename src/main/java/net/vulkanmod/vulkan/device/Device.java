@@ -32,6 +32,7 @@ public class Device {
     public final VkPhysicalDeviceVulkan11Features availableFeatures11;
 
     private boolean drawIndirectSupported;
+    private final boolean drawIndirectCountSupported;
 
     public Device(VkPhysicalDevice device) {
         this.physicalDevice = device;
@@ -57,6 +58,8 @@ public class Device {
         if (this.availableFeatures.features().multiDrawIndirect() && this.availableFeatures11.shaderDrawParameters())
             this.drawIndirectSupported = true;
 
+        this.drawIndirectCountSupported = getUnsupportedExtensions(
+                Set.of(KHRDrawIndirectCount.VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME)).isEmpty();
     }
 
     private static String decodeVendor(int i) {
@@ -126,6 +129,10 @@ public class Device {
 
     public boolean isDrawIndirectSupported() {
         return drawIndirectSupported;
+    }
+
+    public boolean isDrawIndirectCountSupported() {
+        return drawIndirectCountSupported;
     }
 
     public boolean isAMD() {
