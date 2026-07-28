@@ -50,6 +50,8 @@ public final class CalderaBridge {
 
     private static boolean indexBoundsWarned = false;
 
+    private static volatile float clipDistance = 0.0f;
+
     private CalderaBridge() {
     }
 
@@ -62,6 +64,10 @@ public final class CalderaBridge {
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    public static void setClipDistance(float blocks) {
+        clipDistance = blocks > 0.0f ? blocks : 0.0f;
     }
 
     public static int uploadMesh(ByteBuffer vertices, int vertexCount, ByteBuffer indices, int indexCount, boolean intIndices) {
@@ -559,11 +565,12 @@ public final class CalderaBridge {
         modelOffset.putFloat(8, (float) (cellOriginZ - camZ));
         modelOffset.putFloat(12, 0.0f);
 
+        float clip = clipDistance;
         MappedBuffer renderParams = ExternalTerrainRenderBridge.getRenderParams();
         renderParams.putFloat(0, 0.0f);
-        renderParams.putFloat(4, 0.0f);
+        renderParams.putFloat(4, clip > 0.0f ? clip : 0.0f);
         renderParams.putFloat(8, 0.0f);
-        renderParams.putFloat(12, 0.0f);
+        renderParams.putFloat(12, clip > 0.0f ? 1.0f : 0.0f);
     }
 
     private static void bindLightmap() {
