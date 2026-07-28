@@ -545,7 +545,8 @@ public abstract class Options {
                                 },
                                 () -> config.indirectDraw && DeviceManager.supportsFastIndirectDraw())
                                 .setTooltip(Component.translatable("vulkanmod.options.indirectDraw.tooltip"))
-                                .setImpact(PerformanceImpact.HIGH),
+                                .setImpact(PerformanceImpact.HIGH)
+                                .setActivationFn(DeviceManager::supportsFastIndirectDraw),
                         new SwitchOption(Component.translatable("vulkanmod.options.adaptiveChunkUploads"),
                                 value -> {
                                     markPerformancePresetCustom();

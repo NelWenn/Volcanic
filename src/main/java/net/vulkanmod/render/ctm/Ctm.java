@@ -34,7 +34,7 @@ public final class Ctm {
             ResourceLocation biome = null;
             var level = WorldRenderer.getLevel();
             if (level != null) biome = level.getBiome(pos).unwrapKey().map(k -> k.location()).orElse(null);
-            return s.resolve(new CtmContext(sprite, state, pos, face, biome));
+            return s.resolve(new CtmContext(sprite, state, pos, face, biome, region));
         } catch (Throwable t) {
             return CtmResult.none();
         }

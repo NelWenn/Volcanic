@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.resources.model.ModelResourceLocation;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -22,6 +23,11 @@ public final class Cit {
         try {
             List<CitRule> rules = CitPackLoader.rulesFor(stack.getItem());
             if (rules.isEmpty()) return null;
+
+            String name = null;
+            Component custom = stack.get(DataComponents.CUSTOM_NAME);
+            if (custom != null) name = custom.getString();
+
             ArmorTrim trim = stack.get(DataComponents.TRIM);
             ResourceLocation pattern = null, material = null;
             if (trim != null) {
@@ -29,7 +35,8 @@ public final class Cit {
                 material = trim.material().unwrapKey().map(ResourceKey::location).orElse(null);
             }
             for (CitRule rule : rules) {
-                if (rule.matches(stack.getItem(), pattern, material)) {
+                if (rule.matches(stack.getItem(), name, pattern, material)) {
+                    if (!CitPackLoader.isRenderable(rule.model())) return null;
                     BakedModel model = Minecraft.getInstance().getModelManager().getModel(ModelResourceLocation.standalone(rule.model()));
                     BakedModel missing = Minecraft.getInstance().getModelManager().getMissingModel();
                     return (model == null || model == missing) ? null : model;

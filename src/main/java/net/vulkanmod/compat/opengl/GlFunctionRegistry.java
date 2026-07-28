@@ -125,7 +125,7 @@ public final class GlFunctionRegistry {
     private static final int GL_OBJECT_ACTIVE_UNIFORM_MAX_LENGTH_ARB = 0x8B87;
     private static final int GL_OBJECT_SHADER_SOURCE_LENGTH_ARB = 0x8B88;
 
-    public static final String REPORTED_GL_VERSION = "3.2.0 VulkanMod Compatibility";
+    public static final String REPORTED_GL_VERSION = "3.3.0 VulkanMod Compatibility";
 
     static {
         registerAll();
@@ -485,7 +485,7 @@ public final class GlFunctionRegistry {
     private static int integerValue(int pname, int index) {
         return switch (pname) {
             case GL_MAJOR_VERSION -> 3;
-            case GL_MINOR_VERSION -> 2;
+            case GL_MINOR_VERSION -> 3;
             case GL_NUM_EXTENSIONS -> 0;
             case GL_CONTEXT_PROFILE_MASK -> 1;
             case GL_CONTEXT_FLAGS -> 0;

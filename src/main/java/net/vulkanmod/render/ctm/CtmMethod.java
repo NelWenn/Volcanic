@@ -1,6 +1,7 @@
 package net.vulkanmod.render.ctm;
 
 public enum CtmMethod {
+    CTM,
     FIXED,
     RANDOM,
     REPEAT,
@@ -11,6 +12,7 @@ public enum CtmMethod {
     public static CtmMethod fromString(String s) {
         if (s == null) return UNSUPPORTED;
         return switch (s.trim().toLowerCase()) {
+            case "ctm", "glass", "full" -> CTM;
             case "fixed" -> FIXED;
             case "random" -> RANDOM;
             case "repeat" -> REPEAT;
