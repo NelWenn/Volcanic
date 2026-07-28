@@ -49,10 +49,10 @@ vec3 traceReflection(vec3 startPos, vec3 dir, out float hit) {
     vec2 uv0 = (cs.xy / cs.w) * vec2(0.5, -0.5) + 0.5;
     vec2 uv1 = (ce.xy / ce.w) * vec2(0.5, -0.5) + 0.5;
     vec2 res = vec2(textureSize(Sampler1, 0));
-    int steps = int(clamp(length((uv1 - uv0) * res) / 8.0, 16.0, 48.0));
+    int steps = int(clamp(length((uv1 - uv0) * res) / 4.0, 24.0, 64.0));
     float dt = 1.0 / float(steps);
     float t = dt;
-    for (int i = 0; i < 48; i++) {
+    for (int i = 0; i < 64; i++) {
         if (i >= steps) break;
         vec4 c = mix(cs, ce, t);
         vec2 uv = (c.xy / c.w) * vec2(0.5, -0.5) + 0.5;
@@ -71,14 +71,18 @@ vec3 traceReflection(vec3 startPos, vec3 dir, out float hit) {
             vec2 huv = (ch.xy / ch.w) * vec2(0.5, -0.5) + 0.5;
             vec3 rp = worldAt(huv, ch.z / ch.w);
             vec3 sp = worldAt(huv, texture(Sampler1, huv).r);
-            if (length(rp) - length(sp) > 3.0) break;
+            int hmat = int(texture(Sampler2, huv).r * 255.0 + 0.5);
+            if (length(rp) - length(sp) > 0.75 || hmat == 1) {
+                hit = 0.4;
+                return skyReflect(dir);
+            }
             vec2 e = smoothstep(vec2(0.0), vec2(0.08), huv) * smoothstep(vec2(0.0), vec2(0.08), 1.0 - huv);
             hit = 1.0;
             return mix(skyReflect(dir), texture(Sampler0, huv).rgb, e.x * e.y);
         }
         t += dt;
     }
-    hit = 1.0;
+    hit = 0.4;
     return skyReflect(dir);
 }
 

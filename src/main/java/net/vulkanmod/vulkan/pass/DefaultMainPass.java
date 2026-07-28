@@ -488,10 +488,12 @@ public class DefaultMainPass implements MainPass {
         boolean ready = this.materialViewReady;
         this.materialViewReady = false;
         if (!ready || !glassMaterialActive()) {
+            clearMaterialBuffer();
             return;
         }
         WorldRenderer worldRenderer = WorldRenderer.getInstance();
         if (worldRenderer == null) {
+            clearMaterialBuffer();
             return;
         }
 
@@ -525,6 +527,37 @@ public class DefaultMainPass implements MainPass {
             VRenderSystem.applyMVP(this.materialModelView, this.materialProjection);
             worldRenderer.renderMaterialTerrain(this.materialCamX, this.materialCamY, this.materialCamZ);
 
+            Renderer.getInstance().endRenderPass(commandBuffer);
+
+            this.scaledFramebuffer.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
+            Renderer.setViewportScale(this.swapChain.getWidth(), this.swapChain.getHeight());
+        }
+    }
+
+    private void clearMaterialBuffer() {
+        if (this.materialFramebuffer == null || this.materialRenderPass == null) {
+            return;
+        }
+        if (!postShaderActive() || !isUsingScaledFramebuffer()
+                || !"radiance".equals(Initializer.CONFIG.selectedShader)) {
+            return;
+        }
+
+        VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
+        Renderer.getInstance().endRenderPass(commandBuffer);
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            this.materialFramebuffer.getColorAttachment().transitionImageLayout(
+                    stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            this.materialFramebuffer.getDepthAttachment().transitionImageLayout(
+                    stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+            Renderer.clearViewportScale();
+            float cr = VRenderSystem.clearColor.get(0), cg = VRenderSystem.clearColor.get(1);
+            float cb = VRenderSystem.clearColor.get(2), ca = VRenderSystem.clearColor.get(3);
+            VRenderSystem.setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            this.materialFramebuffer.beginRenderPass(commandBuffer, this.materialRenderPass, stack);
+            VRenderSystem.setClearColor(cr, cg, cb, ca);
             Renderer.getInstance().endRenderPass(commandBuffer);
 
             this.scaledFramebuffer.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
@@ -675,7 +708,7 @@ public class DefaultMainPass implements MainPass {
             case "shadowtex1" -> sh1;
             case "shadowtex2" -> sh2;
             case "opaquedepth" -> this.capturedOpaqueDepth != null ? this.capturedOpaqueDepth : worldDepth;
-            case "material" -> this.materialFramebuffer != null ? this.materialFramebuffer.getColorAttachment() : worldDepth;
+            case "material" -> this.materialFramebuffer != null ? this.materialFramebuffer.getColorAttachment() : VTextureSelector.getWhiteTexture();
             case "gnormal" -> (this.scaledFramebuffer != null && this.scaledFramebuffer.getColorAttachment2() != null) ? this.scaledFramebuffer.getColorAttachment2() : worldDepth;
             case "materialdepth" -> this.materialFramebuffer != null ? this.materialFramebuffer.getDepthAttachment() : worldDepth;
             default -> null;
