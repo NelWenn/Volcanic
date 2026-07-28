@@ -27,4 +27,7 @@ public final class RadianceOpaqueTintPipeline implements PipelineDefinition {
     @Sampler(binding = 2) int Sampler1;
     @Sampler(binding = 3) int Sampler2;
     @Sampler(binding = 4) int Sampler3;
+    @Sampler(binding = 5) int Sampler4;
+    @Sampler(binding = 6) int Sampler5;
+    @Sampler(binding = 7) int Sampler6;
 }

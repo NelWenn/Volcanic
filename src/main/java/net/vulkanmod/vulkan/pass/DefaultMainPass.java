@@ -607,6 +607,9 @@ public class DefaultMainPass implements MainPass {
         net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(1, tint0);
         net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(2, tint1);
         net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(3, tint2);
+        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(4, this.shadowMap.getCascadeDepthImage(0));
+        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(5, this.shadowMap.getCascadeDepthImage(1));
+        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(6, this.shadowMap.getCascadeDepthImage(2));
 
         net.vulkanmod.vulkan.shader.GraphicsPipeline pipeline =
                 net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry.getOrNull(
