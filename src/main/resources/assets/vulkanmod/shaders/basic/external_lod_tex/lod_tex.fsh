@@ -42,7 +42,9 @@ void main() {
     if (clipDistance > 0.0) {
         if (dither) {
             float noise = bayer8x8(gl_FragCoord.xy) + 0.001;
-            float fadeStep = smoothstep(clipDistance * 0.85, clipDistance * 1.7, viewDistance);
+            float bandStart = ExternalLodFogParams.z > 0.0 ? ExternalLodFogParams.z : clipDistance * 0.85;
+            float bandEnd = ExternalLodFogParams.w > bandStart ? ExternalLodFogParams.w : clipDistance * 1.7;
+            float fadeStep = smoothstep(bandStart, bandEnd, viewDistance);
             if (fadeStep <= noise) {
                 discard;
             }
