@@ -435,6 +435,11 @@ public class DefaultMainPass implements MainPass {
         this.capturedOpaqueDepth = snapshotScaledDepth(this.capturedOpaqueDepth);
     }
 
+    @Override
+    public VulkanImage getCapturedOpaqueDepth() {
+        return this.capturedOpaqueDepth;
+    }
+
     private boolean glassMaterialActive() {
         return postShaderActive() && isUsingScaledFramebuffer()
                 && "radiance".equals(Initializer.CONFIG.selectedShader)

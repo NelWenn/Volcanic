@@ -488,47 +488,6 @@ public abstract class Options {
                                 .setTooltip(Component.translatable("vulkanmod.options.performancePreset.tooltip"))
                 }),
                 new OptionBlock("", new Option[]{
-                        new CyclingOption<>(Component.translatable("vulkanmod.options.advCulling"),
-                                new Integer[]{1, 2, 3, 10},
-                                value -> {
-                                    markPerformancePresetCustom();
-                                    config.advCulling = value;
-                                },
-                                () -> config.advCulling)
-                                .setTranslator(value -> Component.translatable(switch (value) {
-                                    case 1 -> "vulkanmod.options.advCulling.aggressive";
-                                    case 2 -> "vulkanmod.options.advCulling.normal";
-                                    case 3 -> "vulkanmod.options.advCulling.conservative";
-                                    case 10 -> "options.off";
-                                    default -> "vulkanmod.options.unknown";
-                                }))
-                                .setTooltip(Component.translatable("vulkanmod.options.advCulling.tooltip"))
-                                .setImpact(PerformanceImpact.HIGH),
-                        new SwitchOption(Component.translatable("vulkanmod.options.entityCulling"),
-                                value -> {
-                                    markPerformancePresetCustom();
-                                    config.entityCulling = value;
-                                },
-                                () -> config.entityCulling)
-                                .setTooltip(Component.translatable("vulkanmod.options.entityCulling.tooltip"))
-                                .setImpact(PerformanceImpact.HIGH),
-                        new SwitchOption(Component.translatable("vulkanmod.options.blockEntityCulling"),
-                                value -> {
-                                    markPerformancePresetCustom();
-                                    config.blockEntityCulling = value;
-                                },
-                                () -> config.blockEntityCulling)
-                                .setTooltip(Component.translatable("vulkanmod.options.blockEntityCulling.tooltip"))
-                                .setImpact(PerformanceImpact.HIGH),
-                        new SwitchOption(Component.translatable("vulkanmod.options.leavesCulling"),
-                                value -> {
-                                    markPerformancePresetCustom();
-                                    config.leavesCulling = value;
-                                    minecraft.levelRenderer.allChanged();
-                                },
-                                () -> config.leavesCulling)
-                                .setTooltip(Component.translatable("vulkanmod.options.leavesCulling.tooltip"))
-                                .setImpact(PerformanceImpact.HIGH),
                         new SwitchOption(Component.translatable("vulkanmod.options.uniqueOpaqueLayer"),
                                 value -> {
                                     markPerformancePresetCustom();
@@ -545,14 +504,6 @@ public abstract class Options {
                                 },
                                 () -> config.indirectDraw && DeviceManager.supportsFastIndirectDraw())
                                 .setTooltip(Component.translatable("vulkanmod.options.indirectDraw.tooltip"))
-                                .setImpact(PerformanceImpact.HIGH)
-                                .setActivationFn(DeviceManager::supportsFastIndirectDraw),
-                        new SwitchOption(Component.translatable("vulkanmod.options.lodGpuCulling"),
-                                value -> {
-                                    config.lodGpuCulling = value;
-                                },
-                                () -> config.lodGpuCulling)
-                                .setTooltip(Component.translatable("vulkanmod.options.lodGpuCulling.tooltip"))
                                 .setImpact(PerformanceImpact.HIGH)
                                 .setActivationFn(DeviceManager::supportsFastIndirectDraw),
                         new SwitchOption(Component.translatable("vulkanmod.options.adaptiveChunkUploads"),

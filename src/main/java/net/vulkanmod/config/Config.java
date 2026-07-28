@@ -28,6 +28,7 @@ public class Config {
 
     public boolean indirectDraw = true;
     public boolean lodGpuCulling = false;
+    public boolean lodDepthSnapshot = true;
 
     public boolean uniqueOpaqueLayer = true;
     public boolean entityCulling = true;

@@ -8,6 +8,7 @@ import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.compat.external.ExternalTerrainRenderBridge;
 import net.vulkanmod.gl.GlTexture;
+import net.vulkanmod.render.DepthSnapshot;
 import net.vulkanmod.render.HiZPyramid;
 import net.vulkanmod.render.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
@@ -169,20 +170,89 @@ public final class CalderaBridge {
 
     public static void onFrameBegin(VkCommandBuffer commandBuffer) {
         pyramidReady = false;
+        DepthSnapshot.beginFrame();
+        net.vulkanmod.render.culling.DepthOcclusion.refresh();
 
-        if (!lodSessionActive || commandBuffer == null
-                || !Initializer.CONFIG.lodGpuCulling
-                || !Initializer.CONFIG.indirectDraw
-                || !DeviceManager.supportsFastIndirectDraw()
-                || !LodCulling.isAvailable()) {
+        if (commandBuffer == null) {
+            return;
+        }
+        if (WorldRenderer.getInstance() == null || Minecraft.getInstance().level == null) {
             return;
         }
 
+        boolean snapshotWanted = Initializer.CONFIG.lodDepthSnapshot;
+        boolean cullWanted = lodSessionActive
+                && Initializer.CONFIG.lodGpuCulling
+                && Initializer.CONFIG.indirectDraw
+                && DeviceManager.supportsFastIndirectDraw()
+                && LodCulling.isAvailable();
+        if (!snapshotWanted && !cullWanted) {
+            return;
+        }
+
+        boolean built;
         try {
-            pyramidReady = HiZPyramid.build(commandBuffer);
+            built = HiZPyramid.build(commandBuffer);
         } catch (Throwable t) {
-            pyramidReady = false;
+            built = false;
             Initializer.LOGGER.error("[Caldera] HiZ pyramid build failed", t);
+        }
+        pyramidReady = built && cullWanted;
+
+        if (built && snapshotWanted) {
+            try {
+                DepthSnapshot.record(commandBuffer);
+            } catch (Throwable t) {
+                Initializer.LOGGER.error("[Caldera] depth snapshot record failed", t);
+            }
+        }
+    }
+
+    public static boolean occlusionAvailable() {
+        try {
+            return DepthSnapshot.available();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    public static int occlusionGridWidth() {
+        try {
+            return DepthSnapshot.gridWidth();
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
+    public static int occlusionGridHeight() {
+        try {
+            return DepthSnapshot.gridHeight();
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
+    public static float[] occlusionDepthGrid() {
+        try {
+            return DepthSnapshot.depthGrid();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    public static float[] occlusionViewProj() {
+        try {
+            return DepthSnapshot.viewProj();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    public static double[] occlusionCameraPos() {
+        try {
+            return DepthSnapshot.cameraPos();
+        } catch (Throwable t) {
+            return null;
         }
     }
 

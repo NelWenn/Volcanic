@@ -35,6 +35,11 @@ public final class EntityCulling {
             return false;
         }
 
+        if (!aabb.hasNaN() && DepthOcclusion.hidden(aabb.minX, aabb.minY, aabb.minZ,
+                aabb.maxX, aabb.maxY, aabb.maxZ, 2.0)) {
+            return false;
+        }
+
         WorldRenderer worldRenderer = WorldRenderer.getInstance();
         if (worldRenderer == null || worldRenderer.getSectionGrid() == null || aabb.hasNaN()) {
             return true;
