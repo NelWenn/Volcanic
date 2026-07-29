@@ -1,4 +1,5 @@
 #version 460
+#include "lod_common.glsl"
 
 layout (binding = 0) uniform ExternalLodUniforms {
     mat4 ExternalLodCombinedMatrix;
@@ -14,8 +15,10 @@ layout (location = 0) in vec4 vertexColor;
 layout (location = 1) in float vViewDist;
 layout (location = 2) flat in vec4 vSpriteRect;
 layout (location = 3) smooth in vec2 vTileUV;
+layout (location = 4) in vec3 vWorldPos;
 
 layout (location = 0) out vec4 fragColor;
+layout (location = 1) out vec4 outNormal;
 
 float bayer8x8(vec2 st) {
     int x = int(mod(st.x, 8.0));
@@ -66,4 +69,6 @@ void main() {
 
     float fogFactor = smoothstep(ExternalLodFogParams.x, ExternalLodFogParams.y, viewDistance);
     fragColor.rgb = mix(fragColor.rgb, ExternalLodFogColor.rgb, fogFactor);
+
+    outNormal = vec4(lod_geo_normal(vWorldPos), 1.0);
 }

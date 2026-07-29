@@ -19,6 +19,7 @@ layout (location = 1) in vec4 Color;
 
 layout (location = 0) out vec4 vertexColor;
 layout (location = 1) out float vViewDist;
+layout (location = 2) out vec3 vWorldPos;
 
 void main() {
     vec3 modelOffset = ExternalLodModelOffsetAndYOffset.xyz + ExternalLodCellOrigins[gl_InstanceIndex].xyz;
@@ -46,6 +47,7 @@ void main() {
 
     vertexColor = isWhiteWorld ? lightMapColor : Color * lightMapColor;
 
+    vWorldPos = worldPos;
     vViewDist = length(worldPos);
     vec4 clip = ExternalLodCombinedMatrix * vec4(worldPos, 1.0);
     clip.z = (clip.z + clip.w) * 0.5;
