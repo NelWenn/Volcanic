@@ -23,6 +23,7 @@ layout (location = 0) out vec4 vertexColor;
 layout (location = 1) out float vViewDist;
 layout (location = 2) flat out vec4 vSpriteRect;
 layout (location = 3) smooth out vec2 vTileUV;
+layout (location = 4) out vec3 vWorldPos;
 
 void main() {
     vec3 modelOffset = ExternalLodModelOffsetAndYOffset.xyz + ExternalLodCellOrigins[gl_InstanceIndex].xyz;
@@ -53,6 +54,7 @@ void main() {
     vSpriteRect = SpriteRect;
     vTileUV = vec2(TileUV);
 
+    vWorldPos = worldPos;
     vViewDist = length(worldPos);
     vec4 clip = ExternalLodCombinedMatrix * vec4(worldPos, 1.0);
     clip.z = (clip.z + clip.w) * 0.5;
