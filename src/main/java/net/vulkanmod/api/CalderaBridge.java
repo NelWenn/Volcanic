@@ -1027,16 +1027,24 @@ public final class CalderaBridge {
     }
 
     private static void writeFogUniforms() {
+        MappedBuffer shaderFog = VRenderSystem.getShaderFogColor();
+        FOG_COLOR.putFloat(0, shaderFog.getFloat(0));
+        FOG_COLOR.putFloat(4, shaderFog.getFloat(4));
+        FOG_COLOR.putFloat(8, shaderFog.getFloat(8));
+        FOG_COLOR.putFloat(12, 0.0f);
+
         float start = fogStartBlocks;
         float end = fogEndBlocks;
-        if (!(end > start)) {
-            start = Float.MAX_VALUE * 0.5f;
-            end = Float.MAX_VALUE;
+        boolean validCalderaFog = end > start && end < Float.MAX_VALUE * 0.25f;
+        if (!validCalderaFog) {
+            if (clipDistance > 0.0f) {
+                start = clipDistance;
+                end = clipDistance * 3.0f;
+            } else {
+                start = Float.MAX_VALUE * 0.5f;
+                end = Float.MAX_VALUE;
+            }
         }
-        FOG_COLOR.putFloat(0, fogRed);
-        FOG_COLOR.putFloat(4, fogGreen);
-        FOG_COLOR.putFloat(8, fogBlue);
-        FOG_COLOR.putFloat(12, 0.0f);
         FOG_PARAMS.putFloat(0, start);
         FOG_PARAMS.putFloat(4, end);
         FOG_PARAMS.putFloat(8, fadeBandStart);
