@@ -1,4 +1,5 @@
 #version 460
+#include "lod_common.glsl"
 
 layout (binding = 0) uniform ExternalLodUniforms {
     mat4 ExternalLodCombinedMatrix;
@@ -51,6 +52,5 @@ void main() {
 
     fragColor = vec4(vertexColor.rgb, 0.7);
 
-    float fogFactor = smoothstep(ExternalLodFogParams.x, ExternalLodFogParams.y, viewDistance);
-    fragColor.rgb = mix(fragColor.rgb, ExternalLodFogColor.rgb, fogFactor);
+    fragColor.rgb = lod_atmosphere(fragColor.rgb, viewDistance, ExternalLodFogColor.rgb, ExternalLodFogParams.x, ExternalLodFogParams.y);
 }

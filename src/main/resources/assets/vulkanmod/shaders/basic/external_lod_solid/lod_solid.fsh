@@ -20,8 +20,7 @@ void main() {
     fragColor = vertexColor;
 
     float viewDistance = vViewDist;
-    float fogFactor = smoothstep(ExternalLodFogParams.x, ExternalLodFogParams.y, viewDistance);
-    fragColor.rgb = mix(fragColor.rgb, ExternalLodFogColor.rgb, fogFactor);
+    fragColor.rgb = lod_atmosphere(fragColor.rgb, viewDistance, ExternalLodFogColor.rgb, ExternalLodFogParams.x, ExternalLodFogParams.y);
 
     outNormal = vec4(lod_geo_normal(vWorldPos), 1.0);
 }
