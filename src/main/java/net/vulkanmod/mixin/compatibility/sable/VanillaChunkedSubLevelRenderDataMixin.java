@@ -10,6 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(targets = "dev.ryanhcode.sable.sublevel.render.vanilla.VanillaChunkedSubLevelRenderData", remap = false)
 public class VanillaChunkedSubLevelRenderDataMixin {
 
+    @Inject(method = "compileSections", at = @At("HEAD"), require = 0)
+    private void vulkanMod$publishSubLevelBiome(CallbackInfo ci) {
+        SableCompat.beginSubLevelBiome(this);
+    }
+
     @Inject(method = "renderChunkedSubLevel", at = @At("HEAD"), require = 0)
     private void vulkanMod$captureSubLevelLighting(CallbackInfo ci) {
         VRenderSystem.sableSkyLightScale = SableCompat.skyLightScale(this);
