@@ -2,6 +2,32 @@
 
 All notable changes to Volcanic. Versions are alpha pre-releases.
 
+## 0.1.3-alpha
+
+The **companion-mod & moving-worlds** release. Volcanic adds far-terrain LOD through the Caldera API,
+depth-based occlusion culling, and — the headline — native rendering of **Create Aeronautics / Sable
+sub-levels** (moving block structures) under Vulkan.
+
+### ✨ New — mod compatibility
+
+- **Create Aeronautics / Sable compatibility.** Sable-based moving structures (airships, falling trees
+  and other addons) now render under Volcanic — geometry, animations, lighting and biome colours. The
+  core compatibility is in place; some rough edges and partial support for certain independent addons
+  may remain.
+- **Caldera API.** Support for far-terrain LOD meshes submitted through the Caldera API.
+
+### ✨ New — rendering & performance
+
+- **Occlusion culling.** Depth-based culling from the previous frame (HiZ pyramid) for terrain sections
+  and entities, with a single toggle in the video settings.
+
+### 🔧 Fixes & tweaks
+
+- **F3 debug screen** — corrected CPU info and caching (thanks RevoIDE).
+- **OptiFine CTM / CIT** — still in development; some features may still be missing (overlays,
+  connected textures).
+- MoltenVK aggressive tuning reverted to opt-in.
+
 ## 0.1.2-alpha
 
 The **compatibility & reflections** release. Volcanic gains a full deferred shader system with
