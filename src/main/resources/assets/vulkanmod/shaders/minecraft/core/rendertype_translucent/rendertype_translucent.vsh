@@ -11,6 +11,8 @@ layout(location = 4) in vec3 Normal;
 
 layout(binding = 0) uniform UniformBufferObject {
    mat4 MVP;
+   float SableSkyLightScale;
+   float SableEnableNormalLighting;
 };
 
 layout(binding = 3) uniform sampler2D Sampler2;
@@ -23,6 +25,7 @@ void main() {
     gl_Position = MVP * vec4(Position, 1.0);
 
     vertexDistance = fog_distance(Position.xyz, 0);
-    vertexColor = Color * minecraft_sample_lightmap(Sampler2, UV2);
+    vertexColor = Color * minecraft_sample_lightmap(Sampler2, ivec2(vec2(UV2) * vec2(1.0, SableSkyLightScale)));
+    vertexColor.rgb *= mix(1.0, block_brightness(Normal), SableEnableNormalLighting);
     texCoord0 = UV0;
 }

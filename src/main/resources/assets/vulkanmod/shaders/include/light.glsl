@@ -26,3 +26,14 @@ vec4 sample_lightmap2(sampler2D lightMap, uint uv) {
     //    const ivec2 lm = ivec2(uv >> 12, (uv >> 4) & 0xF);
     return texelFetch(lightMap, lm, 0);
 }
+
+float block_brightness(vec3 normal) {
+    vec3 n = abs(normal);
+    if (n.y >= n.x && n.y >= n.z) {
+        return normal.y >= 0.0 ? 1.0 : 0.5;
+    }
+    if (n.z >= n.x) {
+        return 0.8;
+    }
+    return 0.6;
+}

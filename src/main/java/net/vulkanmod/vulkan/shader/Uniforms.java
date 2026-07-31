@@ -44,6 +44,8 @@ public class Uniforms {
         });
         vec1f_uniformMap.put("GlintAlpha", RenderSystem::getShaderGlintAlpha);
         vec1f_uniformMap.put("AlphaCutout", () -> VRenderSystem.alphaCutout);
+        vec1f_uniformMap.put("SableSkyLightScale", () -> VRenderSystem.sableSkyLightScale);
+        vec1f_uniformMap.put("SableEnableNormalLighting", () -> VRenderSystem.sableEnableNormalLighting);
         vec1f_uniformMap.put("PbrDebug", () -> net.vulkanmod.Initializer.CONFIG.pbrDebugNormals ? 1.0f : 0.0f);
         vec1f_uniformMap.put("CamilleActive", () -> {
             var cfg = net.vulkanmod.Initializer.CONFIG;

@@ -293,6 +293,10 @@ public abstract class VRenderSystem {
 
     public static float alphaCutout = 0.0f;
 
+    public static float sableSkyLightScale = 1.0f;
+
+    public static float sableEnableNormalLighting = 0.0f;
+
     private static final float[] depthBias = new float[2];
 
     public static void initRenderer() {
