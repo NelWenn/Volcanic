@@ -348,6 +348,17 @@ public abstract class VRenderSystem {
         vulkanProjectionMatrix.get(projectionFloatView);
     }
 
+    private static final Matrix4f scratchLegacyProjection = new Matrix4f();
+
+    public static Matrix4f toVulkanProjection(Matrix4f mat) {
+        scratchLegacyProjection.set(mat);
+        scratchLegacyProjection.m02((mat.m02() + mat.m03()) * 0.5F);
+        scratchLegacyProjection.m12((mat.m12() + mat.m13()) * 0.5F);
+        scratchLegacyProjection.m22((mat.m22() + mat.m23()) * 0.5F);
+        scratchLegacyProjection.m32((mat.m32() + mat.m33()) * 0.5F);
+        return scratchLegacyProjection;
+    }
+
     public static void calculateMVP() {
         scratchModelView.set(modelViewFloatView);
         scratchMVP.set(projectionFloatView);

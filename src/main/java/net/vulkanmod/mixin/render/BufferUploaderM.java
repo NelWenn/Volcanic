@@ -66,6 +66,10 @@ public class BufferUploaderM {
 
             if (isFlatGuiDraw(shaderName, parameters)) {
                 configureFlatGuiDrawState();
+            } else if (isOrthographicProjection() && isFlatGuiFormat(parameters.format())) {
+                VRenderSystem.disableDepthTest();
+                VRenderSystem.depthMask(false);
+                VRenderSystem.disableCull();
             }
 
             traceHudDraw(shaderName, pipeline, parameters);
@@ -110,6 +114,11 @@ public class BufferUploaderM {
     private static boolean isFlatGuiDraw(String shaderName, MeshData.DrawState parameters) {
         return isFlatGuiShader(shaderName)
                 && isOrthographicProjection();
+    }
+
+    private static boolean isFlatGuiFormat(com.mojang.blaze3d.vertex.VertexFormat format) {
+        return com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_TEX.equals(format)
+                || com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_TEX_COLOR.equals(format);
     }
 
     private static boolean isFlatGuiShader(String shaderName) {

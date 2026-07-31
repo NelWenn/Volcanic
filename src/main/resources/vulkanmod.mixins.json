@@ -131,6 +131,7 @@
     "compatibility.veil.VeilRenderSystemMixin",
     "compatibility.veil.FramebufferStackMixin",
     "compatibility.flywheel.BackendManagerImplMixin",
+    "compatibility.emi.StackBatcherMixin",
     "compatibility.sable.VanillaChunkedSubLevelRenderDataMixin",
     "compatibility.sable.BiomeColorsMixin",
 

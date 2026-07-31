@@ -833,6 +833,12 @@ public class DefaultMainPass implements MainPass {
             } else {
                 Renderer.clearViewportScale();
             }
+
+            VkViewport.Buffer pViewport = this.mainFramebuffer.viewport(stack);
+            vkCmdSetViewport(commandBuffer, 0, pViewport);
+
+            VkRect2D.Buffer pScissor = this.mainFramebuffer.scissor(stack);
+            vkCmdSetScissor(commandBuffer, 0, pScissor);
         }
 
     }

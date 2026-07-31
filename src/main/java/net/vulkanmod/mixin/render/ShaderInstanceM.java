@@ -215,7 +215,7 @@ public class ShaderInstanceM implements ShaderMixed {
         }
 
         if (this.PROJECTION_MATRIX != null) {
-            this.PROJECTION_MATRIX.set(RenderSystem.getProjectionMatrix());
+            this.PROJECTION_MATRIX.set(net.vulkanmod.vulkan.VRenderSystem.toVulkanProjection(RenderSystem.getProjectionMatrix()));
         }
 
         if (this.COLOR_MODULATOR != null) {
