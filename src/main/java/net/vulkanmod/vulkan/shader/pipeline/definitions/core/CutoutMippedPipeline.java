@@ -13,6 +13,8 @@ public final class CutoutMippedPipeline implements PipelineDefinition {
     @Ubo(stage = Stage.VERTEX, binding = 0)
     static class VertexUbo {
         Matrix4f MVP;
+        float SableSkyLightScale;
+        float SableEnableNormalLighting;
     }
 
     @Ubo(stage = Stage.FRAGMENT, binding = 1)

@@ -152,11 +152,50 @@ public class VBO {
             RenderSystem.assertOnRenderThread();
 
             Renderer renderer = Renderer.getInstance();
+
+            ShaderInstance shader = RenderSystem.getShader();
+            if (shader != null) {
+                GraphicsPipeline shaderPipeline = ((ShaderMixed) shader).getPipeline(this.format);
+                if (shaderPipeline != null && shaderPipeline != renderer.getBoundPipeline()) {
+                    Matrix4f MV = uniformMatrix(shader.MODEL_VIEW_MATRIX, RenderSystem.getModelViewMatrix());
+                    applyChunkOffset(MV, shader);
+                    Matrix4f P = uniformMatrix(shader.PROJECTION_MATRIX, RenderSystem.getProjectionMatrix());
+                    this.drawWithShader(MV, P, shaderPipeline);
+                    return;
+                }
+            }
+
             Pipeline pipeline = renderer.getBoundPipeline();
             renderer.uploadAndBindUBOs(pipeline);
 
             Renderer.getDrawer().drawIndexed(this.vertexBuffer, this.indexBuffer, this.indexCount);
         }
+    }
+
+    private static Matrix4f uniformMatrix(com.mojang.blaze3d.shaders.Uniform uniform, Matrix4f fallback) {
+        if (uniform != null) {
+            java.nio.FloatBuffer buffer = uniform.getFloatBuffer();
+            if (buffer != null && buffer.capacity() >= 16)
+                return new Matrix4f().set(buffer);
+        }
+
+        return new Matrix4f(fallback);
+    }
+
+    private static void applyChunkOffset(Matrix4f modelView, ShaderInstance shader) {
+        com.mojang.blaze3d.shaders.Uniform chunkOffset = shader.getUniform("ChunkOffset");
+        if (chunkOffset == null)
+            return;
+
+        java.nio.FloatBuffer buffer = chunkOffset.getFloatBuffer();
+        if (buffer == null || buffer.capacity() < 3)
+            return;
+
+        float x = buffer.get(0);
+        float y = buffer.get(1);
+        float z = buffer.get(2);
+        if (x != 0.0f || y != 0.0f || z != 0.0f)
+            modelView.translate(x, y, z);
     }
 
     public void close() {

@@ -127,6 +127,11 @@
     "compatibility.create.CreateMainMenuScreenMixin",
     "compatibility.tensura.TensuraOverlayHandlerMixin",
     "compatibility.tensura.TensuraSimpleButtonMixin",
+    "compatibility.veil.VeilFirstPersonRendererMixin",
+    "compatibility.veil.VeilRenderSystemMixin",
+    "compatibility.veil.FramebufferStackMixin",
+    "compatibility.flywheel.BackendManagerImplMixin",
+    "compatibility.sable.VanillaChunkedSubLevelRenderDataMixin",
 
     "render.block.BakedQuadM",
 
