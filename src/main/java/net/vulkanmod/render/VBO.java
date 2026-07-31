@@ -156,7 +156,8 @@ public class VBO {
             ShaderInstance shader = RenderSystem.getShader();
             if (shader != null) {
                 GraphicsPipeline shaderPipeline = ((ShaderMixed) shader).getPipeline(this.format);
-                if (shaderPipeline != null && shaderPipeline != renderer.getBoundPipeline()) {
+                boolean blockFormat = this.format == com.mojang.blaze3d.vertex.DefaultVertexFormat.BLOCK;
+                if (shaderPipeline != null && (blockFormat || shaderPipeline != renderer.getBoundPipeline())) {
                     Matrix4f MV = uniformMatrix(shader.MODEL_VIEW_MATRIX, RenderSystem.getModelViewMatrix());
                     applyChunkOffset(MV, shader);
                     Matrix4f P = uniformMatrix(shader.PROJECTION_MATRIX, RenderSystem.getProjectionMatrix());

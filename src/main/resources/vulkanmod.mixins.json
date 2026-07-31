@@ -132,6 +132,7 @@
     "compatibility.veil.FramebufferStackMixin",
     "compatibility.flywheel.BackendManagerImplMixin",
     "compatibility.sable.VanillaChunkedSubLevelRenderDataMixin",
+    "compatibility.sable.BiomeColorsMixin",
 
     "render.block.BakedQuadM",
 
