@@ -59,12 +59,20 @@ public class MemoryManager {
 
     public static void createInstance(int frames) {
         if(INSTANCE != null) {
-            cleanUp();
+            INSTANCE.flushPendingFrees();
         }
 
         Frames = frames;
 
         INSTANCE = new MemoryManager();
+    }
+
+    private void flushPendingFrees() {
+        for (int i = 0; i < Frames; i++) {
+            this.freeBuffers(i);
+            this.doFrameOps(i);
+            this.freeSegments(i);
+        }
     }
 
     MemoryManager() {

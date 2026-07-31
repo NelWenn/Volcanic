@@ -575,6 +575,10 @@ public class Renderer {
     public boolean bindGraphicsPipeline(GraphicsPipeline pipeline) {
         VkCommandBuffer commandBuffer = currentCmdBuffer;
 
+        if (boundRenderPass == null) {
+            return false;
+        }
+
         PipelineState currentState = PipelineState.getCurrentPipelineState(boundRenderPass);
         final long handle = pipeline.getHandle(currentState);
 

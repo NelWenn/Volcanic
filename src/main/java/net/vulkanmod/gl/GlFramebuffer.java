@@ -62,8 +62,7 @@ public class GlFramebuffer {
             renderer.endRenderPass();
 
             if (Renderer.isRecording()) {
-                RenderTarget renderTarget = Minecraft.getInstance().getMainRenderTarget();
-                renderTarget.bindWrite(true);
+                renderer.getMainPass().rebindMainTarget();
             }
 
             boundFramebuffer = null;
@@ -365,6 +364,10 @@ public class GlFramebuffer {
                     .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         this.renderPass = builder.build();
+
+        if (wasBound && Renderer.isRecording()) {
+            beginRendering(this);
+        }
     }
 
     public Framebuffer getFramebuffer() {
