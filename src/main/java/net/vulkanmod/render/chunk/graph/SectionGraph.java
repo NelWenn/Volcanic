@@ -14,6 +14,7 @@ import net.vulkanmod.render.chunk.*;
 import net.vulkanmod.render.chunk.build.RenderRegionBuilder;
 import net.vulkanmod.render.chunk.build.TaskDispatcher;
 import net.vulkanmod.render.chunk.frustum.VFrustum;
+import net.vulkanmod.render.culling.DepthOcclusion;
 import net.vulkanmod.render.optimization.AdaptiveChunkUploadBudget;
 import net.vulkanmod.render.chunk.util.AreaSetQueue;
 import net.vulkanmod.render.chunk.util.ResettableQueue;
@@ -324,7 +325,14 @@ public class SectionGraph {
         int renderDistance = WorldRenderer.getInstance().getRenderDistance();
         String tasksInfo = this.taskDispatcher == null ? "null" : this.taskDispatcher.getStats();
 
-        return String.format("Chunks: %d(%d)/%d D: %d, %s", this.nonEmptyChunks, sections, totalSections, renderDistance, tasksInfo);
+        String occlusionInfo = "";
+        if (Initializer.CONFIG.lodDepthSnapshot) {
+            int tested = DepthOcclusion.getTestedCount();
+            int culled = DepthOcclusion.getCulledCount();
+            occlusionInfo = String.format(", Occl-culled: %d/%d", culled, tested);
+        }
+
+        return String.format("Chunks: %d(%d)/%d D: %d, %s%s", this.nonEmptyChunks, sections, totalSections, renderDistance, tasksInfo, occlusionInfo);
     }
 
     public VFrustum getFrustum() {

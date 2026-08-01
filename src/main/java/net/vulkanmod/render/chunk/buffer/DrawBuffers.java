@@ -5,6 +5,7 @@ import net.vulkanmod.render.chunk.ChunkArea;
 import net.vulkanmod.render.chunk.RenderSection;
 import net.vulkanmod.render.chunk.build.UploadBuffer;
 import net.vulkanmod.render.chunk.util.StaticQueue;
+import net.vulkanmod.render.culling.DepthOcclusion;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.Renderer;
@@ -151,8 +152,12 @@ public class DrawBuffers {
                 if (drawParameters.indexCount <= 0)
                     continue;
 
-                if (occlusionActive && section.occlusionHidden())
-                    continue;
+                if (occlusionActive) {
+                    boolean hidden = section.occlusionHidden();
+                    DepthOcclusion.recordTest(hidden);
+                    if (hidden)
+                        continue;
+                }
 
                 int baseInstance = drawParameters.baseInstance;
                 if (fadeFilter) {
@@ -209,8 +214,12 @@ public class DrawBuffers {
             if (drawParameters.indexCount <= 0)
                 continue;
 
-            if (occlusionActive && section.occlusionHidden())
-                continue;
+            if (occlusionActive) {
+                boolean hidden = section.occlusionHidden();
+                net.vulkanmod.render.culling.DepthOcclusion.recordTest(hidden);
+                if (hidden)
+                    continue;
+            }
 
             int baseInstance = drawParameters.baseInstance;
             if (fadeFilter) {

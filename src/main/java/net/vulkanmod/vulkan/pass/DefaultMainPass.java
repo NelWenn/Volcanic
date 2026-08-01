@@ -4,6 +4,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.api.CalderaBridge;
 import net.vulkanmod.config.RenderScale;
 import net.vulkanmod.gl.GlTexture;
 import net.vulkanmod.vulkan.Renderer;
@@ -18,10 +19,8 @@ import net.vulkanmod.vulkan.util.DrawUtil;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.vulkan.VkClearColorValue;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkImageCopy;
-import org.lwjgl.vulkan.VkImageSubresourceRange;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkViewport;
 
@@ -434,18 +433,24 @@ public class DefaultMainPass implements MainPass {
             this.capturedOpaqueDepth = snapshotScaledDepth(this.capturedOpaqueDepth);
             return;
         }
-        if (!Initializer.CONFIG.lodDepthSnapshot) {
+        if (!Initializer.CONFIG.lodDepthSnapshot || this.mainFramebuffer == null) {
             return;
         }
-        Framebuffer source = this.mainFramebuffer;
-        if (source == null || source.getDepthAttachment() == null) {
+        if (!CalderaBridge.isOcclusionRefreshFrame()) {
             return;
         }
-        this.capturedOpaqueDepth = snapshotDepth(this.capturedOpaqueDepth, source);
+        this.capturedOpaqueDepth = snapshotDepth(this.capturedOpaqueDepth, this.mainFramebuffer);
     }
 
     @Override
     public VulkanImage getCapturedOpaqueDepth() {
+        if (postShaderActive() && isUsingScaledFramebuffer()
+                && "radiance".equals(Initializer.CONFIG.selectedShader)) {
+            return this.capturedOpaqueDepth;
+        }
+        if (!Initializer.CONFIG.lodDepthSnapshot) {
+            return null;
+        }
         return this.capturedOpaqueDepth;
     }
 
@@ -617,13 +622,13 @@ public class DefaultMainPass implements MainPass {
         bi.dstAlphaFactor = VK_BLEND_FACTOR_ZERO;
         bi.blendOp = bi.blendOpRgb = bi.blendOpAlpha = VK_BLEND_OP_ADD;
 
-        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(0, opaqueDepth);
-        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(1, tint0);
-        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(2, tint1);
-        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(3, tint2);
-        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(4, this.shadowMap.getCascadeDepthImage(0));
-        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(5, this.shadowMap.getCascadeDepthImage(1));
-        net.vulkanmod.vulkan.texture.VTextureSelector.bindTexture(6, this.shadowMap.getCascadeDepthImage(2));
+        VTextureSelector.bindTexture(0, opaqueDepth);
+        VTextureSelector.bindTexture(1, tint0);
+        VTextureSelector.bindTexture(2, tint1);
+        VTextureSelector.bindTexture(3, tint2);
+        VTextureSelector.bindTexture(4, this.shadowMap.getCascadeDepthImage(0));
+        VTextureSelector.bindTexture(5, this.shadowMap.getCascadeDepthImage(1));
+        VTextureSelector.bindTexture(6, this.shadowMap.getCascadeDepthImage(2));
 
         net.vulkanmod.vulkan.shader.GraphicsPipeline pipeline =
                 net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry.getOrNull(
