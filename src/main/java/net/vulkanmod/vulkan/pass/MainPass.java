@@ -1,13 +1,15 @@
 package net.vulkanmod.vulkan.pass;
 
-import net.vulkanmod.vulkan.Vulkan;
+import net.vulkanmod.render.framegraph.FrameGraphImpl;
 import net.vulkanmod.vulkan.framebuffer.Framebuffer;
-import net.vulkanmod.vulkan.framebuffer.SwapChain;
+import net.vulkanmod.vulkan.texture.VulkanImage;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkCommandBuffer;
 
 public interface MainPass {
+
+    FrameGraphImpl getFrameGraph();
 
     void begin(VkCommandBuffer commandBuffer, MemoryStack stack);
 
@@ -22,9 +24,11 @@ public interface MainPass {
         return false;
     }
 
-    default net.vulkanmod.vulkan.texture.VulkanImage getCapturedOpaqueDepth() {
+    default VulkanImage getCapturedOpaqueDepth() {
         return null;
     }
+
+    default void cleanup() { getFrameGraph().dispose(); }
 
     default void mainTargetBindWrite() {}
 

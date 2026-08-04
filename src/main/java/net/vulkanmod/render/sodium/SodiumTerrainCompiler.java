@@ -8,8 +8,8 @@ import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.pipeline.PipelineFactory;
-import net.vulkanmod.vulkan.shader.pipeline.definitions.TerrainPipeline;
-import net.vulkanmod.vulkan.shader.pipeline.definitions.core.CloudsPipeline;
+import net.vulkanmod.rendergraph.radiance.pipeline.terrain.TerrainPipeline;
+import net.vulkanmod.rendergraph.core.pipeline.CloudsPipeline;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

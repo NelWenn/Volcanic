@@ -10,7 +10,7 @@ import net.vulkanmod.compat.external.ExternalTerrainRenderBridge;
 import net.vulkanmod.gl.GlTexture;
 import net.vulkanmod.render.DepthSnapshot;
 import net.vulkanmod.render.HiZPyramid;
-import net.vulkanmod.render.PipelineManager;
+import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.buffer.AreaBuffer;
 import net.vulkanmod.render.chunk.buffer.DrawBuffers;

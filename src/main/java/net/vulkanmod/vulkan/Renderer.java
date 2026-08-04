@@ -9,7 +9,7 @@ import net.vulkanmod.compat.observer.CompatProfiler;
 import net.vulkanmod.compat.observer.GuiRenderTrace;
 import net.vulkanmod.gl.GlFramebuffer;
 import net.vulkanmod.mixin.window.WindowAccessor;
-import net.vulkanmod.render.PipelineManager;
+import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.buffer.UploadManager;
 import net.vulkanmod.render.optimization.AdaptiveChunkUploadBudget;
@@ -111,14 +111,16 @@ public class Renderer {
     private boolean recordingCmds = false;
     private boolean frameTimestampArmed = false;
 
-    MainPass mainPass = DefaultMainPass.create();
-
     private final List<Runnable> onResizeCallbacks = new ObjectArrayList<>();
+
+    public MainPass mainPass;
 
     public Renderer() {
         device = Vulkan.getVkDevice();
         framesNum = Initializer.CONFIG.frameQueueSize;
         imagesNum = getSwapChain().getImagesNum();
+
+        mainPass = DefaultMainPass.create();
     }
 
     public static void setLineWidth(float width) {
@@ -495,7 +497,6 @@ public class Renderer {
         }
     }
 
-    @SuppressWarnings("UnreachableCode")
     private void recreateSwapChain() {
         Synchronization.INSTANCE.waitFences();
         Vulkan.waitIdle();
@@ -536,6 +537,7 @@ public class Renderer {
         destroySyncObjects();
 
         drawer.cleanUpResources();
+        mainPass.cleanup();
 
         PipelineManager.destroyPipelines();
         VTextureSelector.getWhiteTexture().free();
