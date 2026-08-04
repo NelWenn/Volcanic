@@ -1,24 +1,33 @@
 package net.vulkanmod.vulkan.pass;
 
-import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.api.CalderaBridge;
 import net.vulkanmod.config.RenderScale;
 import net.vulkanmod.gl.GlTexture;
+import net.vulkanmod.render.framegraph.FrameGraph;
+import net.vulkanmod.render.framegraph.FrameGraphImpl;
+import net.vulkanmod.render.framegraph.Phase;
+import net.vulkanmod.rendergraph.radiance.RadianceGraph;
+import net.vulkanmod.rendergraph.radiance.pipeline.RadianceOpaqueTintPipeline;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
 import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.framebuffer.Framebuffer;
 import net.vulkanmod.vulkan.framebuffer.RenderPass;
 import net.vulkanmod.vulkan.framebuffer.SwapChain;
+import net.vulkanmod.vulkan.shader.GraphicsPipeline;
+import net.vulkanmod.vulkan.shader.PipelineState;
+import net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
-import net.vulkanmod.vulkan.util.DrawUtil;
 import net.vulkanmod.render.chunk.WorldRenderer;
+import net.vulkanmod.vulkan.util.DrawUtil;
+import net.vulkanmod.vulkan.util.MappedBuffer;
 import org.joml.Matrix4f;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkImageCopy;
 import org.lwjgl.vulkan.VkRect2D;
@@ -33,7 +42,6 @@ public class DefaultMainPass implements MainPass {
         return new DefaultMainPass();
     }
 
-    private RenderTarget mainTarget;
     private final SwapChain swapChain;
     private Framebuffer mainFramebuffer;
     private Framebuffer scaledFramebuffer;
@@ -75,12 +83,13 @@ public class DefaultMainPass implements MainPass {
     private int scaledColorAttachmentGlId = -1;
     private int scaledDepthAttachmentGlId = -1;
     private boolean renderScaleResolvedThisFrame;
-    private boolean guiResolveHandledThisFrame;
+
+    public final FrameGraphImpl frameGraph;
 
     DefaultMainPass() {
-        this.mainTarget = Minecraft.getInstance().getMainRenderTarget();
         this.swapChain = Vulkan.getSwapChain();
         this.mainFramebuffer = this.swapChain;
+        this.frameGraph = new RadianceGraph();
 
         createRenderPasses();
         createPresentRenderPass();
@@ -91,6 +100,7 @@ public class DefaultMainPass implements MainPass {
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
+
         if (builder.getColorAttachmentInfo2() != null) {
             builder.getColorAttachmentInfo2().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             builder.getColorAttachmentInfo2().setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
@@ -102,6 +112,7 @@ public class DefaultMainPass implements MainPass {
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
         if (builder.getColorAttachmentInfo2() != null) {
             builder.getColorAttachmentInfo2().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             builder.getColorAttachmentInfo2().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
@@ -236,14 +247,13 @@ public class DefaultMainPass implements MainPass {
     @Override
     public void begin(VkCommandBuffer commandBuffer, MemoryStack stack) {
         this.renderScaleResolvedThisFrame = false;
-        this.guiResolveHandledThisFrame = false;
         this.scaledDepthClears = 0;
         this.liveDepthIsForeground = false;
 
         ensureMainFramebuffer();
 
-        net.vulkanmod.render.framegraph.radiance.RadianceGraph.get().execute(
-                net.vulkanmod.render.framegraph.Phase.FRAME_START, commandBuffer, stack, name -> null, () -> {});
+        frameGraph.get().execute(
+                Phase.FRAME_START, commandBuffer, stack, name -> null, () -> {});
 
         VulkanImage colorAttachment = this.mainFramebuffer.getColorAttachment();
         colorAttachment.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -302,10 +312,12 @@ public class DefaultMainPass implements MainPass {
             return;
         }
         float a = net.vulkanmod.vulkan.VRenderSystem.smoothTimeOfDay(mc) * ((float) Math.PI * 2.0f);
+
         float lx = -(float) Math.sin(a);
         float lh = (float) Math.cos(a);
         float ly = lh * net.vulkanmod.vulkan.VRenderSystem.SUN_TILT_COS;
         float lz = lh * net.vulkanmod.vulkan.VRenderSystem.SUN_TILT_SIN;
+
         if (ly < 0.0f) { lx = -lx; ly = -ly; lz = -lz; }
 
         if (ly <= 0.02f) {
@@ -314,9 +326,11 @@ public class DefaultMainPass implements MainPass {
         }
 
         Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
+
         double dx = camPos.x - this.lastShadowCamX;
         double dy = camPos.y - this.lastShadowCamY;
         double dz = camPos.z - this.lastShadowCamZ;
+
         double movedSq = dx * dx + dy * dy + dz * dz;
 
         float dlx = lx - this.lastShadowLx;
@@ -369,17 +383,17 @@ public class DefaultMainPass implements MainPass {
         final boolean sDepthTest = VRenderSystem.depthTest, sDepthMask = VRenderSystem.depthMask, sCull = VRenderSystem.cull;
         final int sDepthFun = VRenderSystem.depthFun, sCullFace = VRenderSystem.cullFace, sFrontFace = VRenderSystem.frontFace;
         final int sTopology = VRenderSystem.topology, sPolygonMode = VRenderSystem.polygonMode, sColorMask = VRenderSystem.colorMask;
-        final net.vulkanmod.vulkan.shader.PipelineState.BlendInfo bi = net.vulkanmod.vulkan.shader.PipelineState.blendInfo;
+        final PipelineState.BlendInfo bi = net.vulkanmod.vulkan.shader.PipelineState.blendInfo;
         final boolean sBlendEnabled = bi.enabled;
         final int sSrcRgb = bi.srcRgbFactor, sDstRgb = bi.dstRgbFactor, sSrcA = bi.srcAlphaFactor, sDstA = bi.dstAlphaFactor;
         final int sBlendOp = bi.blendOp, sBlendOpRgb = bi.blendOpRgb, sBlendOpAlpha = bi.blendOpAlpha;
 
-        net.vulkanmod.vulkan.util.MappedBuffer mvBuf = VRenderSystem.modelViewMatrix;
-        net.vulkanmod.vulkan.util.MappedBuffer pBuf = VRenderSystem.projectionMatrix;
+        MappedBuffer mvBuf = VRenderSystem.modelViewMatrix;
+        MappedBuffer pBuf = VRenderSystem.projectionMatrix;
         long mvBackupPtr = org.lwjgl.system.MemoryUtil.nmemAlloc(64);
-        long pBackupPtr = org.lwjgl.system.MemoryUtil.nmemAlloc(64);
-        org.lwjgl.system.MemoryUtil.memCopy(mvBuf.ptr, mvBackupPtr, 64L);
-        org.lwjgl.system.MemoryUtil.memCopy(pBuf.ptr, pBackupPtr, 64L);
+        long pBackupPtr = MemoryUtil.nmemAlloc(64);
+        MemoryUtil.memCopy(mvBuf.ptr, mvBackupPtr, 64L);
+        MemoryUtil.memCopy(pBuf.ptr, pBackupPtr, 64L);
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             Renderer.getInstance().endRenderPass(commandBuffer);
@@ -387,7 +401,7 @@ public class DefaultMainPass implements MainPass {
             if (casters != null) {
                 this.shadowMap.beginEntityPass(commandBuffer, stack);
 
-                VRenderSystem.colorMask = net.vulkanmod.vulkan.shader.PipelineState.ColorMask.getColorMask(true, true, true, true);
+                VRenderSystem.colorMask = PipelineState.ColorMask.getColorMask(true, true, true, true);
                 VRenderSystem.depthTest = true;
                 VRenderSystem.depthMask = true;
                 VRenderSystem.depthFun = 515;
@@ -419,11 +433,11 @@ public class DefaultMainPass implements MainPass {
         bi.blendOp = sBlendOp; bi.blendOpRgb = sBlendOpRgb; bi.blendOpAlpha = sBlendOpAlpha;
 
         rebindMainTarget();
-        org.lwjgl.system.MemoryUtil.memCopy(mvBackupPtr, mvBuf.ptr, 64L);
-        org.lwjgl.system.MemoryUtil.memCopy(pBackupPtr, pBuf.ptr, 64L);
+        MemoryUtil.memCopy(mvBackupPtr, mvBuf.ptr, 64L);
+        MemoryUtil.memCopy(pBackupPtr, pBuf.ptr, 64L);
         VRenderSystem.calculateMVP();
-        org.lwjgl.system.MemoryUtil.nmemFree(mvBackupPtr);
-        org.lwjgl.system.MemoryUtil.nmemFree(pBackupPtr);
+        MemoryUtil.nmemFree(mvBackupPtr);
+        MemoryUtil.nmemFree(pBackupPtr);
     }
 
     @Override
@@ -433,12 +447,11 @@ public class DefaultMainPass implements MainPass {
             this.capturedOpaqueDepth = snapshotScaledDepth(this.capturedOpaqueDepth);
             return;
         }
-        if (!Initializer.CONFIG.lodDepthSnapshot || this.mainFramebuffer == null) {
-            return;
-        }
-        if (!CalderaBridge.isOcclusionRefreshFrame()) {
-            return;
-        }
+
+        if (!Initializer.CONFIG.lodDepthSnapshot || this.mainFramebuffer == null) return;
+
+        if (!CalderaBridge.isOcclusionRefreshFrame()) return;
+
         this.capturedOpaqueDepth = snapshotDepth(this.capturedOpaqueDepth, this.mainFramebuffer);
     }
 
@@ -448,9 +461,10 @@ public class DefaultMainPass implements MainPass {
                 && "radiance".equals(Initializer.CONFIG.selectedShader)) {
             return this.capturedOpaqueDepth;
         }
-        if (!Initializer.CONFIG.lodDepthSnapshot) {
+
+        if (!Initializer.CONFIG.lodDepthSnapshot)
             return null;
-        }
+
         return this.capturedOpaqueDepth;
     }
 
@@ -461,13 +475,14 @@ public class DefaultMainPass implements MainPass {
     }
 
     private void ensureMaterialTarget(int w, int h) {
-        if (this.materialFramebuffer != null && this.materialW == w && this.materialH == h) {
+        if (this.materialFramebuffer != null && this.materialW == w && this.materialH == h)
             return;
-        }
+
         if (this.materialFramebuffer != null) {
             this.materialFramebuffer.cleanUp();
             this.materialFramebuffer = null;
         }
+
         if (this.materialRenderPass != null) {
             this.materialRenderPass.cleanUp();
             this.materialRenderPass = null;
@@ -605,7 +620,7 @@ public class DefaultMainPass implements MainPass {
 
         final boolean sDepthTest = VRenderSystem.depthTest, sDepthMask = VRenderSystem.depthMask, sCull = VRenderSystem.cull;
         final int sColorMask = VRenderSystem.colorMask, sTopology = VRenderSystem.topology;
-        final net.vulkanmod.vulkan.shader.PipelineState.BlendInfo bi = net.vulkanmod.vulkan.shader.PipelineState.blendInfo;
+        final PipelineState.BlendInfo bi = net.vulkanmod.vulkan.shader.PipelineState.blendInfo;
         final boolean sBlend = bi.enabled;
         final int sSrcRgb = bi.srcRgbFactor, sDstRgb = bi.dstRgbFactor, sSrcA = bi.srcAlphaFactor, sDstA = bi.dstAlphaFactor;
         final int sBlendOp = bi.blendOp, sBlendOpRgb = bi.blendOpRgb, sBlendOpAlpha = bi.blendOpAlpha;
@@ -630,9 +645,9 @@ public class DefaultMainPass implements MainPass {
         VTextureSelector.bindTexture(5, this.shadowMap.getCascadeDepthImage(1));
         VTextureSelector.bindTexture(6, this.shadowMap.getCascadeDepthImage(2));
 
-        net.vulkanmod.vulkan.shader.GraphicsPipeline pipeline =
-                net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry.getOrNull(
-                        net.vulkanmod.render.framegraph.radiance.RadianceOpaqueTintPipeline.class);
+        GraphicsPipeline pipeline =
+                PipelineRegistry.getOrNull(
+                        RadianceOpaqueTintPipeline.class);
         if (pipeline != null) {
             Renderer.getInstance().bindGraphicsPipeline(pipeline);
             Renderer.getInstance().uploadAndBindUBOs(pipeline);
@@ -707,21 +722,27 @@ public class DefaultMainPass implements MainPass {
 
     private boolean resolveRadianceGraph(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
                                          VulkanImage worldDepth, VulkanImage fgDepth) {
-        net.vulkanmod.render.framegraph.FrameGraph graph = net.vulkanmod.render.framegraph.radiance.RadianceGraph.get();
+        FrameGraph graph = frameGraph.get();
+
         if (!graph.pipelinesReady()) {
             return false;
         }
+
         graph.setTargetScale("light", Initializer.CONFIG.optimizedShadows ? 0.5f : 1.0f);
         graph.resize(commandBuffer, stack, this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
+
         if (!graph.targetsReady()) {
             return false;
         }
 
         final VulkanImage scene = this.mainFramebuffer.getColorAttachment();
+
         boolean shadowsOn = Initializer.CONFIG.shadowsEnabled && this.shadowMap.isReady();
+
         final VulkanImage sh0 = shadowsOn ? this.shadowMap.getCascadeDepthImage(0) : worldDepth;
         final VulkanImage sh1 = shadowsOn ? this.shadowMap.getCascadeDepthImage(1) : worldDepth;
         final VulkanImage sh2 = shadowsOn ? this.shadowMap.getCascadeDepthImage(2) : worldDepth;
+
         boolean ran = graph.execute(net.vulkanmod.render.framegraph.Phase.POST_PROCESS, commandBuffer, stack, name -> switch (name) {
             case "scene" -> scene;
             case "depthtex" -> worldDepth;
@@ -733,21 +754,27 @@ public class DefaultMainPass implements MainPass {
             case "material" -> this.materialFramebuffer != null ? this.materialFramebuffer.getColorAttachment() : VTextureSelector.getWhiteTexture();
             case "gnormal" -> (this.scaledFramebuffer != null && this.scaledFramebuffer.getColorAttachment2() != null) ? this.scaledFramebuffer.getColorAttachment2() : worldDepth;
             case "materialdepth" -> this.materialFramebuffer != null ? this.materialFramebuffer.getDepthAttachment() : worldDepth;
+
             default -> null;
         }, () -> {
             this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             this.swapChain.beginRenderPass(commandBuffer, this.presentRenderPass, stack);
+
             Renderer.clearViewportScale();
             Renderer.resetViewport();
             Renderer.resetScissor();
         });
-        if (!ran) {
-            return false;
-        }
-        if (!keepRendering) {
+
+        if (!ran) return false;
+        if (!keepRendering)
             Renderer.getInstance().endRenderPass(commandBuffer);
-        }
+
         return true;
+    }
+
+    @Override
+    public FrameGraphImpl getFrameGraph() {
+        return this.frameGraph;
     }
 
     @Override
@@ -778,10 +805,13 @@ public class DefaultMainPass implements MainPass {
 
     private VulkanImage snapshotDepth(VulkanImage target, Framebuffer source) {
         VulkanImage src = source.getDepthAttachment();
+
         int w = src.width;
         int h = src.height;
+
         if (target == null || target.width != w || target.height != h || target.format != src.format) {
             if (target != null) target.free();
+
             target = VulkanImage.createDepthImage(
                     src.format, w, h,
                     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -796,6 +826,7 @@ public class DefaultMainPass implements MainPass {
             target.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
             VkImageCopy.Buffer region = VkImageCopy.calloc(1, stack);
+
             region.srcSubresource().set(VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1);
             region.srcOffset().set(0, 0, 0);
             region.dstSubresource().set(VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1);
@@ -811,11 +842,11 @@ public class DefaultMainPass implements MainPass {
             src.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
             source.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
-            if (isUsingScaledFramebuffer()) {
+
+            if (isUsingScaledFramebuffer())
                 Renderer.setViewportScale(this.swapChain.getWidth(), this.swapChain.getHeight());
-            } else {
+            else
                 Renderer.clearViewportScale();
-            }
         }
         return target;
     }
@@ -833,11 +864,11 @@ public class DefaultMainPass implements MainPass {
 
         try(MemoryStack stack = MemoryStack.stackPush()) {
             this.mainFramebuffer.beginRenderPass(commandBuffer, this.auxRenderPass, stack);
-            if (isUsingScaledFramebuffer()) {
+
+            if (isUsingScaledFramebuffer())
                 Renderer.setViewportScale(this.swapChain.getWidth(), this.swapChain.getHeight());
-            } else {
+            else
                 Renderer.clearViewportScale();
-            }
         }
 
     }
@@ -848,7 +879,8 @@ public class DefaultMainPass implements MainPass {
         VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
 
         RenderPass boundRenderPass = Renderer.getInstance().getBoundRenderPass();
-        if(boundRenderPass == this.mainRenderPass || boundRenderPass == this.auxRenderPass)
+
+        if (boundRenderPass == this.mainRenderPass || boundRenderPass == this.auxRenderPass)
             Renderer.getInstance().endRenderPass(commandBuffer);
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -861,9 +893,8 @@ public class DefaultMainPass implements MainPass {
     public int getColorAttachmentGlId() {
         ensureMainFramebuffer();
 
-        if (isUsingScaledFramebuffer()) {
+        if (isUsingScaledFramebuffer())
             return this.scaledColorAttachmentGlId;
-        }
 
         return Vulkan.getSwapChain().getColorAttachmentGlId();
     }
@@ -872,9 +903,8 @@ public class DefaultMainPass implements MainPass {
     public int getDepthAttachmentGlId() {
         ensureMainFramebuffer();
 
-        if (isUsingScaledFramebuffer()) {
+        if (isUsingScaledFramebuffer())
             return this.scaledDepthAttachmentGlId;
-        }
 
         return Vulkan.getSwapChain().getDepthAttachmentGlId();
     }

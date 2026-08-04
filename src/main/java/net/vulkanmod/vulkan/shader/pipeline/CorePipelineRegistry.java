@@ -1,6 +1,6 @@
 package net.vulkanmod.vulkan.shader.pipeline;
 
-import net.vulkanmod.vulkan.shader.pipeline.definitions.core.*;
+import net.vulkanmod.rendergraph.core.pipeline.*;
 
 import java.util.HashMap;
 import java.util.Map;
