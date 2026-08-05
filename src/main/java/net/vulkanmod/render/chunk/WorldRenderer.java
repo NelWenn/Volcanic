@@ -1020,6 +1020,10 @@ public class WorldRenderer {
         return this.sectionGraph.getStatistics();
     }
 
+    public List<String> getChunkStatisticsAsList() {
+        return this.sectionGraph.getStatisticsAsList();
+    }
+
     public void cleanUp() {
         if (indirectBuffers != null)
             Arrays.stream(indirectBuffers).forEach(Buffer::freeBuffer);

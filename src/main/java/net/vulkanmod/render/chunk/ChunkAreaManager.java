@@ -8,6 +8,9 @@ import net.vulkanmod.render.chunk.util.CircularIntList;
 import net.vulkanmod.render.chunk.util.Util;
 import org.joml.Vector3i;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class ChunkAreaManager {
     public static final int WIDTH = 8;
     public static final int HEIGHT = 8;
@@ -240,6 +243,56 @@ public class ChunkAreaManager {
                 String.format("Index Buffers: %d/%d MB", ibUsed, ibSize),
                 String.format("Allocations: %d Frag: %d MB", count, frag)
         };
+    }
+
+    public List<String> getStatsAsList() {
+        long vertexSizeBytes = 0;
+        long vertexUsedBytes = 0;
+        long indexSizeBytes = 0;
+        long indexUsedBytes = 0;
+        long totalFragmentationBytes = 0;
+        int allocatedAreasCount = 0;
+
+        for (ChunkArea chunkArea : this.chunkAreasArr) {
+            DrawBuffers drawBuffers = chunkArea.drawBuffers;
+            if (drawBuffers != null && drawBuffers.isAllocated()) {
+
+                var vertexBuffers = drawBuffers.getVertexBuffers();
+                if (vertexBuffers != null) {
+                    for (var buffer : vertexBuffers.values()) {
+                        vertexSizeBytes += buffer.getSize();
+                        vertexUsedBytes += buffer.getUsed();
+                        totalFragmentationBytes += buffer.fragmentation();
+                    }
+                }
+
+                var indexBuffer = drawBuffers.getIndexBuffer();
+                if (indexBuffer != null) {
+                    indexSizeBytes += indexBuffer.getSize();
+                    indexUsedBytes += indexBuffer.getUsed();
+                    totalFragmentationBytes += indexBuffer.fragmentation();
+                }
+
+                allocatedAreasCount++;
+            }
+        }
+
+        long bytesToMB = 1024L * 1024L;
+        long vertexUsedMB = vertexUsedBytes / bytesToMB;
+        long vertexSizeMB = vertexSizeBytes / bytesToMB;
+        long indexUsedMB = indexUsedBytes / bytesToMB;
+        long indexSizeMB = indexSizeBytes / bytesToMB;
+        long fragmentationMB = totalFragmentationBytes / bytesToMB;
+
+        String fragColor = (fragmentationMB > 16) ? "§c" : (fragmentationMB > 0) ? "§e" : "§a";
+
+        List<String> stats = new ArrayList<>(3);
+
+        stats.add(String.format("§7Vertex Buffers:§r §a%d§7/§f%d MB", vertexUsedMB, vertexSizeMB));
+        stats.add(String.format("§7Index Buffers:§r §a%d§7/§f%d MB", indexUsedMB, indexSizeMB));
+        stats.add(String.format("§7Allocations:§r §f%d §7| §7Frag:§r %s%d MB", allocatedAreasCount, fragColor, fragmentationMB));
+
+        return stats;
     }
 
 }
