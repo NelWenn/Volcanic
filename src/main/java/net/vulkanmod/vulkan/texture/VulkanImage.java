@@ -31,6 +31,7 @@ public class VulkanImage {
     private long id;
     private long allocation;
     private long mainImageView;
+    private long attachmentImageView = 0L;
 
     private long[] levelImageViews;
 
@@ -381,6 +382,11 @@ public class VulkanImage {
             this.mainImageView = 0L;
         }
 
+        if (this.attachmentImageView != 0L) {
+            vkDestroyImageView(Vulkan.getVkDevice(), this.attachmentImageView, null);
+            this.attachmentImageView = 0L;
+        }
+
         if (this.levelImageViews != null) {
             Arrays.stream(this.levelImageViews).forEach(
                     imageView -> vkDestroyImageView(Vulkan.getVkDevice(), imageView, null));
@@ -413,6 +419,16 @@ public class VulkanImage {
 
     public long getImageView() {
         return mainImageView;
+    }
+
+    public long getAttachmentView() {
+        if (this.mipLevels <= 1)
+            return this.mainImageView;
+        if (this.levelImageViews != null && this.levelImageViews.length > 0)
+            return this.levelImageViews[0];
+        if (this.attachmentImageView == 0L)
+            this.attachmentImageView = createImageView(this.id, this.format, this.aspect, 0, 1);
+        return this.attachmentImageView;
     }
 
     public long getLevelImageView(int i) {

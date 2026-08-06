@@ -2,6 +2,7 @@ package net.vulkanmod.vulkan;
 
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.vulkanmod.vulkan.memory.*;
+import net.vulkanmod.vulkan.shader.Pipeline;
 import net.vulkanmod.vulkan.util.VUtil;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.vulkan.VkCommandBuffer;
@@ -126,6 +127,11 @@ public class Drawer {
     public void drawIndexed(VertexBuffer vertexBuffer, IndexBuffer indexBuffer, int indexCount) {
         VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
 
+        if (vertexBuffer == null || vertexBuffer.getId() == 0L || indexBuffer == null || indexBuffer.getId() == 0L) {
+            warnNullDrawResource(vertexBuffer, indexBuffer);
+            return;
+        }
+
         VUtil.UNSAFE.putLong(pBuffers, vertexBuffer.getId());
         VUtil.UNSAFE.putLong(pOffsets, vertexBuffer.getOffset());
         nvkCmdBindVertexBuffers(commandBuffer, 0, 1, pBuffers, pOffsets);
@@ -137,11 +143,29 @@ public class Drawer {
     public void draw(VertexBuffer vertexBuffer, int vertexCount) {
         VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
 
+        if (vertexBuffer == null || vertexBuffer.getId() == 0L) {
+            warnNullDrawResource(vertexBuffer, null);
+            return;
+        }
+
         VUtil.UNSAFE.putLong(pBuffers, vertexBuffer.getId());
         VUtil.UNSAFE.putLong(pOffsets, vertexBuffer.getOffset());
         nvkCmdBindVertexBuffers(commandBuffer, 0, 1, pBuffers, pOffsets);
 
         vkCmdDraw(commandBuffer, vertexCount, 1, 0, 0);
+    }
+
+    private static boolean loggedNullDrawResource = false;
+
+    private static void warnNullDrawResource(VertexBuffer vertexBuffer, IndexBuffer indexBuffer) {
+        if (loggedNullDrawResource)
+            return;
+        loggedNullDrawResource = true;
+        Pipeline bound = Renderer.getInstance().getBoundPipeline();
+        long vId = vertexBuffer == null ? -1L : vertexBuffer.getId();
+        long iId = indexBuffer == null ? -1L : indexBuffer.getId();
+        net.vulkanmod.Initializer.LOGGER.warn("Skipping draw with null resource: pipeline={} vertexId={} indexId={}",
+                bound != null ? bound.name : "null", vId, iId);
     }
 
     public void bindIndexBuffer(VkCommandBuffer commandBuffer, IndexBuffer indexBuffer) {

@@ -82,6 +82,8 @@ public class GlFramebuffer {
                 ID_COUNTER = id + 1;
         }
 
+        glFramebuffer.syncAttachments();
+
         if (boundId == id && boundFramebuffer == glFramebuffer) {
             if (glFramebuffer.framebuffer != null
                     && Renderer.getInstance().getBoundRenderPass() != glFramebuffer.renderPass) {
@@ -235,6 +237,54 @@ public class GlFramebuffer {
 
     boolean beginRendering() {
         return Renderer.getInstance().beginRendering(this.renderPass, this.framebuffer);
+    }
+
+    void syncAttachments() {
+        if (this.framebuffer == null)
+            return;
+
+        boolean changed = false;
+
+        AttachmentInfo colorInfo = this.attachments.get(GL30.GL_COLOR_ATTACHMENT0);
+        if (colorInfo != null) {
+            VulkanImage current = resolveAttachmentImage(colorInfo);
+            if (current != null && (current != this.colorAttachment || isStale(this.colorAttachment))) {
+                this.colorAttachment = current;
+                changed = true;
+            }
+        }
+
+        AttachmentInfo depthInfo = this.attachments.get(GL30.GL_DEPTH_ATTACHMENT);
+        if (depthInfo == null)
+            depthInfo = this.attachments.get(GL30.GL_DEPTH_STENCIL_ATTACHMENT);
+        if (depthInfo != null) {
+            VulkanImage current = resolveAttachmentImage(depthInfo);
+            if (current != null && (current != this.depthAttachment || isStale(this.depthAttachment))) {
+                this.depthAttachment = current;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            net.vulkanmod.Initializer.LOGGER.info("Framebuffer {} attachment image changed after re-spec; rebuilding", this.id);
+            createAndBind();
+        }
+    }
+
+    private static boolean isStale(VulkanImage img) {
+        return img != null && (img.getId() == 0L || img.getImageView() == 0L);
+    }
+
+    private VulkanImage resolveAttachmentImage(AttachmentInfo info) {
+        if (info.objectType() == GL11.GL_TEXTURE) {
+            GlTexture t = GlTexture.getTexture(info.objectName());
+            return t == null ? null : t.getVulkanImage();
+        }
+        if (info.objectType() == GL30.GL_RENDERBUFFER) {
+            GlRenderbuffer r = GlRenderbuffer.getRenderbuffer(info.objectName());
+            return r == null ? null : r.getVulkanImage();
+        }
+        return null;
     }
 
     void setAttachmentTexture(int attachment, int texture) {
