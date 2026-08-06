@@ -211,6 +211,13 @@ public class GlFramebuffer {
         }
     }
 
+    public static void applyModViewport(int x, int y, int width, int height) {
+        if (boundId != 0 && net.vulkanmod.compat.opengl.GlDrawOptions.fboViewportUsesFboConvention())
+            Renderer.setInvertedViewport(x, y, width, height);
+        else
+            Renderer.setViewport(x, y, width, height);
+    }
+
     public static GlFramebuffer getBoundFramebuffer() {
         return boundFramebuffer;
     }

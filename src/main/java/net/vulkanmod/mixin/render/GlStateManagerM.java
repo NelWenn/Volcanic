@@ -88,7 +88,7 @@ public class GlStateManagerM {
 
     @Overwrite(remap = false)
     public static void _viewport(int x, int y, int width, int height) {
-        Renderer.setViewport(x, y, width, height);
+        net.vulkanmod.gl.GlFramebuffer.applyModViewport(x, y, width, height);
     }
 
     @Overwrite(remap = false)
