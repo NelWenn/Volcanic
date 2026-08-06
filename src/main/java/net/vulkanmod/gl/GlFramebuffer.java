@@ -12,6 +12,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
 import static org.lwjgl.vulkan.VK11.VK_ATTACHMENT_LOAD_OP_CLEAR;
+import static org.lwjgl.vulkan.VK11.VK_ATTACHMENT_LOAD_OP_LOAD;
 import static org.lwjgl.vulkan.VK11.VK_ATTACHMENT_STORE_OP_STORE;
 import static org.lwjgl.vulkan.VK11.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -232,7 +233,7 @@ public class GlFramebuffer {
 
     public static void onTextureImageRecreated(int textureId) {
         for (GlFramebuffer fb : map.values()) {
-            if (fb.framebuffer != null && fb.usesTexture(textureId))
+            if (fb.usesTexture(textureId))
                 fb.syncAttachments();
         }
     }
@@ -254,9 +255,6 @@ public class GlFramebuffer {
     }
 
     void syncAttachments() {
-        if (this.framebuffer == null)
-            return;
-
         boolean changed = false;
 
         AttachmentInfo colorInfo = this.attachments.get(GL30.GL_COLOR_ATTACHMENT0);
@@ -319,8 +317,11 @@ public class GlFramebuffer {
             return;
         }
 
-        if (glTexture.vulkanImage == null)
+        if (glTexture.vulkanImage == null) {
+            GlEmulationLog.warnOnce("framebuffer.attachTexture.noImage",
+                    "glFramebufferTexture2D: attached texture has no allocated image yet; deferring until it is created");
             return;
+        }
 
         switch (attachment) {
             case (GL30.GL_COLOR_ATTACHMENT0) -> this.setColorAttachment(glTexture);
@@ -428,6 +429,7 @@ public class GlFramebuffer {
         RenderPass.Builder builder = RenderPass.builder(this.framebuffer);
 
         builder.getColorAttachmentInfo()
+                .setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
                 .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         if (hasDepthImage)
@@ -438,7 +440,9 @@ public class GlFramebuffer {
         this.renderPass = builder.build();
 
         if (wasBound && Renderer.isRecording()) {
-            beginRendering(this);
+            Renderer.getInstance().beginRendering(this.renderPass, this.framebuffer);
+            boundFramebuffer = this;
+            boundId = this.id;
         }
     }
 
