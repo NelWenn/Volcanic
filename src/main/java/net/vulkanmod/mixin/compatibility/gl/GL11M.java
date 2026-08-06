@@ -221,7 +221,7 @@ public class GL11M {
         viewport[1] = y;
         viewport[2] = width;
         viewport[3] = height;
-        net.vulkanmod.vulkan.Renderer.setViewport(x, y, width, height);
+        net.vulkanmod.gl.GlFramebuffer.applyModViewport(x, y, width, height);
     }
 
     @Overwrite(remap = false)
