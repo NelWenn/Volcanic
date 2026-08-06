@@ -111,13 +111,13 @@ public class Framebuffer {
             if (colorAttachment == null) {
                 throw new IllegalStateException();
             } else if (colorAttachment2 != null && depthAttachment != null) {
-                attachments = stack.longs(colorAttachment.getImageView(), colorAttachment2.getImageView(), depthAttachment.getImageView());
+                attachments = stack.longs(colorAttachment.getAttachmentView(), colorAttachment2.getAttachmentView(), depthAttachment.getAttachmentView());
             } else if (colorAttachment2 != null) {
-                attachments = stack.longs(colorAttachment.getImageView(), colorAttachment2.getImageView());
+                attachments = stack.longs(colorAttachment.getAttachmentView(), colorAttachment2.getAttachmentView());
             } else if (depthAttachment != null) {
-                attachments = stack.longs(colorAttachment.getImageView(), depthAttachment.getImageView());
+                attachments = stack.longs(colorAttachment.getAttachmentView(), depthAttachment.getAttachmentView());
             } else {
-                attachments = stack.longs(colorAttachment.getImageView());
+                attachments = stack.longs(colorAttachment.getAttachmentView());
             }
 
             LongBuffer pFramebuffer = stack.mallocLong(1);
