@@ -223,6 +223,13 @@ public class GlFramebuffer {
         return map.get(id);
     }
 
+    public static void onTextureImageRecreated(int textureId) {
+        for (GlFramebuffer fb : map.values()) {
+            if (fb.framebuffer != null && fb.usesTexture(textureId))
+                fb.syncAttachments();
+        }
+    }
+
     private final int id;
     Framebuffer framebuffer;
     RenderPass renderPass;
@@ -269,6 +276,14 @@ public class GlFramebuffer {
             net.vulkanmod.Initializer.LOGGER.info("Framebuffer {} attachment image changed after re-spec; rebuilding", this.id);
             createAndBind();
         }
+    }
+
+    private boolean usesTexture(int textureId) {
+        for (AttachmentInfo info : this.attachments.values()) {
+            if (info.objectType() == GL11.GL_TEXTURE && info.objectName() == textureId)
+                return true;
+        }
+        return false;
     }
 
     private static boolean isStale(VulkanImage img) {
