@@ -551,7 +551,8 @@ public class GlTexture {
     }
 
     void allocateImage(int width, int height, int vkFormat) {
-        if (this.vulkanImage != null)
+        boolean respec = this.vulkanImage != null;
+        if (respec)
             this.vulkanImage.free();
 
         if (VulkanImage.isDepthFormat(vkFormat))
@@ -565,6 +566,9 @@ public class GlTexture {
                     .setFormat(vkFormat)
                     .addUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
                     .createVulkanImage();
+
+        if (respec)
+            GlFramebuffer.onTextureImageRecreated(this.id);
     }
 
     void updateSampler() {
