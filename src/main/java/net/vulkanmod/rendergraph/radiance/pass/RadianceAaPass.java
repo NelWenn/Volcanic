@@ -1,5 +1,6 @@
 package net.vulkanmod.rendergraph.radiance.pass;
 
+import net.vulkanmod.render.framegraph.Format;
 import net.vulkanmod.render.framegraph.Input;
 import net.vulkanmod.render.framegraph.Output;
 import net.vulkanmod.render.framegraph.Pass;
@@ -12,5 +13,5 @@ public final class RadianceAaPass {
     @Input("depthtex") Texture depth;
     @Input("fgdepth")  Texture fgDepth;
 
-    @Output("swapchain") Texture out;
+    @Output(value = "vsrtex", format = Format.RGBA8) Texture out;
 }

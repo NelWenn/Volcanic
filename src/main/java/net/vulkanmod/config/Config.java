@@ -21,6 +21,8 @@ public class Config {
     public boolean adaptiveChunkUploads = true;
     public boolean chunkFadeIn = true;
     public int renderScale = RenderScale.DEFAULT;
+    public int vsrBackend = 1;
+    public float vsrSharpness = 0.20f;
 
     public boolean disableHiDPI = false;
 
