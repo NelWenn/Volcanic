@@ -12,6 +12,7 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 
 import static org.lwjgl.vulkan.VK11.VK_ATTACHMENT_LOAD_OP_CLEAR;
+import static org.lwjgl.vulkan.VK11.VK_ATTACHMENT_LOAD_OP_LOAD;
 import static org.lwjgl.vulkan.VK11.VK_ATTACHMENT_STORE_OP_STORE;
 import static org.lwjgl.vulkan.VK11.VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -81,6 +82,8 @@ public class GlFramebuffer {
             if (id >= ID_COUNTER)
                 ID_COUNTER = id + 1;
         }
+
+        glFramebuffer.syncAttachments();
 
         if (boundId == id && boundFramebuffer == glFramebuffer) {
             if (glFramebuffer.framebuffer != null
@@ -209,6 +212,13 @@ public class GlFramebuffer {
         }
     }
 
+    public static void applyModViewport(int x, int y, int width, int height) {
+        if (boundId != 0 && net.vulkanmod.compat.opengl.GlDrawOptions.fboViewportUsesFboConvention())
+            Renderer.setInvertedViewport(x, y, width, height);
+        else
+            Renderer.setViewport(x, y, width, height);
+    }
+
     public static GlFramebuffer getBoundFramebuffer() {
         return boundFramebuffer;
     }
@@ -219,6 +229,13 @@ public class GlFramebuffer {
 
     public static GlFramebuffer getFramebuffer(int id) {
         return map.get(id);
+    }
+
+    public static void onTextureImageRecreated(int textureId) {
+        for (GlFramebuffer fb : map.values()) {
+            if (fb.usesTexture(textureId))
+                fb.syncAttachments();
+        }
     }
 
     private final int id;
@@ -237,6 +254,58 @@ public class GlFramebuffer {
         return Renderer.getInstance().beginRendering(this.renderPass, this.framebuffer);
     }
 
+    void syncAttachments() {
+        boolean changed = false;
+
+        AttachmentInfo colorInfo = this.attachments.get(GL30.GL_COLOR_ATTACHMENT0);
+        if (colorInfo != null) {
+            VulkanImage current = resolveAttachmentImage(colorInfo);
+            if (current != null && (current != this.colorAttachment || isStale(this.colorAttachment))) {
+                this.colorAttachment = current;
+                changed = true;
+            }
+        }
+
+        AttachmentInfo depthInfo = this.attachments.get(GL30.GL_DEPTH_ATTACHMENT);
+        if (depthInfo == null)
+            depthInfo = this.attachments.get(GL30.GL_DEPTH_STENCIL_ATTACHMENT);
+        if (depthInfo != null) {
+            VulkanImage current = resolveAttachmentImage(depthInfo);
+            if (current != null && (current != this.depthAttachment || isStale(this.depthAttachment))) {
+                this.depthAttachment = current;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            createAndBind();
+        }
+    }
+
+    private boolean usesTexture(int textureId) {
+        for (AttachmentInfo info : this.attachments.values()) {
+            if (info.objectType() == GL11.GL_TEXTURE && info.objectName() == textureId)
+                return true;
+        }
+        return false;
+    }
+
+    private static boolean isStale(VulkanImage img) {
+        return img != null && (img.getId() == 0L || img.getImageView() == 0L);
+    }
+
+    private VulkanImage resolveAttachmentImage(AttachmentInfo info) {
+        if (info.objectType() == GL11.GL_TEXTURE) {
+            GlTexture t = GlTexture.getTexture(info.objectName());
+            return t == null ? null : t.getVulkanImage();
+        }
+        if (info.objectType() == GL30.GL_RENDERBUFFER) {
+            GlRenderbuffer r = GlRenderbuffer.getRenderbuffer(info.objectName());
+            return r == null ? null : r.getVulkanImage();
+        }
+        return null;
+    }
+
     void setAttachmentTexture(int attachment, int texture) {
         GlTexture glTexture = GlTexture.getTexture(texture);
 
@@ -247,8 +316,9 @@ public class GlFramebuffer {
             return;
         }
 
-        if (glTexture.vulkanImage == null)
+        if (glTexture.vulkanImage == null) {
             return;
+        }
 
         switch (attachment) {
             case (GL30.GL_COLOR_ATTACHMENT0) -> this.setColorAttachment(glTexture);
@@ -356,6 +426,7 @@ public class GlFramebuffer {
         RenderPass.Builder builder = RenderPass.builder(this.framebuffer);
 
         builder.getColorAttachmentInfo()
+                .setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE)
                 .setFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
         if (hasDepthImage)
@@ -366,7 +437,9 @@ public class GlFramebuffer {
         this.renderPass = builder.build();
 
         if (wasBound && Renderer.isRecording()) {
-            beginRendering(this);
+            Renderer.getInstance().beginRendering(this.renderPass, this.framebuffer);
+            boundFramebuffer = this;
+            boundId = this.id;
         }
     }
 

@@ -145,7 +145,7 @@ public class GlBuffer {
         if (buffer.data == null || end > buffer.data.capacity()) {
             ByteBuffer oldData = buffer.data;
             int oldSize = buffer.size;
-            buffer.data = MemoryUtil.memAlloc(end);
+            buffer.data = MemoryUtil.memCalloc(end);
             buffer.size = end;
             if (oldData != null) {
                 ByteBuffer oldCopy = oldData.duplicate();
@@ -455,13 +455,13 @@ public class GlBuffer {
             this.freeData();
 
         this.size = Math.max(size, 0);
-        this.data = MemoryUtil.memAlloc(this.size);
+        this.data = MemoryUtil.memCalloc(this.size);
     }
 
     private void growPreservingData(int capacity) {
         ByteBuffer oldData = this.data;
         int oldSize = this.size;
-        this.data = MemoryUtil.memAlloc(capacity);
+        this.data = MemoryUtil.memCalloc(capacity);
         this.size = capacity;
         if (oldData != null) {
             ByteBuffer oldCopy = oldData.duplicate();

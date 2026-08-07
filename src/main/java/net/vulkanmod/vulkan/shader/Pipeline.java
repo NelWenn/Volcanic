@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.util.GsonHelper;
+import net.vulkanmod.Initializer;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.device.DeviceManager;
@@ -289,6 +290,9 @@ public abstract class Pipeline {
         private final long[] boundUBs;
         private final ImageDescriptor.State[] boundTextures;
         private final IntBuffer dynamicOffsets;
+        private boolean loggedNullView = false;
+        private boolean loggedNullSet = false;
+        private boolean loggedNullUBO = false;
 
         DescriptorSets(Pipeline pipeline) {
             this.pipeline = pipeline;
@@ -309,6 +313,14 @@ public abstract class Pipeline {
 
                 this.updateUniforms(uniformBuffer);
                 this.updateDescriptorSet(stack, uniformBuffer);
+
+                if (currentSet == 0L) {
+                    if (!loggedNullSet) {
+                        loggedNullSet = true;
+                        Initializer.LOGGER.warn("Null descriptor set for pipeline {}", pipeline.name);
+                    }
+                    return;
+                }
 
                 vkCmdBindDescriptorSets(commandBuffer, bindPoint, pipeline.pipelineLayout,
                         0, stack.longs(currentSet), dynamicOffsets);
@@ -343,7 +355,13 @@ public abstract class Pipeline {
             for (int j = 0; j < pipeline.imageDescriptors.size(); ++j) {
                 ImageDescriptor imageDescriptor = pipeline.imageDescriptors.get(j);
                 VulkanImage image = imageDescriptor.getImage();
-                long view = imageDescriptor.getImageView(image);
+                long view = image != null ? imageDescriptor.getImageView(image) : 0L;
+
+                if (view == 0L) {
+                    image = VTextureSelector.getWhiteTexture();
+                    view = image.getImageView();
+                }
+
                 long sampler = image.getSampler();
 
                 if (imageDescriptor.isReadOnlyLayout)
@@ -401,6 +419,11 @@ public abstract class Pipeline {
                     ub = uniformBuffer;
                 boundUBs[i] = ub.getId();
 
+                if (boundUBs[i] == 0L && !loggedNullUBO) {
+                    loggedNullUBO = true;
+                    Initializer.LOGGER.warn("Null UBO buffer for pipeline {} binding {}", pipeline.name, ubo.getBinding());
+                }
+
                 bufferInfos[i] = VkDescriptorBufferInfo.calloc(1, stack);
                 bufferInfos[i].buffer(boundUBs[i]);
                 bufferInfos[i].range(ubo.getSize());
@@ -422,7 +445,17 @@ public abstract class Pipeline {
             for (int j = 0; j < pipeline.imageDescriptors.size(); ++j) {
                 ImageDescriptor imageDescriptor = pipeline.imageDescriptors.get(j);
                 VulkanImage image = imageDescriptor.getImage();
-                long view = imageDescriptor.getImageView(image);
+                long view = image != null ? imageDescriptor.getImageView(image) : 0L;
+
+                if (view == 0L) {
+                    if (!this.loggedNullView) {
+                        this.loggedNullView = true;
+                        Initializer.LOGGER.warn("Null image view in pipeline {} imageIdx {}; substituting white texture", pipeline.name, imageDescriptor.imageIdx);
+                    }
+                    image = VTextureSelector.getWhiteTexture();
+                    view = image.getImageView();
+                }
+
                 long sampler = image.getSampler();
                 int layout = imageDescriptor.getLayout();
 

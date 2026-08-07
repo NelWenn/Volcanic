@@ -86,7 +86,7 @@ public class GL32M {
 
     @Overwrite(remap = false)
     public static void glViewport(@NativeType("GLint") int x, @NativeType("GLint") int y, @NativeType("GLsizei") int width, @NativeType("GLsizei") int height) {
-        Renderer.setViewport(x, y, width, height);
+        net.vulkanmod.gl.GlFramebuffer.applyModViewport(x, y, width, height);
     }
 
     @Overwrite(remap = false)
