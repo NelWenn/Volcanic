@@ -43,13 +43,10 @@ public abstract class SamplerManager {
             VkSamplerCreateInfo samplerInfo = VkSamplerCreateInfo.calloc(stack);
             samplerInfo.sType(VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
 
-            if ((flags & LINEAR_FILTERING_BIT) != 0) {
-                samplerInfo.magFilter(VK_FILTER_LINEAR);
-                samplerInfo.minFilter(VK_FILTER_LINEAR);
-            } else {
-                samplerInfo.magFilter(VK_FILTER_NEAREST);
-                samplerInfo.minFilter(VK_FILTER_NEAREST);
-            }
+            boolean magLinear = (flags & LINEAR_FILTERING_BIT) != 0;
+            boolean minLinear = magLinear || (flags & LINEAR_MIN_BIT) != 0;
+            samplerInfo.magFilter(magLinear ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
+            samplerInfo.minFilter(minLinear ? VK_FILTER_LINEAR : VK_FILTER_NEAREST);
 
             if ((flags & CLAMP_BIT) != 0) {
                 samplerInfo.addressModeU(VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
@@ -113,4 +110,5 @@ public abstract class SamplerManager {
     public static final byte MIPMAP_LINEAR_FILTERING_BIT = 0b1000;
     public static final byte REDUCTION_MIN_BIT = 0b10000;
     public static final byte REDUCTION_MAX_BIT = 0b100000;
+    public static final byte LINEAR_MIN_BIT = 0b1000000;
 }
