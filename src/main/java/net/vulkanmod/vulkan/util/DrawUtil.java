@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.vulkanmod.interfaces.ShaderMixed;
-import net.vulkanmod.render.PipelineManager;
+import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;

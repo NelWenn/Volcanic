@@ -10,11 +10,12 @@ import net.vulkanmod.compat.external.ExternalTerrainRenderBridge;
 import net.vulkanmod.gl.GlTexture;
 import net.vulkanmod.render.DepthSnapshot;
 import net.vulkanmod.render.HiZPyramid;
-import net.vulkanmod.render.PipelineManager;
+import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.buffer.AreaBuffer;
 import net.vulkanmod.render.chunk.buffer.DrawBuffers;
 import net.vulkanmod.render.chunk.buffer.UploadManager;
+import net.vulkanmod.render.culling.DepthOcclusion;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -168,15 +169,28 @@ public final class CalderaBridge {
         return FOG_PARAMS;
     }
 
+
+    private static final int OCCLUSION_REFRESH_INTERVAL = 4;
+    private static long occlusionFrameCounter;
+    private static boolean occlusionRefreshFrame;
+
+    public static boolean isOcclusionRefreshFrame() {
+        return occlusionRefreshFrame;
+    }
+
     public static void onFrameBegin(VkCommandBuffer commandBuffer) {
-        pyramidReady = false;
         DepthSnapshot.beginFrame();
-        net.vulkanmod.render.culling.DepthOcclusion.refresh();
+        DepthOcclusion.refresh();
+
+        boolean refreshFrame = (occlusionFrameCounter++ % OCCLUSION_REFRESH_INTERVAL) == 0;
+        occlusionRefreshFrame = refreshFrame;
 
         if (commandBuffer == null) {
+            pyramidReady = false;
             return;
         }
         if (WorldRenderer.getInstance() == null || Minecraft.getInstance().level == null) {
+            pyramidReady = false;
             return;
         }
 
@@ -187,6 +201,12 @@ public final class CalderaBridge {
                 && DeviceManager.supportsFastIndirectDraw()
                 && LodCulling.isAvailable();
         if (!snapshotWanted && !cullWanted) {
+            pyramidReady = false;
+            return;
+        }
+
+        if (!refreshFrame) {
+            pyramidReady = cullWanted && HiZPyramid.isReady();
             return;
         }
 

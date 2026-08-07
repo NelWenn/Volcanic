@@ -103,8 +103,8 @@
 
   "vulkanmod.options.wind": "Wind",
   "vulkanmod.options.windStrength": "Wind Strength",
-
-
   "vulkanmod.options.disableHiDPI": "Reduce Resolution (HiDPI)",
-  "vulkanmod.options.disableHiDPI.tooltip": "macOS: render at the display's logical resolution instead of the full Retina resolution. Much faster, slightly softer image. Requires restart."
+  "vulkanmod.options.disableHiDPI.tooltip": "macOS: render at the display's logical resolution instead of the full Retina resolution. Much faster, slightly softer image. Requires restart.",
+
+  "vulkanmod.keybind.toggle_debug_overlay": "Toggle Debug Overlay"
 }

@@ -1,0 +1,9 @@
+package net.vulkanmod.rendergraph.radiance.pipeline.shadow;
+
+import net.vulkanmod.vulkan.shader.pipeline.GfxPipeline;
+import net.vulkanmod.vulkan.shader.pipeline.PipelineDefinition;
+import net.vulkanmod.vulkan.shader.pipeline.VertexFormatRef;
+
+@GfxPipeline(basePath = "shadow_terrain", vertex = "shadow_terrain", fragment = "shadow_terrain_tint", vertexFormat = VertexFormatRef.TERRAIN)
+public final class ShadowTerrainTintPipeline extends ShadowTerrainPipelineBase implements PipelineDefinition {
+}
