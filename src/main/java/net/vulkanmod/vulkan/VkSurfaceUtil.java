@@ -32,6 +32,41 @@ import static org.lwjgl.vulkan.VK10.VK_SUCCESS;
 public final class VkSurfaceUtil {
     private VkSurfaceUtil() {}
 
+    private static long metalLayer = 0L;
+    private static double appliedScale = 0.0;
+
+    private static double drawableScale(long window) {
+        if (Platform.isMacOS() && Initializer.CONFIG.disableHiDPI) {
+            return 1.0;
+        }
+
+        int[] fbW = { 0 }, fbH = { 0 }, winW = { 0 }, winH = { 0 };
+        org.lwjgl.glfw.GLFW.glfwGetFramebufferSize(window, fbW, fbH);
+        org.lwjgl.glfw.GLFW.glfwGetWindowSize(window, winW, winH);
+
+        double scale = (winW[0] > 0) ? ((double) fbW[0] / (double) winW[0]) : 1.0;
+        return scale > 0.0 ? scale : 1.0;
+    }
+
+    public static void syncMetalDrawableScale(long window) {
+        if (!Platform.isMacOS() || metalLayer == 0L || window == 0L) {
+            return;
+        }
+
+        double scale = drawableScale(window);
+        if (scale == appliedScale) {
+            return;
+        }
+
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            long objc_msgSend = ObjCRuntime.getLibrary().getFunctionAddress("objc_msgSend");
+            setContentsScale(objc_msgSend, metalLayer, scale, stack);
+        }
+
+        Initializer.LOGGER.info("VulkanMod: Metal drawable scale re-synced {} -> {}", appliedScale, scale);
+        appliedScale = scale;
+    }
+
     // Replacement for glfwGetRequiredInstanceExtensions().
     public static PointerBuffer getRequiredInstanceExtensions(MemoryStack stack, boolean withDebugUtils) {
         String platformSurface;
@@ -82,15 +117,13 @@ public final class VkSurfaceUtil {
         int[] fbW = { 0 }, fbH = { 0 }, winW = { 0 }, winH = { 0 };
         org.lwjgl.glfw.GLFW.glfwGetFramebufferSize(window, fbW, fbH);
         org.lwjgl.glfw.GLFW.glfwGetWindowSize(window, winW, winH);
-        double scale = (winW[0] > 0) ? ((double) fbW[0] / (double) winW[0]) : 1.0;
-        if (scale <= 0.0) scale = 1.0;
-        // HiDPI disabled: force a 1x drawable (logical resolution, not the 2x Retina backing store)
-        if (net.vulkanmod.config.Platform.isMacOS() && net.vulkanmod.Initializer.CONFIG.disableHiDPI) {
-            scale = 1.0;
-        }
+        double scale = drawableScale(window);
         Initializer.LOGGER.info("VulkanMod: Metal drawable scale = {} (framebuffer {}x{} / window {}x{})",
                 scale, fbW[0], fbH[0], winW[0], winH[0]);
         setContentsScale(objc_msgSend, metalLayer, scale, stack);
+
+        VkSurfaceUtil.metalLayer = metalLayer;
+        VkSurfaceUtil.appliedScale = scale;
 
         VkMetalSurfaceCreateInfoEXT createInfo = VkMetalSurfaceCreateInfoEXT.calloc(stack)
                 .sType(VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT);
