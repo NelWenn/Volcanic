@@ -1,13 +1,10 @@
 package net.vulkanmod.mixin.debug;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.DebugScreenOverlay;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.device.Device;
 import net.vulkanmod.vulkan.memory.MemoryManager;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -20,7 +17,6 @@ import java.io.InputStreamReader;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 
 import static net.vulkanmod.Initializer.getVersion;
 
@@ -33,7 +29,7 @@ public abstract class DebugScreenOverlayM {
     }
 
     @Unique
-    private static String volca$cpuInfoCache;
+    private static String volcanic$cpuInfoCache;
 
     @Redirect(method = "getSystemInformation", at = @At(value = "INVOKE", target = "Lcom/google/common/collect/Lists;newArrayList([Ljava/lang/Object;)Ljava/util/ArrayList;"))
     private ArrayList<String> redirectList(Object[] elements) {
@@ -49,12 +45,12 @@ public abstract class DebugScreenOverlayM {
         strings.add(String.format("Java: %s", System.getProperty("java.version")));
         strings.add(String.format("Mem: % 2d%% %03d/%03dMB", usedMemory * 100L / maxMemory, bytesToMegabytes(usedMemory), bytesToMegabytes(maxMemory)));
         strings.add(String.format("Allocated: % 2d%% %03dMB", totalMemory * 100L / maxMemory, bytesToMegabytes(totalMemory)));
-        strings.add(String.format("Off-heap: " + volca$getOffHeapMemory() + "MB"));
+        strings.add(String.format("Off-heap: " + volcanic$getOffHeapMemory() + "MB"));
         strings.add("NativeMemory: %dMB".formatted(MemoryManager.getInstance().getNativeMemoryMB()));
         strings.add("DeviceMemory: %dMB".formatted(MemoryManager.getInstance().getAllocatedDeviceMemoryMB()));
         strings.add("");
         strings.add("Volcanic " + getVersion());
-        strings.add("CPU: " + volca$getCpuInfo());
+        strings.add("CPU: " + volcanic$getCpuInfo());
         strings.add("GPU: " + device.deviceName);
         strings.add("Driver: " + device.driverVersion);
         strings.add("Vulkan: " + device.vkVersion);
@@ -67,14 +63,14 @@ public abstract class DebugScreenOverlayM {
     }
 
     @Unique
-    private long volca$getOffHeapMemory() {
+    private long volcanic$getOffHeapMemory() {
         return bytesToMegabytes(ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage().getUsed());
     }
 
     @Unique
-    private static String volca$getCpuInfo() {
-        if (volca$cpuInfoCache != null)
-            return volca$cpuInfoCache;
+    private static String volcanic$getCpuInfo() {
+        if (volcanic$cpuInfoCache != null)
+            return volcanic$cpuInfoCache;
 
         String cpu = "Unknown CPU";
 
@@ -117,11 +113,11 @@ public abstract class DebugScreenOverlayM {
         } catch (Exception ignored) {
         }
 
-        volca$cpuInfoCache = "%s x %d".formatted(
+        volcanic$cpuInfoCache = "%s x %d".formatted(
                 cpu,
                 Runtime.getRuntime().availableProcessors()
         );
 
-        return volca$cpuInfoCache;
+        return volcanic$cpuInfoCache;
     }
 }

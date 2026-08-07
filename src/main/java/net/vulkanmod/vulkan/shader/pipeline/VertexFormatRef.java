@@ -1,7 +1,7 @@
 package net.vulkanmod.vulkan.shader.pipeline;
 
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.vulkanmod.render.PipelineManager;
+import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 
 /** Indirection for v formats since annotations are unable to hold arbitrary object references. */

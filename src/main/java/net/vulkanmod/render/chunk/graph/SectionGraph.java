@@ -14,10 +14,14 @@ import net.vulkanmod.render.chunk.*;
 import net.vulkanmod.render.chunk.build.RenderRegionBuilder;
 import net.vulkanmod.render.chunk.build.TaskDispatcher;
 import net.vulkanmod.render.chunk.frustum.VFrustum;
+import net.vulkanmod.render.culling.DepthOcclusion;
 import net.vulkanmod.render.optimization.AdaptiveChunkUploadBudget;
 import net.vulkanmod.render.chunk.util.AreaSetQueue;
 import net.vulkanmod.render.chunk.util.ResettableQueue;
 import org.joml.FrustumIntersection;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class SectionGraph {
     Minecraft minecraft;
@@ -27,7 +31,7 @@ public class SectionGraph {
     private final ChunkAreaManager chunkAreaManager;
     private final TaskDispatcher taskDispatcher;
     private final ResettableQueue<RenderSection> sectionQueue = new ResettableQueue<>();
-    private AreaSetQueue chunkAreaQueue;
+    private final AreaSetQueue chunkAreaQueue;
     private short lastFrame = 0;
 
     private final ResettableQueue<RenderSection> blockEntitiesSections = new ResettableQueue<>();
@@ -324,7 +328,34 @@ public class SectionGraph {
         int renderDistance = WorldRenderer.getInstance().getRenderDistance();
         String tasksInfo = this.taskDispatcher == null ? "null" : this.taskDispatcher.getStats();
 
-        return String.format("Chunks: %d(%d)/%d D: %d, %s", this.nonEmptyChunks, sections, totalSections, renderDistance, tasksInfo);
+        String occlusionInfo = "";
+        if (Initializer.CONFIG.lodDepthSnapshot) {
+            int tested = DepthOcclusion.getTestedCount();
+            int culled = DepthOcclusion.getCulledCount();
+            occlusionInfo = String.format(", Occl-culled: %d/%d", culled, tested);
+        }
+
+        return String.format("Chunks: %d(%d)/%d D: %d, %s%s", this.nonEmptyChunks, sections, totalSections, renderDistance, tasksInfo, occlusionInfo);
+    }
+
+    public List<String> getStatisticsAsList() {
+        List<String> stats = new ArrayList<>();
+
+        int totalGridSections = this.sectionGrid.getSectionCount();
+        int queuedSections = this.sectionQueue.size();
+        int renderDistance = WorldRenderer.getInstance().getRenderDistance();
+        String tasksStats = (this.taskDispatcher != null) ? this.taskDispatcher.getStats() : "N/A";
+
+        stats.add("§7Rendered:§r §a" + this.nonEmptyChunks + "§r §7(Queue: §e" + queuedSections + "§7 / Total: §f" + totalGridSections + "§7)");
+        stats.add("§7Distance:§r §a" + renderDistance + " chunks§r | §7Tasks:§r §f" + tasksStats);
+
+        if (Initializer.CONFIG.lodDepthSnapshot) {
+            int tested = DepthOcclusion.getTestedCount();
+            int culled = DepthOcclusion.getCulledCount();
+            stats.add("§7Occlusion:§r §c" + culled + "§7/§f" + tested + " §7culled");
+        }
+
+        return stats;
     }
 
     public VFrustum getFrustum() {

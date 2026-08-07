@@ -5,10 +5,11 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.client.Minecraft;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.api.CalderaBridge;
+import net.vulkanmod.compat.observer.CompatProfiler;
 import net.vulkanmod.compat.observer.GuiRenderTrace;
 import net.vulkanmod.gl.GlFramebuffer;
 import net.vulkanmod.mixin.window.WindowAccessor;
-import net.vulkanmod.render.PipelineManager;
+import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.buffer.UploadManager;
 import net.vulkanmod.render.optimization.AdaptiveChunkUploadBudget;
@@ -110,14 +111,16 @@ public class Renderer {
     private boolean recordingCmds = false;
     private boolean frameTimestampArmed = false;
 
-    MainPass mainPass = DefaultMainPass.create();
-
     private final List<Runnable> onResizeCallbacks = new ObjectArrayList<>();
+
+    public MainPass mainPass;
 
     public Renderer() {
         device = Vulkan.getVkDevice();
         framesNum = Initializer.CONFIG.frameQueueSize;
         imagesNum = getSwapChain().getImagesNum();
+
+        mainPass = DefaultMainPass.create();
     }
 
     public static void setLineWidth(float width) {
@@ -295,7 +298,7 @@ public class Renderer {
         if (skipRendering || !recordingCmds)
             return;
 
-        // must be before mainPass.end() — that calls vkEndCommandBuffer
+        // must be before mainPass.end() - that calls vkEndCommandBuffer
         if (FrameTimer.instance() != null)
             FrameTimer.instance().cmdEndTimestamp(currentCmdBuffer, currentFrame);
 
@@ -307,7 +310,7 @@ public class Renderer {
         if (FrameTimer.instance() != null)
             FrameTimer.instance().onEndFrameCpu();
 
-        if (net.vulkanmod.compat.observer.CompatProfiler.ENABLED || Initializer.CONFIG.adaptiveChunkUploads) {
+        if (CompatProfiler.ENABLED || Initializer.CONFIG.adaptiveChunkUploads) {
             long duration = System.nanoTime() - net.vulkanmod.compat.observer.CompatProfiler.cpuFrameStart;
             float cpuRenderTimeMs = duration * 0.000001f;
             if (Initializer.CONFIG.adaptiveChunkUploads) {
@@ -316,8 +319,8 @@ public class Renderer {
             if (!net.vulkanmod.compat.observer.CompatProfiler.ENABLED) {
                 return;
             }
-            net.vulkanmod.compat.observer.CompatProfiler.recordFrame(cpuRenderTimeMs);
-            net.vulkanmod.compat.observer.CompatProfiler.resetFrameCounters();
+            CompatProfiler.recordFrame(cpuRenderTimeMs);
+            CompatProfiler.resetFrameCounters();
         }
     }
 
@@ -494,7 +497,6 @@ public class Renderer {
         }
     }
 
-    @SuppressWarnings("UnreachableCode")
     private void recreateSwapChain() {
         Synchronization.INSTANCE.waitFences();
         Vulkan.waitIdle();
@@ -535,6 +537,7 @@ public class Renderer {
         destroySyncObjects();
 
         drawer.cleanUpResources();
+        mainPass.cleanup();
 
         PipelineManager.destroyPipelines();
         VTextureSelector.getWhiteTexture().free();

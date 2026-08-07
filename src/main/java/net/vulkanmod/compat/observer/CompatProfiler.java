@@ -1,8 +1,7 @@
 package net.vulkanmod.compat.observer;
 
 import net.minecraft.client.Minecraft;
-import net.vulkanmod.compat.CompatDetector;
-import net.vulkanmod.compat.CompatMode;
+import net.minecraft.network.chat.Component;
 import net.vulkanmod.compat.CompatPolicyManager;
 import net.vulkanmod.compat.path.RenderPath;
 import net.vulkanmod.compat.path.RenderPathOwnership;
@@ -78,7 +77,7 @@ public class CompatProfiler {
         GLCallObserver.ACTIVE = activePhase;
 
         Minecraft.getInstance().gui.getChat().addMessage(
-            net.minecraft.network.chat.Component.literal(
+            Component.literal(
                 "§6[CompatProfiler] Starting 300-frame benchmark phase: " + (activePhase ? "§aCOMPAT / OBSERVE" : "§bBASELINE")
             )
         );

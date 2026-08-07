@@ -4,6 +4,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormatElement;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import net.vulkanmod.compat.observer.CompatProfiler;
 import net.vulkanmod.interfaces.VertexFormatMixed;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.Vulkan;
@@ -18,7 +19,6 @@ import java.nio.LongBuffer;
 import java.util.List;
 import java.util.function.ToLongFunction;
 
-import static org.lwjgl.system.MemoryStack.stackGet;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
@@ -60,14 +60,13 @@ public class GraphicsPipeline extends Pipeline {
     }
 
     public long getHandle(PipelineState state) {
-        if (net.vulkanmod.compat.observer.CompatProfiler.ENABLED) {
-            if (graphicsPipelines.containsKey(state)) {
-                net.vulkanmod.compat.observer.CompatProfiler.shaderCacheHits++;
-            } else {
-                net.vulkanmod.compat.observer.CompatProfiler.shaderCacheMisses++;
-            }
+        if (!CompatProfiler.ENABLED) {
+            return graphicsPipelines.computeIfAbsent(state, this::createGraphicsPipeline);
         }
-        return graphicsPipelines.computeIfAbsent(state, (ToLongFunction<PipelineState>) this::createGraphicsPipeline);
+        long[] wasMiss = {0};
+        long handle = graphicsPipelines.computeIfAbsent(state, s -> { wasMiss[0] = 1; return createGraphicsPipeline((PipelineState) s); });
+        if (wasMiss[0] == 1) CompatProfiler.shaderCacheMisses++; else CompatProfiler.shaderCacheHits++;
+        return handle;
     }
 
     private long createGraphicsPipeline(PipelineState state) {
