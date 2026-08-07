@@ -70,6 +70,7 @@
     "render.BufferUploaderM",
     "render.EntityShadowBlobMixin",
     "render.FogRendererMixin",
+    "render.GameRendererJitterMixin",
     "render.GameRendererMixin",
     "render.GlProgramManagerMixin",
     "render.GlStateManagerM",

@@ -62,7 +62,9 @@ public class VOptionScreen extends Screen {
     @Override
     protected void init() {
         Options.resetShaderNav();
+        Options.invalidateOtherOptsCache();
         Options.shaderNavRebuild = this::refreshShaderPage;
+        Options.otherPageRebuild = this::refreshOtherPage;
 
         this.initOptionsPages();
 
@@ -490,6 +492,7 @@ public class VOptionScreen extends Screen {
         }
 
         Options.invalidateShaderOptsCache();
+        Options.invalidateOtherOptsCache();
 
         buildPage();
     }
@@ -531,6 +534,20 @@ public class VOptionScreen extends Screen {
 
         OptionPage page = this.optionPages.get(idx);
         page.setOptionBlocks(Options.getShaderOpts());
+        page.updateOptionStates();
+
+        this.setOptionList(idx);
+        this.updateState();
+    }
+
+    private void refreshOtherPage() {
+        int idx = pageIndexByName(Component.translatable("vulkanmod.options.pages.other").getString());
+        if (idx < 0) {
+            return;
+        }
+
+        OptionPage page = this.optionPages.get(idx);
+        page.setOptionBlocks(Options.getOtherOpts());
         page.updateOptionStates();
 
         this.setOptionList(idx);

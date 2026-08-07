@@ -15,6 +15,38 @@ public final class Vsr {
 
     private static int passes;
     private static int lastBackend = -1;
+    private static int lastInputWidth, lastInputHeight;
+    private static int lastOutputWidth, lastOutputHeight;
+    private static float lastSharpness;
+
+    public static int getInputWidth() {
+        return lastInputWidth;
+    }
+
+    public static int getInputHeight() {
+        return lastInputHeight;
+    }
+
+    public static int getOutputWidth() {
+        return lastOutputWidth;
+    }
+
+    public static int getOutputHeight() {
+        return lastOutputHeight;
+    }
+
+    public static float getSharpness() {
+        return lastSharpness;
+    }
+
+    public static String backendName(int backend) {
+        return switch (backend) {
+            case BILINEAR -> "Bilinear";
+            case FSR1 -> "FSR 1";
+            case SHARPEN_ONLY -> "Sharpen";
+            default -> "off";
+        };
+    }
 
     private Vsr() {
     }
@@ -62,6 +94,11 @@ public final class Vsr {
 
         passes++;
         lastBackend = clampBackend(backend);
+        lastInputWidth = inputWidth;
+        lastInputHeight = inputHeight;
+        lastOutputWidth = outputWidth;
+        lastOutputHeight = outputHeight;
+        lastSharpness = sharpness;
 
         PARAMS.putFloat(0, sharpness);
         PARAMS.putFloat(4, lastBackend);
