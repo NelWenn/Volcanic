@@ -196,13 +196,24 @@ public final class FrameTimer {
                 "  breakdown: upload=%.2fms  setup/cull=%.2fms  terrain=%.2fms  entities/BE/GUI=%.2fms  |  GC=%.2fms/frame",
                 upload, setup, terrain, renderOther, gcMsPerFrame));
 
+        int pipelineBuilds = net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuilds();
+        double pipelineBuildMs = net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuildMs();
+        int renderPassCreations = net.vulkanmod.vulkan.framebuffer.RenderPass.consumeCreations();
+
+        Initializer.LOGGER.info(String.format(
+                "  pipelines: builds=%.1f/frame  buildTime=%.2fms/frame  liveVariants=%d  renderPassCreations=%.1f/frame",
+                pipelineBuilds / (double) samples, pipelineBuildMs / samples,
+                net.vulkanmod.vulkan.shader.GraphicsPipeline.totalVariants(),
+                renderPassCreations / (double) samples));
+
         // actual render resolutions
         try {
             net.vulkanmod.vulkan.framebuffer.SwapChain sc = Vulkan.getSwapChain();
             com.mojang.blaze3d.platform.Window win = net.minecraft.client.Minecraft.getInstance().getWindow();
             Initializer.LOGGER.info(String.format(
-                    "  resolution: swapchain=%dx%d  mcFramebuffer=%dx%d",
-                    sc.getWidth(), sc.getHeight(), win.getWidth(), win.getHeight()));
+                    "  resolution: swapchain=%dx%d  mcFramebuffer=%dx%d  renderScale=%d%%",
+                    sc.getWidth(), sc.getHeight(), win.getWidth(), win.getHeight(),
+                    net.vulkanmod.config.RenderScale.clamp(Initializer.CONFIG.renderScale)));
         } catch (Throwable ignored) {}
 
         // post-shader settings snapshot, so windows with different settings aren't compared blind

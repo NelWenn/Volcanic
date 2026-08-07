@@ -555,7 +555,6 @@ public abstract class Options {
                                 value -> Component.nullToEmpty(value + "%"),
                                 value -> {
                                     config.renderScale = RenderScale.clamp(value);
-                                    minecraft.resizeDisplay();
                                 },
                                 () -> RenderScale.clamp(config.renderScale))
                                 .setTooltip(Component.translatable("vulkanmod.options.renderScale.tooltip")),
