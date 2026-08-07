@@ -26,9 +26,55 @@ public class RenderPass {
     }
 
     final int attachmentCount;
+    private final int compatibilityKey;
+    private final int colorFormat;
+    private final int colorFormat2;
+    private final int depthAttachmentFormat;
+    private final int colorFinalLayout;
+    private final int depthFinalLayout;
+    private final int fbColorAttachmentCount;
+    private final int fbDepthFormat;
     AttachmentInfo colorAttachmentInfo;
     AttachmentInfo colorAttachmentInfo2;
     AttachmentInfo depthAttachmentInfo;
+
+    private static int formatOf(AttachmentInfo info) {
+        return info != null ? info.format : VK_FORMAT_UNDEFINED;
+    }
+
+    private static int finalLayoutOf(AttachmentInfo info) {
+        return info != null ? info.finalLayout : VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+
+    private static int colorAttachmentCountOf(Framebuffer framebuffer) {
+        return framebuffer != null ? framebuffer.getColorAttachmentCount() : 0;
+    }
+
+    private static int depthFormatOf(Framebuffer framebuffer) {
+        return framebuffer != null ? framebuffer.getDepthFormat() : VK_FORMAT_UNDEFINED;
+    }
+
+    public int getCompatibilityKey() {
+        return this.compatibilityKey;
+    }
+
+    public static boolean compatible(RenderPass a, RenderPass b) {
+        if (a == b) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+
+        return a.attachmentCount == b.attachmentCount
+                && a.colorFormat == b.colorFormat
+                && a.colorFormat2 == b.colorFormat2
+                && a.depthAttachmentFormat == b.depthAttachmentFormat
+                && a.colorFinalLayout == b.colorFinalLayout
+                && a.depthFinalLayout == b.depthFinalLayout
+                && a.fbColorAttachmentCount == b.fbColorAttachmentCount
+                && a.fbDepthFormat == b.fbDepthFormat;
+    }
 
     public RenderPass(Framebuffer framebuffer, AttachmentInfo colorAttachmentInfo, AttachmentInfo colorAttachmentInfo2, AttachmentInfo depthAttachmentInfo) {
         this.framebuffer = framebuffer;
@@ -45,6 +91,16 @@ public class RenderPass {
             count++;
 
         this.attachmentCount = count;
+        this.colorFormat = formatOf(colorAttachmentInfo);
+        this.colorFormat2 = formatOf(colorAttachmentInfo2);
+        this.depthAttachmentFormat = formatOf(depthAttachmentInfo);
+        this.colorFinalLayout = finalLayoutOf(colorAttachmentInfo);
+        this.depthFinalLayout = finalLayoutOf(depthAttachmentInfo);
+        this.fbColorAttachmentCount = colorAttachmentCountOf(framebuffer);
+        this.fbDepthFormat = depthFormatOf(framebuffer);
+        this.compatibilityKey = java.util.Objects.hash(count, this.colorFormat, this.colorFormat2,
+                this.depthAttachmentFormat, this.colorFinalLayout, this.depthFinalLayout,
+                this.fbColorAttachmentCount, this.fbDepthFormat);
 
         if (!Vulkan.DYNAMIC_RENDERING) {
             framebuffer.addRenderPass(this);
