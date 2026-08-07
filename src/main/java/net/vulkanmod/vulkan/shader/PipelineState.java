@@ -108,14 +108,15 @@ public class PipelineState {
         PipelineState that = (PipelineState) o;
         return (blendState_i == that.blendState_i) && (depthState_i == that.depthState_i)
                 && (stencilState_i == that.stencilState_i)
-                && this.renderPass == that.renderPass && logicOp_i == that.logicOp_i
+                && RenderPass.compatible(this.renderPass, that.renderPass) && logicOp_i == that.logicOp_i
                 && this.assemblyRasterState == that.assemblyRasterState
                 && this.colorMask_i == that.colorMask_i;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(blendState_i, depthState_i, stencilState_i, logicOp_i, assemblyRasterState, colorMask_i, renderPass);
+        return Objects.hash(blendState_i, depthState_i, stencilState_i, logicOp_i, assemblyRasterState, colorMask_i,
+                this.renderPass != null ? this.renderPass.getCompatibilityKey() : 0);
     }
 
     public boolean stencilTestEnabled() {
