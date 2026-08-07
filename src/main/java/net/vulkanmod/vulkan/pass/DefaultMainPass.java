@@ -83,6 +83,7 @@ public class DefaultMainPass implements MainPass {
     private int scaledColorAttachmentGlId = -1;
     private int scaledDepthAttachmentGlId = -1;
     private boolean renderScaleResolvedThisFrame;
+    private static int targetSwitches;
 
     public final FrameGraphImpl frameGraph;
 
@@ -134,6 +135,8 @@ public class DefaultMainPass implements MainPass {
         if (this.mainFramebuffer == framebuffer) {
             return;
         }
+
+        targetSwitches++;
 
         if (this.mainRenderPass != null) {
             this.mainRenderPass.cleanUp();
@@ -242,6 +245,22 @@ public class DefaultMainPass implements MainPass {
 
     private boolean isUsingScaledFramebuffer() {
         return this.scaledFramebuffer != null && this.mainFramebuffer == this.scaledFramebuffer;
+    }
+
+    public static int consumeTargetSwitches() {
+        int value = targetSwitches;
+        targetSwitches = 0;
+        return value;
+    }
+
+    @Override
+    public String renderScaleStatus() {
+        String target = this.scaledFramebuffer == null
+                ? "none"
+                : this.scaledFramebufferWidth + "x" + this.scaledFramebufferHeight;
+
+        return String.format("scaledTarget=%s  swapchain=%dx%d  postShader=%b",
+                target, this.swapChain.getWidth(), this.swapChain.getHeight(), postShaderActive());
     }
 
     @Override
