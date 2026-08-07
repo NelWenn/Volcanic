@@ -426,6 +426,10 @@ public class GlTexture {
             ptr = pixels;
         }
 
+        Renderer renderer = Renderer.getInstance();
+        if (renderer != null && Renderer.isRecording())
+            renderer.flushCmds();
+
         ImageUtil.downloadTexture(image, ptr);
     }
 
@@ -594,8 +598,11 @@ public class GlTexture {
         samplerFlags |= magFilter == GL11.GL_LINEAR ? SamplerManager.LINEAR_FILTERING_BIT : 0;
 
         samplerFlags |= switch (minFilter) {
-            case GL11.GL_LINEAR_MIPMAP_LINEAR -> SamplerManager.USE_MIPMAPS_BIT | SamplerManager.MIPMAP_LINEAR_FILTERING_BIT;
+            case GL11.GL_LINEAR -> SamplerManager.LINEAR_MIN_BIT;
+            case GL11.GL_LINEAR_MIPMAP_NEAREST -> SamplerManager.USE_MIPMAPS_BIT | SamplerManager.LINEAR_MIN_BIT;
+            case GL11.GL_LINEAR_MIPMAP_LINEAR -> SamplerManager.USE_MIPMAPS_BIT | SamplerManager.MIPMAP_LINEAR_FILTERING_BIT | SamplerManager.LINEAR_MIN_BIT;
             case GL11.GL_NEAREST_MIPMAP_NEAREST -> SamplerManager.USE_MIPMAPS_BIT;
+            case GL11.GL_NEAREST_MIPMAP_LINEAR -> SamplerManager.USE_MIPMAPS_BIT | SamplerManager.MIPMAP_LINEAR_FILTERING_BIT;
             default -> 0;
         };
 
