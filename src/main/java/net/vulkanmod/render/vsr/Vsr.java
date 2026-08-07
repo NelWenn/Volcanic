@@ -7,6 +7,7 @@ public final class Vsr {
     public static final int BILINEAR = 0;
     public static final int FSR1 = 1;
     public static final int SHARPEN_ONLY = 2;
+    public static final int VTU = 3;
 
     private static final MappedBuffer INPUT_INFO = new MappedBuffer(4 * Float.BYTES);
     private static final MappedBuffer OUTPUT_INFO = new MappedBuffer(4 * Float.BYTES);
@@ -44,6 +45,7 @@ public final class Vsr {
             case BILINEAR -> "Bilinear";
             case FSR1 -> "FSR 1";
             case SHARPEN_ONLY -> "Sharpen";
+            case VTU -> "VTU";
             default -> "off";
         };
     }
@@ -62,7 +64,7 @@ public final class Vsr {
     }
 
     public static int clampBackend(int backend) {
-        return Math.max(BILINEAR, Math.min(SHARPEN_ONLY, backend));
+        return Math.max(BILINEAR, Math.min(VTU, backend));
     }
 
     public static void update(int inputWidth, int inputHeight, int usedWidth, int usedHeight,

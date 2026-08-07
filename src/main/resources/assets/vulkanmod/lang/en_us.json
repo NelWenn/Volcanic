@@ -83,6 +83,7 @@
   "vulkanmod.options.vsrPreset.quality": "Quality",
   "vulkanmod.options.vsrPreset.balanced": "Balanced",
   "vulkanmod.options.vsrPreset.performance": "Performance",
+  "vulkanmod.options.vsrPreset.temporal": "VTU (experimental)",
   "vulkanmod.options.vsrPreset.custom": "Custom",
   "vulkanmod.options.vsrPreset.tooltip": "Renders the world below the window resolution and reconstructs it. Quality 77%, Balanced 67%, Performance 50%. Pick Custom to set the internal resolution, the upscaler and the sharpening yourself.",
 
@@ -90,6 +91,7 @@
   "vulkanmod.options.vsrBackend.bilinear": "Bilinear",
   "vulkanmod.options.vsrBackend.fsr1": "FSR 1",
   "vulkanmod.options.vsrBackend.sharpen": "Sharpen only",
+  "vulkanmod.options.vsrBackend.vtu": "VTU (temporal)",
   "vulkanmod.options.vsrBackend.tooltip": "How the internal resolution is scaled up to the window. Bilinear is the plain reference filter, FSR 1 reconstructs edges before sharpening, Sharpen only skips reconstruction.",
   "vulkanmod.options.vsrSharpness": "VSR Sharpness",
   "vulkanmod.options.vtuJitter": "VTU Jitter (experimental)",

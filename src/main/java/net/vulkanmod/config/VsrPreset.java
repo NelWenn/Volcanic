@@ -8,6 +8,7 @@ public enum VsrPreset {
     QUALITY(1, "vulkanmod.options.vsrPreset.quality", 77, Vsr.FSR1, 0.15f),
     BALANCED(2, "vulkanmod.options.vsrPreset.balanced", 67, Vsr.FSR1, 0.20f),
     PERFORMANCE(3, "vulkanmod.options.vsrPreset.performance", 50, Vsr.FSR1, 0.30f),
+    TEMPORAL(5, "vulkanmod.options.vsrPreset.temporal", 67, Vsr.VTU, 0.30f),
     CUSTOM(4, "vulkanmod.options.vsrPreset.custom", 100, Vsr.FSR1, 0.20f);
 
     public final int id;

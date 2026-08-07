@@ -595,13 +595,14 @@ public abstract class Options {
         vsrScaleOpt.setTooltip(Component.translatable("vulkanmod.options.renderScale.tooltip"));
 
         vsrBackendOpt = new CyclingOption<>(Component.translatable("vulkanmod.options.vsrBackend"),
-                new Integer[]{0, 1, 2},
+                new Integer[]{0, 1, 2, 3},
                 value -> config.vsrBackend = value,
                 () -> net.vulkanmod.render.vsr.Vsr.clampBackend(config.vsrBackend))
                 .setTranslator(value -> Component.translatable(switch (value) {
                     case 0 -> "vulkanmod.options.vsrBackend.bilinear";
                     case 1 -> "vulkanmod.options.vsrBackend.fsr1";
                     case 2 -> "vulkanmod.options.vsrBackend.sharpen";
+                    case 3 -> "vulkanmod.options.vsrBackend.vtu";
                     default -> "vulkanmod.options.unknown";
                 }))
                 .setTooltip(Component.translatable("vulkanmod.options.vsrBackend.tooltip"));
