@@ -32,7 +32,10 @@ public final class VtuJitter {
         targetWidth = width;
         targetHeight = height;
 
-        if (!Initializer.CONFIG.vtuJitter || width <= 0 || height <= 0) {
+        boolean wanted = Initializer.CONFIG.vtuJitter
+                || net.vulkanmod.render.vsr.Vsr.clampBackend(Initializer.CONFIG.vsrBackend) == net.vulkanmod.render.vsr.Vsr.VTU;
+
+        if (!wanted || width <= 0 || height <= 0) {
             phase = 0;
             pixelX = 0.0f;
             pixelY = 0.0f;

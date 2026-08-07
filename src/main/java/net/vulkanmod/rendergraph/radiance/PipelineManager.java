@@ -51,6 +51,7 @@ public abstract class PipelineManager {
                 FastBlitPipeline.class,
                 RenderScaleBlitPipeline.class,
                 VsrUpscalePipeline.class,
+                VtuPresentPipeline.class,
                 ShadowTerrainSolidPipeline.class,
                 ShadowTerrainCutoutPipeline.class,
                 ShadowTerrainTintPipeline.class,

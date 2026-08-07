@@ -732,6 +732,10 @@ public class DefaultMainPass implements MainPass {
             backend = net.vulkanmod.render.vsr.Vsr.SHARPEN_ONLY;
         }
 
+        if (!postShaderActive() && backend == net.vulkanmod.render.vsr.Vsr.VTU) {
+            backend = net.vulkanmod.render.vsr.Vsr.FSR1;
+        }
+
         net.vulkanmod.render.vsr.Vsr.update(source.getWidth(), source.getHeight(),
                 source.getWidth(), source.getHeight(),
                 this.swapChain.getWidth(), this.swapChain.getHeight(),
@@ -740,6 +744,8 @@ public class DefaultMainPass implements MainPass {
 
     private void blitToSwapchain() {
         updateVsrState();
+        VTextureSelector.bindTexture(1, VTextureSelector.getWhiteTexture());
+        VTextureSelector.bindTexture(2, VTextureSelector.getWhiteTexture());
         DrawUtil.blitVsrToScreen();
     }
 
@@ -811,6 +817,9 @@ public class DefaultMainPass implements MainPass {
         }
 
         graph.setTargetScale("light", Initializer.CONFIG.optimizedShadows ? 0.5f : 1.0f);
+        graph.setTargetScale("vtu", this.mainFramebuffer.getWidth() > 0
+                ? (float) this.swapChain.getWidth() / this.mainFramebuffer.getWidth()
+                : 1.0f);
         graph.resize(commandBuffer, stack, this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
 
         if (!graph.targetsReady()) {

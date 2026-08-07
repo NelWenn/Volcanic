@@ -1,6 +1,10 @@
 #version 450
 
 layout(binding = 0) uniform UBO {
+    mat4 FogInvMVPMat;
+    mat4 FogPrevMVP;
+    vec3 FogCameraPos;
+    vec3 FogPrevCameraPos;
     vec4 VsrInputInfo;
     vec4 VsrOutputInfo;
     vec4 VsrUvBounds;
@@ -8,6 +12,8 @@ layout(binding = 0) uniform UBO {
 };
 
 layout(binding = 1) uniform sampler2D Sampler0;
+layout(binding = 2) uniform sampler2D Sampler1;
+layout(binding = 3) uniform sampler2D Sampler2;
 
 layout(location = 0) in vec2 texCoord;
 layout(location = 0) out vec4 fragColor;
@@ -69,6 +75,76 @@ void easuTap(inout vec3 acc, inout float accW, vec2 off, vec2 dir, vec2 len2,
     accW += w;
 }
 
+vec3 sampleHistory(vec2 uv) {
+    vec2 texSize = VsrOutputInfo.xy;
+    vec2 samplePos = uv * texSize;
+    vec2 texPos1 = floor(samplePos - 0.5) + 0.5;
+    vec2 f = samplePos - texPos1;
+
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    vec2 w3 = f * f * (-0.5 + 0.5 * f);
+
+    vec2 w12 = w1 + w2;
+    vec2 offset12 = w2 / max(w12, vec2(1.0e-5));
+
+    vec2 uv0 = (texPos1 - 1.0) / texSize;
+    vec2 uv3 = (texPos1 + 2.0) / texSize;
+    vec2 uv12 = (texPos1 + offset12) / texSize;
+
+    vec3 acc = vec3(0.0);
+    float accW = 0.0;
+
+    acc += texture(Sampler2, vec2(uv12.x, uv0.y)).rgb * (w12.x * w0.y);
+    accW += w12.x * w0.y;
+    acc += texture(Sampler2, vec2(uv0.x, uv12.y)).rgb * (w0.x * w12.y);
+    accW += w0.x * w12.y;
+    acc += texture(Sampler2, vec2(uv12.x, uv12.y)).rgb * (w12.x * w12.y);
+    accW += w12.x * w12.y;
+    acc += texture(Sampler2, vec2(uv3.x, uv12.y)).rgb * (w3.x * w12.y);
+    accW += w3.x * w12.y;
+    acc += texture(Sampler2, vec2(uv12.x, uv3.y)).rgb * (w12.x * w3.y);
+    accW += w12.x * w3.y;
+
+    return abs(accW) < 1.0e-5 ? texture(Sampler2, uv).rgb : acc / accW;
+}
+
+vec3 accumulate(vec3 current, vec3 mn, vec3 mx) {
+    float depth = texture(Sampler1, texCoord).r;
+    if (depth >= 1.0) {
+        return current;
+    }
+
+    vec4 ndc = vec4(texCoord.x * 2.0 - 1.0, 1.0 - texCoord.y * 2.0, depth, 1.0);
+    vec4 world = FogInvMVPMat * ndc;
+    if (abs(world.w) < 1.0e-6) {
+        return current;
+    }
+
+    vec3 p = world.xyz / world.w;
+    vec3 prevRel = p + (FogCameraPos - FogPrevCameraPos);
+    vec4 pc = FogPrevMVP * vec4(prevRel, 1.0);
+    if (pc.w <= 0.0) {
+        return current;
+    }
+
+    vec2 pndc = pc.xy / pc.w;
+    vec2 prevUV = vec2(pndc.x * 0.5 + 0.5, 0.5 - pndc.y * 0.5);
+    if (any(lessThan(prevUV, vec2(0.0))) || any(greaterThan(prevUV, vec2(1.0)))) {
+        return current;
+    }
+
+    vec3 history = max(sampleHistory(prevUV), vec3(0.0));
+    vec3 slack = (mx - mn) * 0.15;
+    history = clamp(history, mn - slack, mx + slack);
+
+    float motion = length(prevUV - texCoord);
+    float feedback = 0.92 * (1.0 - smoothstep(0.02, 0.12, motion));
+
+    return mix(current, history, feedback);
+}
+
 void main() {
     float mode = VsrParams.y;
 
@@ -93,8 +169,10 @@ void main() {
     vec3 mx = max(max(cF, cG), max(cJ, cK));
     vec3 bilinear = mix(mix(cF, cG, pp.x), mix(cJ, cK, pp.x), pp.y);
 
+    bool temporal = mode > 2.5;
     vec3 range = mx - mn;
-    if (max(max(range.r, range.g), range.b) < FLAT_THRESHOLD) {
+
+    if (!temporal && max(max(range.r, range.g), range.b) < FLAT_THRESHOLD) {
         fragColor = vec4(bilinear, 1.0);
         return;
     }
@@ -107,6 +185,14 @@ void main() {
     vec3 cL = fetch(base + vec2(2.0 * t.x, t.y));
     vec3 cN = fetch(base + vec2(0.0, 2.0 * t.y));
     vec3 cO = fetch(base + vec2(t.x, 2.0 * t.y));
+
+    if (temporal) {
+        vec3 wideMin = min(min(min(cB, cC), min(cE, cH)), min(min(cI, cL), min(cN, cO)));
+        vec3 wideMax = max(max(max(cB, cC), max(cE, cH)), max(max(cI, cL), max(cN, cO)));
+        mn = min(mn, wideMin);
+        mx = max(mx, wideMax);
+        range = mx - mn;
+    }
 
     vec3 result;
 
@@ -185,6 +271,10 @@ void main() {
         vec3 hi = min(mx + slack, vec3(1.0));
 
         result = clamp(result + detail * (sharpness * confidence), lo, hi);
+    }
+
+    if (temporal) {
+        result = accumulate(result, mn, mx);
     }
 
     fragColor = vec4(result, 1.0);
