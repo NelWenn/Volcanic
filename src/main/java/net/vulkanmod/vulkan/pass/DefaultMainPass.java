@@ -77,6 +77,11 @@ public class DefaultMainPass implements MainPass {
     private RenderPass auxRenderPass;
     private RenderPass presentRenderPass;
 
+    private RenderPass swapMainRenderPass;
+    private RenderPass swapAuxRenderPass;
+    private RenderPass scaledMainRenderPass;
+    private RenderPass scaledAuxRenderPass;
+
     private int scaledFramebufferWidth = -1;
     private int scaledFramebufferHeight = -1;
     private int scaledFramebufferScale = RenderScale.DEFAULT;
@@ -92,12 +97,12 @@ public class DefaultMainPass implements MainPass {
         this.mainFramebuffer = this.swapChain;
         this.frameGraph = new RadianceGraph();
 
-        createRenderPasses();
+        bindRenderPasses();
         createPresentRenderPass();
     }
 
-    private void createRenderPasses() {
-        RenderPass.Builder builder = RenderPass.builder(this.mainFramebuffer);
+    private RenderPass[] buildRenderPasses(Framebuffer framebuffer) {
+        RenderPass.Builder builder = RenderPass.builder(framebuffer);
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
@@ -107,9 +112,9 @@ public class DefaultMainPass implements MainPass {
             builder.getColorAttachmentInfo2().setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
         }
 
-        this.mainRenderPass = builder.build();
+        RenderPass main = builder.build();
 
-        builder = RenderPass.builder(this.mainFramebuffer);
+        builder = RenderPass.builder(framebuffer);
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -119,7 +124,30 @@ public class DefaultMainPass implements MainPass {
             builder.getColorAttachmentInfo2().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         }
 
-        this.auxRenderPass = builder.build();
+        return new RenderPass[]{main, builder.build()};
+    }
+
+    private void bindRenderPasses() {
+        if (this.scaledFramebuffer != null && this.mainFramebuffer == this.scaledFramebuffer) {
+            if (this.scaledMainRenderPass == null) {
+                RenderPass[] passes = buildRenderPasses(this.scaledFramebuffer);
+                this.scaledMainRenderPass = passes[0];
+                this.scaledAuxRenderPass = passes[1];
+            }
+
+            this.mainRenderPass = this.scaledMainRenderPass;
+            this.auxRenderPass = this.scaledAuxRenderPass;
+            return;
+        }
+
+        if (this.swapMainRenderPass == null) {
+            RenderPass[] passes = buildRenderPasses(this.swapChain);
+            this.swapMainRenderPass = passes[0];
+            this.swapAuxRenderPass = passes[1];
+        }
+
+        this.mainRenderPass = this.swapMainRenderPass;
+        this.auxRenderPass = this.swapAuxRenderPass;
     }
 
     private void createPresentRenderPass() {
@@ -138,15 +166,8 @@ public class DefaultMainPass implements MainPass {
 
         targetSwitches++;
 
-        if (this.mainRenderPass != null) {
-            this.mainRenderPass.cleanUp();
-        }
-        if (this.auxRenderPass != null) {
-            this.auxRenderPass.cleanUp();
-        }
-
         this.mainFramebuffer = framebuffer;
-        createRenderPasses();
+        bindRenderPasses();
     }
 
     private void ensureMainFramebuffer() {
@@ -207,6 +228,16 @@ public class DefaultMainPass implements MainPass {
         if (this.scaledFramebuffer == null) {
             return;
         }
+
+        if (this.scaledMainRenderPass != null) {
+            this.scaledMainRenderPass.cleanUp();
+            this.scaledMainRenderPass = null;
+        }
+        if (this.scaledAuxRenderPass != null) {
+            this.scaledAuxRenderPass.cleanUp();
+            this.scaledAuxRenderPass = null;
+        }
+
         this.scaledFramebuffer.cleanUp();
         this.scaledFramebuffer = null;
 
