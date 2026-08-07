@@ -206,14 +206,18 @@ public final class FrameTimer {
                 net.vulkanmod.vulkan.shader.GraphicsPipeline.totalVariants(),
                 renderPassCreations / (double) samples));
 
-        // actual render resolutions
+        int targetSwitches = net.vulkanmod.vulkan.pass.DefaultMainPass.consumeTargetSwitches();
+
         try {
-            net.vulkanmod.vulkan.framebuffer.SwapChain sc = Vulkan.getSwapChain();
-            com.mojang.blaze3d.platform.Window win = net.minecraft.client.Minecraft.getInstance().getWindow();
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            com.mojang.blaze3d.platform.Window win = mc.getWindow();
             Initializer.LOGGER.info(String.format(
-                    "  resolution: swapchain=%dx%d  mcFramebuffer=%dx%d  renderScale=%d%%",
-                    sc.getWidth(), sc.getHeight(), win.getWidth(), win.getHeight(),
-                    net.vulkanmod.config.RenderScale.clamp(Initializer.CONFIG.renderScale)));
+                    "  renderScale: config=%d%%  %s  targetSwitches=%.1f/frame  mcFramebuffer=%dx%d  fpsLimit=%d",
+                    net.vulkanmod.config.RenderScale.clamp(Initializer.CONFIG.renderScale),
+                    Renderer.getInstance().getMainPass().renderScaleStatus(),
+                    targetSwitches / (double) samples,
+                    win.getWidth(), win.getHeight(),
+                    mc.options.framerateLimit().get()));
         } catch (Throwable ignored) {}
 
         // post-shader settings snapshot, so windows with different settings aren't compared blind
