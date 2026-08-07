@@ -262,10 +262,10 @@ public class BlockRenderer {
         BlockGetter blockGetter = resources.region;
         BlockState adjBlockState = blockGetter.getBlockState(adjPos);
 
-        if (net.vulkanmod.Initializer.CONFIG.leavesCulling
-                && blockState.getBlock() instanceof LeavesBlock && adjBlockState.getBlock() instanceof LeavesBlock) {
-            return false;
-        }
+//        if (net.vulkanmod.Initializer.CONFIG.leavesCulling
+//                && blockState.getBlock() instanceof LeavesBlock && adjBlockState.getBlock() instanceof LeavesBlock) {
+//            return false;
+//        }
 
         if (blockState.skipRendering(adjBlockState, direction)) {
             return false;
