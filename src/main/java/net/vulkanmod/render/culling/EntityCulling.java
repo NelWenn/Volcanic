@@ -27,9 +27,9 @@ public final class EntityCulling {
     }
 
     public static boolean isVisible(Frustum frustum, AABB aabb) {
-        if (!Initializer.CONFIG.entityCulling) {
-            return frustum.isVisible(aabb);
-        }
+//        if (!Initializer.CONFIG.entityCulling) {
+//            return frustum.isVisible(aabb);
+//        }
 
         if (!frustum.isVisible(aabb)) {
             return false;
@@ -40,40 +40,40 @@ public final class EntityCulling {
             return false;
         }
 
-        WorldRenderer worldRenderer = WorldRenderer.getInstance();
-        if (worldRenderer == null || worldRenderer.getSectionGrid() == null || aabb.hasNaN()) {
-            return true;
-        }
+//        WorldRenderer worldRenderer = WorldRenderer.getInstance();
+//        if (worldRenderer == null || worldRenderer.getSectionGrid() == null || aabb.hasNaN()) {
+//            return true;
+//        }
+//
+//        int minSectionX = sectionCoord(aabb.minX);
+//        int maxSectionX = sectionCoord(aabb.maxX);
+//        int minSectionY = sectionCoord(aabb.minY);
+//        int maxSectionY = sectionCoord(aabb.maxY);
+//        int minSectionZ = sectionCoord(aabb.minZ);
+//        int maxSectionZ = sectionCoord(aabb.maxZ);
+//
+//        int sectionCount = (maxSectionX - minSectionX + 1)
+//                * (maxSectionY - minSectionY + 1)
+//                * (maxSectionZ - minSectionZ + 1);
+//        if (sectionCount <= 0 || sectionCount > MAX_SECTIONS_TO_TEST) {
+//            return true;
+//        }
+//
+//        short frame = worldRenderer.getLastFrame();
+//        resetCacheIfFrameChanged(frame);
+//
+//        SectionGrid sectionGrid = worldRenderer.getSectionGrid();
+//        for (int sectionX = minSectionX; sectionX <= maxSectionX; sectionX++) {
+//            for (int sectionY = minSectionY; sectionY <= maxSectionY; sectionY++) {
+//                for (int sectionZ = minSectionZ; sectionZ <= maxSectionZ; sectionZ++) {
+//                    if (isSectionVisible(sectionGrid, frame, sectionX, sectionY, sectionZ)) {
+//                        return true;
+//                    }
+//                }
+//            }
+//        }
 
-        int minSectionX = sectionCoord(aabb.minX);
-        int maxSectionX = sectionCoord(aabb.maxX);
-        int minSectionY = sectionCoord(aabb.minY);
-        int maxSectionY = sectionCoord(aabb.maxY);
-        int minSectionZ = sectionCoord(aabb.minZ);
-        int maxSectionZ = sectionCoord(aabb.maxZ);
-
-        int sectionCount = (maxSectionX - minSectionX + 1)
-                * (maxSectionY - minSectionY + 1)
-                * (maxSectionZ - minSectionZ + 1);
-        if (sectionCount <= 0 || sectionCount > MAX_SECTIONS_TO_TEST) {
-            return true;
-        }
-
-        short frame = worldRenderer.getLastFrame();
-        resetCacheIfFrameChanged(frame);
-
-        SectionGrid sectionGrid = worldRenderer.getSectionGrid();
-        for (int sectionX = minSectionX; sectionX <= maxSectionX; sectionX++) {
-            for (int sectionY = minSectionY; sectionY <= maxSectionY; sectionY++) {
-                for (int sectionZ = minSectionZ; sectionZ <= maxSectionZ; sectionZ++) {
-                    if (isSectionVisible(sectionGrid, frame, sectionX, sectionY, sectionZ)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
+        return true;
     }
 
     private static int sectionCoord(double coordinate) {
