@@ -278,7 +278,6 @@ public class GlFramebuffer {
         }
 
         if (changed) {
-            net.vulkanmod.Initializer.LOGGER.info("Framebuffer {} attachment image changed after re-spec; rebuilding", this.id);
             createAndBind();
         }
     }
@@ -318,8 +317,6 @@ public class GlFramebuffer {
         }
 
         if (glTexture.vulkanImage == null) {
-            GlEmulationLog.warnOnce("framebuffer.attachTexture.noImage",
-                    "glFramebufferTexture2D: attached texture has no allocated image yet; deferring until it is created");
             return;
         }
 
