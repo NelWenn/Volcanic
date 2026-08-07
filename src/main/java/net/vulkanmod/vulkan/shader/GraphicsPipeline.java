@@ -26,6 +26,9 @@ public class GraphicsPipeline extends Pipeline {
     private final Object2LongMap<PipelineState> graphicsPipelines = new Object2LongOpenHashMap<>();
     private static final java.util.Set<String> loggedPipelineFailures = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    private static int builds;
+    private static long buildNanos;
+
     private final VertexFormat vertexFormat;
     private final VertexInputDescription vertexInputDescription;
 
@@ -70,6 +73,36 @@ public class GraphicsPipeline extends Pipeline {
     }
 
     private long createGraphicsPipeline(PipelineState state) {
+        long start = System.nanoTime();
+        long handle = buildGraphicsPipeline(state);
+        buildNanos += System.nanoTime() - start;
+        builds++;
+        return handle;
+    }
+
+    public static int consumeBuilds() {
+        int value = builds;
+        builds = 0;
+        return value;
+    }
+
+    public static double consumeBuildMs() {
+        double value = buildNanos / 1.0e6;
+        buildNanos = 0;
+        return value;
+    }
+
+    public static int totalVariants() {
+        int total = 0;
+        for (Pipeline pipeline : PIPELINES) {
+            if (pipeline instanceof GraphicsPipeline graphicsPipeline) {
+                total += graphicsPipeline.getVariantCount();
+            }
+        }
+        return total;
+    }
+
+    private long buildGraphicsPipeline(PipelineState state) {
         try (MemoryStack stack = stackPush()) {
             ByteBuffer entryPoint = stack.UTF8("main");
 

@@ -17,6 +17,14 @@ public class RenderPass {
     Framebuffer framebuffer;
     long id;
 
+    private static int creations;
+
+    public static int consumeCreations() {
+        int value = creations;
+        creations = 0;
+        return value;
+    }
+
     final int attachmentCount;
     AttachmentInfo colorAttachmentInfo;
     AttachmentInfo colorAttachmentInfo2;
@@ -47,6 +55,7 @@ public class RenderPass {
     }
 
     private void createRenderPass() {
+        creations++;
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             VkAttachmentDescription.Buffer attachments = VkAttachmentDescription.calloc(attachmentCount, stack);
