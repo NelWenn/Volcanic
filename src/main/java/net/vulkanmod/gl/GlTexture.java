@@ -255,6 +255,22 @@ public class GlTexture {
         compressedTexImage2D(target, level, internalFormat, width, height, border);
     }
 
+    public static void compressedTexImage2D(int target, int level, int internalFormat, int width, int height, int border, int imageSize, long data) {
+        ByteBuffer src = null;
+        if (imageSize > 0) {
+            GlBuffer glBuffer = GlBuffer.getPixelUnpackBufferBound();
+            if (glBuffer != null && glBuffer.data != null) {
+                ByteBuffer slice = glBuffer.data.duplicate();
+                slice.position((int) data).limit((int) data + imageSize);
+                src = slice.slice();
+            } else if (data != 0L) {
+                src = MemoryUtil.memByteBuffer(data, imageSize);
+            }
+        }
+
+        compressedTexImage2D(target, level, internalFormat, width, height, border, src);
+    }
+
     public static void texImage3D(int target, int level, int internalFormat, int width, int height, int depth,
                                   int border, int format, int type, @Nullable ByteBuffer data) {
         boolean recorded = recordDimensionalMetadata(target, level, internalFormat, width, height, depth, border, format, type);

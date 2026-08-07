@@ -30,8 +30,7 @@ public class GL13M {
 
     @Overwrite(remap = false)
     public static void glCompressedTexImage2D(@NativeType("GLenum") int target, @NativeType("GLint") int level, @NativeType("GLenum") int internalformat, @NativeType("GLsizei") int width, @NativeType("GLsizei") int height, @NativeType("GLint") int border, @NativeType("GLsizei") int imageSize, @NativeType("void const *") long data) {
-        ByteBuffer buffer = (data != 0L && imageSize > 0) ? MemoryUtil.memByteBuffer(data, imageSize) : null;
-        GlTexture.compressedTexImage2D(target, level, internalformat, width, height, border, buffer);
+        GlTexture.compressedTexImage2D(target, level, internalformat, width, height, border, imageSize, data);
     }
 
     @Overwrite(remap = false)
