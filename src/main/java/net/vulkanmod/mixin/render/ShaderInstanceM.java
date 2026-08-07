@@ -73,6 +73,8 @@ public class ShaderInstanceM implements ShaderMixed {
     private GraphicsPipeline pipeline;
     private final Map<VertexFormat, GraphicsPipeline> variantPipelines = new HashMap<>();
     boolean isLegacy = false;
+    private String legacyVshSrc;
+    private String legacyFshSrc;
 
     public GraphicsPipeline getPipeline() {
         return pipeline;
@@ -83,11 +85,36 @@ public class ShaderInstanceM implements ShaderMixed {
             return this.pipeline;
         }
 
-        if (this.isLegacy || this.vulkanBindPath == null) {
+        if (this.isLegacy) {
+            if (this.legacyVshSrc == null) {
+                return this.pipeline;
+            }
+            return this.variantPipelines.computeIfAbsent(drawFormat, this::createLegacyPipelineVariant);
+        }
+
+        if (this.vulkanBindPath == null) {
             return this.pipeline;
         }
 
         return this.variantPipelines.computeIfAbsent(drawFormat, this::createPipelineVariant);
+    }
+
+    private GraphicsPipeline createLegacyPipelineVariant(VertexFormat drawFormat) {
+        try {
+            GlslConverter converter = new GlslConverter();
+            converter.setFormat(drawFormat);
+            converter.process(this.legacyVshSrc, this.legacyFshSrc);
+            UBO ubo = converter.getUBO();
+            this.setUniformSuppliers(ubo);
+
+            Pipeline.Builder builder = new Pipeline.Builder(drawFormat, this.name);
+            builder.setUniforms(Collections.singletonList(ubo), converter.getSamplerList());
+            builder.compileShaders(this.name, converter.getVshConverted(), converter.getFshConverted());
+            return builder.createGraphicsPipeline();
+        } catch (Exception e) {
+            Initializer.LOGGER.error("Error creating legacy shader {} variant for draw format {}", this.name, drawFormat, e);
+            return this.pipeline;
+        }
     }
 
     @Inject(method = "<init>(Lnet/minecraft/server/packs/resources/ResourceProvider;Lnet/minecraft/resources/ResourceLocation;Lcom/mojang/blaze3d/vertex/VertexFormat;)V", at = @At("RETURN"))
@@ -317,6 +344,9 @@ public class ShaderInstanceM implements ShaderMixed {
             resource = resourceProvider.getResourceOrThrow(fragLocation);
             inputStream = resource.open();
             String fshSrc = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+
+            this.legacyVshSrc = vshSrc;
+            this.legacyFshSrc = fshSrc;
 
             GlslConverter converter = new GlslConverter();
             converter.setFormat(format);

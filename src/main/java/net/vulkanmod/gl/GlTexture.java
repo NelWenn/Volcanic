@@ -255,6 +255,22 @@ public class GlTexture {
         compressedTexImage2D(target, level, internalFormat, width, height, border);
     }
 
+    public static void compressedTexImage2D(int target, int level, int internalFormat, int width, int height, int border, int imageSize, long data) {
+        ByteBuffer src = null;
+        if (imageSize > 0) {
+            GlBuffer glBuffer = GlBuffer.getPixelUnpackBufferBound();
+            if (glBuffer != null && glBuffer.data != null) {
+                ByteBuffer slice = glBuffer.data.duplicate();
+                slice.position((int) data).limit((int) data + imageSize);
+                src = slice.slice();
+            } else if (data != 0L) {
+                src = MemoryUtil.memByteBuffer(data, imageSize);
+            }
+        }
+
+        compressedTexImage2D(target, level, internalFormat, width, height, border, src);
+    }
+
     public static void texImage3D(int target, int level, int internalFormat, int width, int height, int depth,
                                   int border, int format, int type, @Nullable ByteBuffer data) {
         boolean recorded = recordDimensionalMetadata(target, level, internalFormat, width, height, depth, border, format, type);
@@ -409,6 +425,10 @@ public class GlTexture {
         } else {
             ptr = pixels;
         }
+
+        Renderer renderer = Renderer.getInstance();
+        if (renderer != null && Renderer.isRecording())
+            renderer.flushCmds();
 
         ImageUtil.downloadTexture(image, ptr);
     }
@@ -565,6 +585,8 @@ public class GlTexture {
                     .setFormat(vkFormat)
                     .addUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
                     .createVulkanImage();
+
+        GlFramebuffer.onTextureImageRecreated(this.id);
     }
 
     void updateSampler() {
@@ -576,8 +598,11 @@ public class GlTexture {
         samplerFlags |= magFilter == GL11.GL_LINEAR ? SamplerManager.LINEAR_FILTERING_BIT : 0;
 
         samplerFlags |= switch (minFilter) {
-            case GL11.GL_LINEAR_MIPMAP_LINEAR -> SamplerManager.USE_MIPMAPS_BIT | SamplerManager.MIPMAP_LINEAR_FILTERING_BIT;
+            case GL11.GL_LINEAR -> SamplerManager.LINEAR_MIN_BIT;
+            case GL11.GL_LINEAR_MIPMAP_NEAREST -> SamplerManager.USE_MIPMAPS_BIT | SamplerManager.LINEAR_MIN_BIT;
+            case GL11.GL_LINEAR_MIPMAP_LINEAR -> SamplerManager.USE_MIPMAPS_BIT | SamplerManager.MIPMAP_LINEAR_FILTERING_BIT | SamplerManager.LINEAR_MIN_BIT;
             case GL11.GL_NEAREST_MIPMAP_NEAREST -> SamplerManager.USE_MIPMAPS_BIT;
+            case GL11.GL_NEAREST_MIPMAP_LINEAR -> SamplerManager.USE_MIPMAPS_BIT | SamplerManager.MIPMAP_LINEAR_FILTERING_BIT;
             default -> 0;
         };
 

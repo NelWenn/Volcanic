@@ -424,9 +424,21 @@ public class Renderer {
         GlFramebuffer.resetBoundFramebuffer();
     }
 
+    private final it.unimi.dsi.fastutil.ints.IntOpenHashSet loggedSkipSizes = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
+
     public boolean beginRendering(RenderPass renderPass, Framebuffer framebuffer) {
         if (skipRendering || !recordingCmds)
             return false;
+
+        net.vulkanmod.vulkan.texture.VulkanImage color = framebuffer.getColorAttachment();
+        if (color == null || color.getImageView() == 0L) {
+            int key = framebuffer.getWidth() * 100000 + framebuffer.getHeight();
+            if (loggedSkipSizes.add(key)) {
+                Initializer.LOGGER.warn("Skipping render pass with freed/invalid color attachment (fb {}x{}, colorNull={})",
+                        framebuffer.getWidth(), framebuffer.getHeight(), color == null);
+            }
+            return false;
+        }
 
         if (this.boundFramebuffer != framebuffer) {
             this.endRenderPass(currentCmdBuffer);
