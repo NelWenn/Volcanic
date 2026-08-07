@@ -9,6 +9,7 @@ import net.vulkanmod.config.GraphicsModeCompatibility;
 import net.vulkanmod.config.PerformancePreset;
 import net.vulkanmod.config.PerformancePresetApplier;
 import net.vulkanmod.config.RenderScale;
+import net.vulkanmod.config.VsrPreset;
 import net.vulkanmod.config.gui.OptionBlock;
 
 import net.vulkanmod.config.video.VideoModeManager;
@@ -28,6 +29,22 @@ public abstract class Options {
     public static String shaderNav = null;
     public static String shaderCat = null;
     public static Runnable shaderNavRebuild = null;
+    public static Runnable otherPageRebuild = null;
+
+    private static boolean otherOptsBuilt = false;
+    private static Option<VsrPreset> vsrPresetOpt;
+    private static RangeOption vsrScaleOpt;
+    private static Option<Integer> vsrBackendOpt;
+    private static RangeOption vsrSharpnessOpt;
+    private static Option<Boolean> vtuJitterOpt;
+    private static RangeOption vtuJitterScaleOpt;
+    private static RangeOption frameQueueOpt;
+    private static Option<Boolean> textureAnimationsOpt;
+    private static Option<Integer> deviceOpt;
+
+    public static void invalidateOtherOptsCache() {
+        otherOptsBuilt = false;
+    }
 
     private static boolean shaderOptsBuilt = false;
     private static Option<Boolean> enabledOpt;
@@ -547,62 +564,111 @@ public abstract class Options {
 
     }
 
-    public static OptionBlock[] getOtherOpts() {
-        return new OptionBlock[]{
-                new OptionBlock("", new Option[]{
-                        new RangeOption(Component.translatable("vulkanmod.options.renderScale"),
-                                RenderScale.MIN, RenderScale.MAX, RenderScale.STEP,
-                                value -> Component.nullToEmpty(value + "%"),
-                                value -> {
-                                    config.renderScale = RenderScale.clamp(value);
-                                },
-                                () -> RenderScale.clamp(config.renderScale))
-                                .setTooltip(Component.translatable("vulkanmod.options.renderScale.tooltip")),
-                        new CyclingOption<>(Component.translatable("vulkanmod.options.vsrBackend"),
-                                new Integer[]{0, 1, 2},
-                                value -> config.vsrBackend = value,
-                                () -> net.vulkanmod.render.vsr.Vsr.clampBackend(config.vsrBackend))
-                                .setTranslator(value -> Component.translatable(switch (value) {
-                                    case 0 -> "vulkanmod.options.vsrBackend.bilinear";
-                                    case 1 -> "vulkanmod.options.vsrBackend.fsr1";
-                                    case 2 -> "vulkanmod.options.vsrBackend.sharpen";
-                                    default -> "vulkanmod.options.unknown";
-                                }))
-                                .setTooltip(Component.translatable("vulkanmod.options.vsrBackend.tooltip")),
-                        new RangeOption(Component.translatable("vulkanmod.options.vsrSharpness"),
-                                0, 100, 5,
-                                value -> Component.nullToEmpty(value + "%"),
-                                value -> config.vsrSharpness = value / 100.0f,
-                                () -> Math.round(config.vsrSharpness * 100.0f))
-                                .setTooltip(Component.translatable("vulkanmod.options.vsrSharpness.tooltip")),
-                        new RangeOption(Component.translatable("vulkanmod.options.frameQueue"),
-                                2, 5, 1,
-                                value -> {
-                                    markPerformancePresetCustom();
-                                    config.frameQueueSize = value;
-                                    Renderer.scheduleSwapChainUpdate();
-                                }, () -> config.frameQueueSize)
-                                .setTooltip(Component.translatable("vulkanmod.options.frameQueue.tooltip")),
-                        new SwitchOption(Component.translatable("vulkanmod.options.textureAnimations"),
-                                value -> {
-                                    config.textureAnimations = value;
-                                },
-                                () -> config.textureAnimations),
-                        new CyclingOption<>(Component.translatable("vulkanmod.options.deviceSelector"),
-                                IntStream.range(-1, DeviceManager.suitableDevices.size()).boxed().toArray(Integer[]::new),
-                                value -> config.device = value,
-                                () -> config.device)
-                                .setTranslator(value -> Component.translatable((value == -1)
-                                        ? "vulkanmod.options.deviceSelector.auto"
-                                        : DeviceManager.suitableDevices.get(value).deviceName)
-                                )
-                                .setTooltip(Component.nullToEmpty("%s: %s".formatted(
-                                        Component.translatable("vulkanmod.options.deviceSelector.tooltip").getString(),
-                                        DeviceManager.device.deviceName
-                                ))
-                        )
-                })
-        };
+    private static VsrPreset activeVsrPreset() {
+        return vsrPresetOpt != null ? vsrPresetOpt.getNewValue() : VsrPreset.current(config);
+    }
 
+    private static void buildOtherOptionsIfNeeded() {
+        if (otherOptsBuilt) {
+            return;
+        }
+
+        vsrPresetOpt = new CyclingOption<>(Component.translatable("vulkanmod.options.vsrPreset"),
+                VsrPreset.values(),
+                value -> {
+                    config.vsrPreset = value.id;
+                    value.apply(config);
+                },
+                () -> VsrPreset.current(config))
+                .setTranslator(value -> Component.translatable(value.translationKey))
+                .setTooltip(Component.translatable("vulkanmod.options.vsrPreset.tooltip"))
+                .setImpact(PerformanceImpact.HIGH)
+                .setOnChange(() -> {
+                    if (otherPageRebuild != null) otherPageRebuild.run();
+                });
+
+        vsrScaleOpt = new RangeOption(Component.translatable("vulkanmod.options.renderScale"),
+                RenderScale.MIN, RenderScale.MAX, RenderScale.STEP,
+                value -> Component.nullToEmpty(value + "%"),
+                value -> config.renderScale = RenderScale.clamp(value),
+                () -> RenderScale.clamp(config.renderScale));
+        vsrScaleOpt.setTooltip(Component.translatable("vulkanmod.options.renderScale.tooltip"));
+
+        vsrBackendOpt = new CyclingOption<>(Component.translatable("vulkanmod.options.vsrBackend"),
+                new Integer[]{0, 1, 2},
+                value -> config.vsrBackend = value,
+                () -> net.vulkanmod.render.vsr.Vsr.clampBackend(config.vsrBackend))
+                .setTranslator(value -> Component.translatable(switch (value) {
+                    case 0 -> "vulkanmod.options.vsrBackend.bilinear";
+                    case 1 -> "vulkanmod.options.vsrBackend.fsr1";
+                    case 2 -> "vulkanmod.options.vsrBackend.sharpen";
+                    default -> "vulkanmod.options.unknown";
+                }))
+                .setTooltip(Component.translatable("vulkanmod.options.vsrBackend.tooltip"));
+
+        vsrSharpnessOpt = new RangeOption(Component.translatable("vulkanmod.options.vsrSharpness"),
+                0, 100, 5,
+                value -> Component.nullToEmpty(value + "%"),
+                value -> config.vsrSharpness = value / 100.0f,
+                () -> Math.round(config.vsrSharpness * 100.0f));
+        vsrSharpnessOpt.setTooltip(Component.translatable("vulkanmod.options.vsrSharpness.tooltip"));
+
+        vtuJitterOpt = new SwitchOption(Component.translatable("vulkanmod.options.vtuJitter"),
+                value -> config.vtuJitter = value,
+                () -> config.vtuJitter);
+        vtuJitterOpt.setTooltip(Component.translatable("vulkanmod.options.vtuJitter.tooltip"));
+
+        vtuJitterScaleOpt = new RangeOption(Component.translatable("vulkanmod.options.vtuJitterScale"),
+                1, 16, 1,
+                value -> Component.nullToEmpty("x" + value),
+                value -> config.vtuJitterScale = value,
+                () -> Math.round(config.vtuJitterScale));
+        vtuJitterScaleOpt.setTooltip(Component.translatable("vulkanmod.options.vtuJitterScale.tooltip"));
+
+        frameQueueOpt = new RangeOption(Component.translatable("vulkanmod.options.frameQueue"),
+                2, 5, 1,
+                value -> {
+                    markPerformancePresetCustom();
+                    config.frameQueueSize = value;
+                    Renderer.scheduleSwapChainUpdate();
+                }, () -> config.frameQueueSize);
+        frameQueueOpt.setTooltip(Component.translatable("vulkanmod.options.frameQueue.tooltip"));
+
+        textureAnimationsOpt = new SwitchOption(Component.translatable("vulkanmod.options.textureAnimations"),
+                value -> config.textureAnimations = value,
+                () -> config.textureAnimations);
+
+        deviceOpt = new CyclingOption<>(Component.translatable("vulkanmod.options.deviceSelector"),
+                IntStream.range(-1, DeviceManager.suitableDevices.size()).boxed().toArray(Integer[]::new),
+                value -> config.device = value,
+                () -> config.device)
+                .setTranslator(value -> Component.translatable((value == -1)
+                        ? "vulkanmod.options.deviceSelector.auto"
+                        : DeviceManager.suitableDevices.get(value).deviceName))
+                .setTooltip(Component.nullToEmpty("%s: %s".formatted(
+                        Component.translatable("vulkanmod.options.deviceSelector.tooltip").getString(),
+                        DeviceManager.device.deviceName)));
+
+        otherOptsBuilt = true;
+    }
+
+    public static OptionBlock[] getOtherOpts() {
+        buildOtherOptionsIfNeeded();
+
+        List<Option<?>> vsrOptions = new ArrayList<>();
+        vsrOptions.add(vsrPresetOpt);
+
+        if (activeVsrPreset().isCustom()) {
+            vsrOptions.add(vsrScaleOpt);
+            vsrOptions.add(vsrBackendOpt);
+            vsrOptions.add(vsrSharpnessOpt);
+            vsrOptions.add(vtuJitterOpt);
+            vsrOptions.add(vtuJitterScaleOpt);
+        }
+
+        return new OptionBlock[]{
+                new OptionBlock("", vsrOptions.toArray(new Option<?>[0])),
+                new OptionBlock("", new Option[]{ frameQueueOpt, textureAnimationsOpt, deviceOpt })
+        };
     }
 }

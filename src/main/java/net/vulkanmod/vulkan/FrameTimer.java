@@ -22,13 +22,21 @@ public final class FrameTimer {
     public static FrameTimer instance() { return INSTANCE; }
 
     /** Create the timer (no-op unless perf diagnostics are enabled). Call once, after the device exists. */
+    public static double gpuMs() {
+        return INSTANCE != null ? INSTANCE.smoothGpuMs : -1.0;
+    }
+
+    public static double frameMs() {
+        return INSTANCE != null ? INSTANCE.smoothWallMs : -1.0;
+    }
+
     public static void init(int framesNum) {
         if (INSTANCE != null) return;
-        if (!MoltenVKConfig.perfDiagEnabled()) return;
         try {
             INSTANCE = new FrameTimer(framesNum);
-            Initializer.LOGGER.info("FrameTimer: GPU timing enabled ({} frames, timestampPeriod={} ns)",
-                    framesNum, INSTANCE.timestampPeriod);
+            INSTANCE.logging = MoltenVKConfig.perfDiagEnabled();
+            Initializer.LOGGER.info("FrameTimer: GPU timing enabled ({} frames, timestampPeriod={} ns, logging={})",
+                    framesNum, INSTANCE.timestampPeriod, INSTANCE.logging);
         } catch (Throwable t) {
             Initializer.LOGGER.warn("FrameTimer: disabled ({})", t.toString());
             INSTANCE = null;
@@ -63,6 +71,9 @@ public final class FrameTimer {
     private int samples;
     private long lastReportNanos = 0;
     private boolean anyGpuSample = false;
+    private boolean logging = false;
+    private double smoothGpuMs = -1.0;
+    private double smoothWallMs = -1.0;
     private long lastGcMillis = -1; // cumulative JVM GC time, delta'd per window
 
     private FrameTimer(int framesNum) {
@@ -101,7 +112,12 @@ public final class FrameTimer {
 
         if (wallMs > 0) {
             accWallMs += wallMs;
-            if (gpuMs >= 0) { accGpuMs += gpuMs; anyGpuSample = true; }
+            smoothWallMs = smoothWallMs < 0 ? wallMs : smoothWallMs * 0.9 + wallMs * 0.1;
+            if (gpuMs >= 0) {
+                accGpuMs += gpuMs;
+                anyGpuSample = true;
+                smoothGpuMs = smoothGpuMs < 0 ? gpuMs : smoothGpuMs * 0.9 + gpuMs * 0.1;
+            }
             // cpuMs is added at endFrame, paired with this wall sample
             pendingWall = true;
         }
@@ -160,6 +176,21 @@ public final class FrameTimer {
     private void maybeReport(long now) {
         if (lastReportNanos == 0) { lastReportNanos = now; return; }
         if (now - lastReportNanos < REPORT_INTERVAL_NS || samples < 1) return;
+
+        if (!this.logging) {
+            net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuilds();
+            net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuildMs();
+            net.vulkanmod.vulkan.framebuffer.RenderPass.consumeCreations();
+            net.vulkanmod.vulkan.pass.DefaultMainPass.consumeTargetSwitches();
+            net.vulkanmod.render.vsr.Vsr.consumePasses();
+
+            accWallMs = accCpuMs = accGpuMs = accCpuBusyMs = 0;
+            accUploadMs = accTerrainMs = accSetupMs = 0;
+            samples = 0;
+            anyGpuSample = false;
+            lastReportNanos = now;
+            return;
+        }
 
         double wall = accWallMs / samples;
         double cpu = accCpuMs / samples;

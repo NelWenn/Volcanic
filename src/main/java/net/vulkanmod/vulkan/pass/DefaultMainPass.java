@@ -285,6 +285,16 @@ public class DefaultMainPass implements MainPass {
     }
 
     @Override
+    public int renderTargetWidth() {
+        return this.mainFramebuffer.getWidth();
+    }
+
+    @Override
+    public int renderTargetHeight() {
+        return this.mainFramebuffer.getHeight();
+    }
+
+    @Override
     public String renderScaleStatus() {
         String target = this.scaledFramebuffer == null
                 ? "none"
