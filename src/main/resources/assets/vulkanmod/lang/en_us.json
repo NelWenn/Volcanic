@@ -78,6 +78,14 @@
   "vulkanmod.options.renderScale": "Render Scale",
   "vulkanmod.options.renderScale.tooltip": "Renders Minecraft at a lower internal resolution, then scales it back to the current window or fullscreen size.",
 
+  "vulkanmod.options.vsrBackend": "VSR Upscaler",
+  "vulkanmod.options.vsrBackend.bilinear": "Bilinear",
+  "vulkanmod.options.vsrBackend.fsr1": "FSR 1",
+  "vulkanmod.options.vsrBackend.sharpen": "Sharpen only",
+  "vulkanmod.options.vsrBackend.tooltip": "How the internal resolution is scaled up to the window. Bilinear is the plain reference filter, FSR 1 reconstructs edges before sharpening, Sharpen only skips reconstruction.",
+  "vulkanmod.options.vsrSharpness": "VSR Sharpness",
+  "vulkanmod.options.vsrSharpness.tooltip": "Strength of the contrast adaptive sharpening applied after upscaling. Set to 0% to disable it.",
+
   "vulkanmod.options.pages.shaders": "Shaders",
   "vulkanmod.options.shadersEnabled": "Enable Shaders",
   "vulkanmod.options.shadersEnabled.tooltip": "Enable Volcanic's native Vulkan post-processing effects.",

@@ -711,6 +711,28 @@ public class DefaultMainPass implements MainPass {
         bi.blendOp = sBlendOp; bi.blendOpRgb = sBlendOpRgb; bi.blendOpAlpha = sBlendOpAlpha;
     }
 
+    private void updateVsrState() {
+        Framebuffer source = this.mainFramebuffer;
+        int backend = net.vulkanmod.render.vsr.Vsr.clampBackend(Initializer.CONFIG.vsrBackend);
+
+        boolean oneToOne = source.getWidth() == this.swapChain.getWidth()
+                && source.getHeight() == this.swapChain.getHeight();
+
+        if (oneToOne && backend == net.vulkanmod.render.vsr.Vsr.FSR1) {
+            backend = net.vulkanmod.render.vsr.Vsr.SHARPEN_ONLY;
+        }
+
+        net.vulkanmod.render.vsr.Vsr.update(source.getWidth(), source.getHeight(),
+                source.getWidth(), source.getHeight(),
+                this.swapChain.getWidth(), this.swapChain.getHeight(),
+                backend, Initializer.CONFIG.vsrSharpness);
+    }
+
+    private void blitToSwapchain() {
+        updateVsrState();
+        DrawUtil.blitVsrToScreen();
+    }
+
     private void resolveScaledFramebufferToSwapchain(VkCommandBuffer commandBuffer, boolean keepRendering) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             this.mainFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -729,7 +751,7 @@ public class DefaultMainPass implements MainPass {
             Renderer.resetViewport();
             Renderer.resetScissor();
             VTextureSelector.bindTexture(0, this.mainFramebuffer.getColorAttachment());
-            DrawUtil.blitRenderScaleToScreen();
+            blitToSwapchain();
             if (!keepRendering) {
                 Renderer.getInstance().endRenderPass(commandBuffer);
             }
@@ -764,7 +786,7 @@ public class DefaultMainPass implements MainPass {
         Renderer.resetViewport();
         Renderer.resetScissor();
         VTextureSelector.bindTexture(0, this.mainFramebuffer.getColorAttachment());
-        DrawUtil.blitRenderScaleToScreen();
+        blitToSwapchain();
         if (!keepRendering) {
             Renderer.getInstance().endRenderPass(commandBuffer);
         }
@@ -784,6 +806,8 @@ public class DefaultMainPass implements MainPass {
         if (!graph.targetsReady()) {
             return false;
         }
+
+        updateVsrState();
 
         final VulkanImage scene = this.mainFramebuffer.getColorAttachment();
 

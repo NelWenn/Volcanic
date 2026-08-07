@@ -558,6 +558,23 @@ public abstract class Options {
                                 },
                                 () -> RenderScale.clamp(config.renderScale))
                                 .setTooltip(Component.translatable("vulkanmod.options.renderScale.tooltip")),
+                        new CyclingOption<>(Component.translatable("vulkanmod.options.vsrBackend"),
+                                new Integer[]{0, 1, 2},
+                                value -> config.vsrBackend = value,
+                                () -> net.vulkanmod.render.vsr.Vsr.clampBackend(config.vsrBackend))
+                                .setTranslator(value -> Component.translatable(switch (value) {
+                                    case 0 -> "vulkanmod.options.vsrBackend.bilinear";
+                                    case 1 -> "vulkanmod.options.vsrBackend.fsr1";
+                                    case 2 -> "vulkanmod.options.vsrBackend.sharpen";
+                                    default -> "vulkanmod.options.unknown";
+                                }))
+                                .setTooltip(Component.translatable("vulkanmod.options.vsrBackend.tooltip")),
+                        new RangeOption(Component.translatable("vulkanmod.options.vsrSharpness"),
+                                0, 100, 5,
+                                value -> Component.nullToEmpty(value + "%"),
+                                value -> config.vsrSharpness = value / 100.0f,
+                                () -> Math.round(config.vsrSharpness * 100.0f))
+                                .setTooltip(Component.translatable("vulkanmod.options.vsrSharpness.tooltip")),
                         new RangeOption(Component.translatable("vulkanmod.options.frameQueue"),
                                 2, 5, 1,
                                 value -> {

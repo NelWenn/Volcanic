@@ -89,5 +89,10 @@ public class Uniforms {
         vec4f_uniformMap.put("ExternalLodFogColor", net.vulkanmod.api.CalderaBridge::getFogColor);
         vec4f_uniformMap.put("ExternalLodFogParams", net.vulkanmod.api.CalderaBridge::getFogParams);
 
+        vec4f_uniformMap.put("VsrInputInfo", net.vulkanmod.render.vsr.Vsr::getInputInfo);
+        vec4f_uniformMap.put("VsrOutputInfo", net.vulkanmod.render.vsr.Vsr::getOutputInfo);
+        vec4f_uniformMap.put("VsrUvBounds", net.vulkanmod.render.vsr.Vsr::getUvBounds);
+        vec4f_uniformMap.put("VsrParams", net.vulkanmod.render.vsr.Vsr::getParams);
+
     }
 }

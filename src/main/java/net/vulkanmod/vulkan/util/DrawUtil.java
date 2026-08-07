@@ -29,6 +29,11 @@ public class DrawUtil {
         blit(PipelineManager.getRenderScaleBlitPipeline());
     }
 
+    public static void blitVsrToScreen() {
+        GraphicsPipeline pipeline = PipelineManager.getVsrUpscalePipeline();
+        blit(pipeline != null ? pipeline : PipelineManager.getRenderScaleBlitPipeline());
+    }
+
     public static void blit(GraphicsPipeline blitPipeline) {
         RenderSystem.disableCull();
         VRenderSystem.setPrimitiveTopologyGL(GL11.GL_TRIANGLES);

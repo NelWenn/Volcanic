@@ -26,7 +26,7 @@ public abstract class PipelineManager {
         TERRAIN_VERTEX_FORMAT = format;
     }
 
-    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, terrainFadeShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline, externalLodSolidPipeline, externalLodTexturedSolidPipeline;
+    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, terrainFadeShader, fastBlitPipeline, renderScaleBlitPipeline, vsrUpscalePipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline, externalLodSolidPipeline, externalLodTexturedSolidPipeline;
     static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline;
     static GraphicsPipeline materialPipeline;
 
@@ -50,6 +50,7 @@ public abstract class PipelineManager {
                 TerrainFadePipeline.class,
                 FastBlitPipeline.class,
                 RenderScaleBlitPipeline.class,
+                VsrUpscalePipeline.class,
                 ShadowTerrainSolidPipeline.class,
                 ShadowTerrainCutoutPipeline.class,
                 ShadowTerrainTintPipeline.class,
@@ -67,6 +68,7 @@ public abstract class PipelineManager {
         terrainFadeShader = PipelineRegistry.get(TerrainFadePipeline.class);
         fastBlitPipeline = PipelineRegistry.get(FastBlitPipeline.class);
         renderScaleBlitPipeline = PipelineRegistry.get(RenderScaleBlitPipeline.class);
+        vsrUpscalePipeline = PipelineRegistry.get(VsrUpscalePipeline.class);
         shadowTerrainSolidPipeline = PipelineRegistry.get(ShadowTerrainSolidPipeline.class);
         shadowTerrainCutoutPipeline = PipelineRegistry.get(ShadowTerrainCutoutPipeline.class);
         shadowTerrainTintPipeline = PipelineRegistry.get(ShadowTerrainTintPipeline.class);
@@ -131,6 +133,8 @@ public abstract class PipelineManager {
     public static GraphicsPipeline getFastBlitPipeline() { return fastBlitPipeline; }
 
     public static GraphicsPipeline getRenderScaleBlitPipeline() { return renderScaleBlitPipeline; }
+
+    public static GraphicsPipeline getVsrUpscalePipeline() { return vsrUpscalePipeline; }
 
     public static GraphicsPipeline getExternalLodPipeline() { return externalLodPipeline; }
 
