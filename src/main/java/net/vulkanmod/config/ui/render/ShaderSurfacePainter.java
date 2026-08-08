@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.vulkanmod.config.ui.core.Rect;
+import net.vulkanmod.vulkan.shader.PipelineState;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
@@ -96,13 +97,20 @@ public final class ShaderSurfacePainter implements SurfacePainter {
     }
 
     private void emitBatch() {
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(false);
-        RenderSystem.disableCull();
+        float[] currentShaderColor = RenderSystem.getShaderColor();
+        float previousR = currentShaderColor[0];
+        float previousG = currentShaderColor[1];
+        float previousB = currentShaderColor[2];
+        float previousA = currentShaderColor[3];
+        boolean previousBlendEnabled = PipelineState.blendInfo.enabled;
 
         try {
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            RenderSystem.disableCull();
+
             RenderSystem.setShader(GuiSurfacePipeline::shader);
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -124,6 +132,13 @@ public final class ShaderSurfacePainter implements SurfacePainter {
                 BufferUploader.drawWithShader(mesh);
             }
         } finally {
+            if (previousBlendEnabled) {
+                RenderSystem.enableBlend();
+                RenderSystem.defaultBlendFunc();
+            } else {
+                RenderSystem.disableBlend();
+            }
+            RenderSystem.setShaderColor(previousR, previousG, previousB, previousA);
             RenderSystem.enableDepthTest();
             RenderSystem.depthMask(true);
             RenderSystem.enableCull();
