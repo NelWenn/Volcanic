@@ -1,36 +1,36 @@
 package net.vulkanmod.config;
 
 import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Modifier;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConfigMigrationTest {
     @Test
     void anUnversionedConfigIsTreatedAsVersionZeroAndUpgraded() {
-        Config config = new Config();
-        config.configVersion = 0;
-        Config migrated = Config.migrate(config);
-        assertEquals(Config.CURRENT_VERSION, migrated.configVersion);
+        assertEquals(ConfigVersion.CURRENT, ConfigVersion.migrated(0));
     }
 
     @Test
-    void aConfigAlreadyAtTheCurrentVersionIsUntouched() {
-        Config config = new Config();
-        config.configVersion = Config.CURRENT_VERSION;
-        int frameQueue = config.frameQueueSize;
-        assertSame(config, Config.migrate(config));
-        assertEquals(frameQueue, config.frameQueueSize);
+    void aConfigAlreadyAtTheCurrentVersionStaysThere() {
+        assertEquals(ConfigVersion.CURRENT, ConfigVersion.migrated(ConfigVersion.CURRENT));
     }
 
     @Test
     void aVersionFromTheFutureIsRefusedRatherThanSilentlyDowngraded() {
-        Config config = new Config();
-        config.configVersion = Config.CURRENT_VERSION + 1;
-        assertThrows(IllegalStateException.class, () -> Config.migrate(config));
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> ConfigVersion.migrated(ConfigVersion.CURRENT + 1));
+        assertTrue(error.getMessage().contains(String.valueOf(ConfigVersion.CURRENT + 1)));
     }
 
     @Test
-    void theVersionFieldIsSerialisable() throws Exception {
-        assertFalse(java.lang.reflect.Modifier.isPrivate(
-                Config.class.getField("configVersion").getModifiers()));
+    void aNegativeVersionIsRefused() {
+        assertThrows(IllegalStateException.class, () -> ConfigVersion.migrated(-1));
+    }
+
+    @Test
+    void theVersionFieldIsSerialisableByGson() throws Exception {
+        assertFalse(Modifier.isPrivate(Config.class.getField("configVersion").getModifiers()));
     }
 }
