@@ -12,9 +12,23 @@ class CtmMethodTest {
     }
 
     @Test
-    void connectedMethodsAreUnsupportedInPhase1() {
-        assertEquals(CtmMethod.UNSUPPORTED, CtmMethod.fromString("ctm"));
+    void connectedMethodAndItsAliasesParseToCtm() {
+        assertEquals(CtmMethod.CTM, CtmMethod.fromString("ctm"));
+        assertEquals(CtmMethod.CTM, CtmMethod.fromString("glass"));
+        assertEquals(CtmMethod.CTM, CtmMethod.fromString("full"));
+    }
+
+    @Test
+    void unknownAndAbsentMethodsAreUnsupported() {
         assertEquals(CtmMethod.UNSUPPORTED, CtmMethod.fromString("horizontal"));
+        assertEquals(CtmMethod.UNSUPPORTED, CtmMethod.fromString("vertical"));
+        assertEquals(CtmMethod.UNSUPPORTED, CtmMethod.fromString(null));
+    }
+
+    @Test
+    void parsingIgnoresCaseAndSurroundingSpace() {
+        assertEquals(CtmMethod.REPEAT, CtmMethod.fromString("  Repeat "));
+        assertEquals(CtmMethod.OVERLAY_FIXED, CtmMethod.fromString("OVERLAY_FIXED"));
     }
 
     @Test
