@@ -186,6 +186,75 @@ class SettingRowLayoutTest {
     }
 
     @Test
+    void revealingARowThatIsAlreadyOnScreenLeavesTheScrollAlone() {
+        Rect small = new Rect(150, 32, 500, 140);
+        assertEquals(0, SettingRowLayout.scrollToReveal(small, 6, 0, 0, WIDE));
+        for (int index = 0; index < 6; index++) {
+            int scroll = SettingRowLayout.scrollToReveal(small, 6, index, 0, WIDE);
+            assertEquals(scroll, SettingRowLayout.scrollToReveal(small, 6, index, scroll, WIDE),
+                    "revealing row " + index + " a second time must not move it again");
+        }
+    }
+
+    @Test
+    void revealingARowBelowTheFoldScrollsUntilItIsFullyVisible() {
+        Rect small = new Rect(150, 32, 500, 140);
+        for (int index = 0; index < 6; index++) {
+            int scroll = SettingRowLayout.scrollToReveal(small, 6, index, 0, WIDE);
+            Rect row = SettingRowLayout.rows(small, 6, scroll, WIDE).get(index);
+            assertTrue(row.y() >= small.y(), "row " + index + " above the region at scroll " + scroll);
+            assertTrue(row.bottom() <= small.bottom(), "row " + index + " below the region at scroll " + scroll);
+        }
+    }
+
+    @Test
+    void revealingARowAboveTheFoldScrollsBackUp() {
+        Rect small = new Rect(150, 32, 500, 140);
+        int bottom = SettingRowLayout.maxScroll(small, 6, WIDE);
+        assertEquals(0, SettingRowLayout.scrollToReveal(small, 6, 0, bottom, WIDE));
+
+        int scroll = SettingRowLayout.scrollToReveal(small, 6, 2, bottom, WIDE);
+        Rect row = SettingRowLayout.rows(small, 6, scroll, WIDE).get(2);
+        assertTrue(row.y() >= small.y() && row.bottom() <= small.bottom());
+    }
+
+    @Test
+    void revealingTheLastRowLandsExactlyAtMaxScroll() {
+        Rect small = new Rect(150, 32, 500, 140);
+        assertEquals(SettingRowLayout.maxScroll(small, 6, WIDE),
+                SettingRowLayout.scrollToReveal(small, 6, 5, 0, WIDE));
+    }
+
+    @Test
+    void revealingNeverLeavesTheScrollableRange() {
+        Rect small = new Rect(150, 32, 500, 140);
+        int max = SettingRowLayout.maxScroll(small, 9, WIDE);
+        for (int index = 0; index < 9; index++) {
+            for (int scroll = 0; scroll <= max; scroll += 13) {
+                int result = SettingRowLayout.scrollToReveal(small, 9, index, scroll, WIDE);
+                assertTrue(result >= 0 && result <= max,
+                        "scroll " + result + " outside 0.." + max + " for row " + index);
+            }
+        }
+    }
+
+    @Test
+    void revealingARowThatDoesNotExistOnlyClampsTheGivenScroll() {
+        Rect small = new Rect(150, 32, 500, 140);
+        int max = SettingRowLayout.maxScroll(small, 6, WIDE);
+        assertEquals(max, SettingRowLayout.scrollToReveal(small, 6, 6, max + 400, WIDE));
+        assertEquals(0, SettingRowLayout.scrollToReveal(small, 0, 0, 0, WIDE));
+    }
+
+    @Test
+    void revealRejectsInvalidInput() {
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.scrollToReveal(null, 6, 0, 0, WIDE));
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.scrollToReveal(CONTENT, -1, 0, 0, WIDE));
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.scrollToReveal(CONTENT, 6, 0, -1, WIDE));
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.scrollToReveal(CONTENT, 6, 0, 0, null));
+    }
+
+    @Test
     void trackFillSpansTheRangeAndClampsOutsideIt() {
         assertEquals(0, SettingRowLayout.trackFill(60, 10, 10, 260));
         assertEquals(60, SettingRowLayout.trackFill(60, 260, 10, 260));

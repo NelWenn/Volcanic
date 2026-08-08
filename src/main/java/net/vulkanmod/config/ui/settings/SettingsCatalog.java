@@ -1,6 +1,7 @@
 package net.vulkanmod.config.ui.settings;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.language.I18n;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.option.Options;
 import net.vulkanmod.config.ui.core.SettingId;
@@ -117,7 +118,15 @@ public final class SettingsCatalog {
                 },
                 SettingsDefinitions.FRAMERATE_LIMIT_MIN, SettingsDefinitions.FRAMERATE_LIMIT_MAX,
                 SettingsDefinitions.FRAMERATE_LIMIT_STEP)
-                .withDefault(() -> SettingsDefinitions.FRAMERATE_LIMIT_DEFAULT));
+                .withDefault(() -> SettingsDefinitions.FRAMERATE_LIMIT_DEFAULT)
+                .withFormatter(SettingsCatalog::framerateLimitLabel));
+    }
+
+    private static String framerateLimitLabel(Object value) {
+        int limit = intValue(value);
+        return limit >= SettingsDefinitions.FRAMERATE_LIMIT_MAX
+                ? I18n.get("options.framerateLimit.max")
+                : String.valueOf(limit);
     }
 
     private static int highestRefreshRate() {

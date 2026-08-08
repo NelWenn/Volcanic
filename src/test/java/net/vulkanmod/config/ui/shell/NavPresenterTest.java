@@ -1,8 +1,13 @@
 package net.vulkanmod.config.ui.shell;
 
+import net.vulkanmod.config.ui.core.ApplyBarModel;
+import net.vulkanmod.config.ui.core.ApplyScope;
+import net.vulkanmod.config.ui.core.FocusRing;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.NavTree;
+import net.vulkanmod.config.ui.core.PendingChanges;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.settings.SettingsDefinitions;
 import org.junit.jupiter.api.Test;
@@ -153,6 +158,72 @@ class NavPresenterTest {
             }
         }
         assertEquals(List.of(), unresolved);
+    }
+
+    @Test
+    void everyApplyBarKeyAScopeCanProduceResolvesInEnUs() throws IOException {
+        Map<String, String> lang = readLang();
+        SettingId probe = SettingId.parse("vulkanmod:probe");
+
+        List<String> unusable = new ArrayList<>();
+        for (ApplyScope scope : ApplyScope.values()) {
+            if (scope == ApplyScope.INSTANT) {
+                continue;
+            }
+            PendingChanges pending = new PendingChanges();
+            pending.mark(probe, scope);
+            ApplyBarModel bar = ApplyBarModel.of(pending);
+            assertTrue(bar.visible(), scope + " must be announced");
+
+            String message = lang.get(bar.messageKey());
+            if (message == null || message.isBlank() || !message.contains("%d")) {
+                unusable.add(bar.messageKey());
+            }
+        }
+        assertEquals(List.of(), unusable);
+    }
+
+    @Test
+    void theContentRingHoldsTheSubTabsAndThenTheRowsOfTheCurrentRoute() {
+        NavPresenter presenter = new NavPresenter();
+        presenter.navigate(RouteId.parse("display.general"));
+
+        FocusRing ring = presenter.focus().ring(NavPresenter.REGION_CONTENT);
+        assertEquals(3, presenter.subTabs().size());
+        assertEquals(5, presenter.settings().size());
+        assertEquals(8, ring.size());
+        for (SettingMeta meta : presenter.settings()) {
+            assertTrue(ring.focus(meta.id().toString()), "row not focusable: " + meta.id());
+        }
+
+        presenter.navigate(RouteId.parse("display.advanced"));
+        assertEquals(3, ring.size());
+    }
+
+    @Test
+    void theFocusedSettingIsOnlyReadFromTheContentRegion() {
+        NavPresenter presenter = new NavPresenter();
+        presenter.navigate(RouteId.parse("display.general"));
+        presenter.focus().focusRegion(NavPresenter.REGION_CONTENT);
+        assertTrue(presenter.focus().ring(NavPresenter.REGION_CONTENT)
+                .focus(SettingsDefinitions.VSYNC.toString()));
+
+        assertEquals(SettingsDefinitions.VSYNC, presenter.focusedSetting().id());
+        assertNull(presenter.focusedRoute());
+
+        presenter.focus().focusRegion(NavPresenter.REGION_SIDEBAR);
+        assertNull(presenter.focusedSetting());
+    }
+
+    @Test
+    void aFocusedSubTabIsARouteAndNotASetting() {
+        NavPresenter presenter = new NavPresenter();
+        presenter.navigate(RouteId.parse("display.general"));
+        presenter.focus().focusRegion(NavPresenter.REGION_CONTENT);
+        assertTrue(presenter.focus().ring(NavPresenter.REGION_CONTENT).focus("display.advanced"));
+
+        assertEquals(RouteId.parse("display.advanced"), presenter.focusedRoute());
+        assertNull(presenter.focusedSetting());
     }
 
     @Test

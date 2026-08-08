@@ -2,6 +2,7 @@ package net.vulkanmod.config.ui.settings;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public final class SettingBinding {
@@ -9,13 +10,14 @@ public final class SettingBinding {
     private final Consumer<Object> setter;
     private final Supplier<List<String>> choices;
     private final Supplier<Object> defaultValue;
+    private final Function<Object, String> formatter;
     private final int min;
     private final int max;
     private final int step;
 
     private SettingBinding(Supplier<Object> getter, Consumer<Object> setter,
                            Supplier<List<String>> choices, Supplier<Object> defaultValue,
-                           int min, int max, int step) {
+                           Function<Object, String> formatter, int min, int max, int step) {
         if (getter == null || setter == null) {
             throw new IllegalArgumentException("getter and setter must not be null");
         }
@@ -23,13 +25,14 @@ public final class SettingBinding {
         this.setter = setter;
         this.choices = choices == null ? List::of : choices;
         this.defaultValue = defaultValue;
+        this.formatter = formatter;
         this.min = min;
         this.max = max;
         this.step = step;
     }
 
     public static SettingBinding of(Supplier<Object> getter, Consumer<Object> setter) {
-        return new SettingBinding(getter, setter, null, null, 0, 0, 1);
+        return new SettingBinding(getter, setter, null, null, null, 0, 0, 1);
     }
 
     public static SettingBinding ranged(Supplier<Object> getter, Consumer<Object> setter,
@@ -40,7 +43,7 @@ public final class SettingBinding {
         if (step <= 0) {
             throw new IllegalArgumentException("step must be positive: " + step);
         }
-        return new SettingBinding(getter, setter, null, null, min, max, step);
+        return new SettingBinding(getter, setter, null, null, null, min, max, step);
     }
 
     public static SettingBinding choosing(Supplier<Object> getter, Consumer<Object> setter,
@@ -48,14 +51,32 @@ public final class SettingBinding {
         if (choices == null) {
             throw new IllegalArgumentException("choices must not be null");
         }
-        return new SettingBinding(getter, setter, choices, null, 0, 0, 1);
+        return new SettingBinding(getter, setter, choices, null, null, 0, 0, 1);
     }
 
     public SettingBinding withDefault(Supplier<Object> supplier) {
         if (supplier == null) {
             throw new IllegalArgumentException("default supplier must not be null");
         }
-        return new SettingBinding(getter, setter, choices, supplier, min, max, step);
+        return copyWith(supplier, formatter);
+    }
+
+    public SettingBinding withFormatter(Function<Object, String> formatter) {
+        if (formatter == null) {
+            throw new IllegalArgumentException("formatter must not be null");
+        }
+        return copyWith(defaultValue, formatter);
+    }
+
+    public String display(Object value) {
+        if (value == null) {
+            throw new IllegalArgumentException("value must not be null");
+        }
+        return formatter == null ? String.valueOf(value) : formatter.apply(value);
+    }
+
+    private SettingBinding copyWith(Supplier<Object> defaultValue, Function<Object, String> formatter) {
+        return new SettingBinding(getter, setter, choices, defaultValue, formatter, min, max, step);
     }
 
     public Object get() {

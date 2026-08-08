@@ -130,6 +130,12 @@
   "vulkanmod.keybind.open_options": "Open Volcanic Settings",
   "vulkanmod.options.title": "Volcanic Graphics",
 
+  "vulkanmod.applybar.chunk_rebuild": "%d change(s) will apply once the chunks are rebuilt",
+  "vulkanmod.applybar.texture_reload": "%d change(s) will apply once the textures are reloaded",
+  "vulkanmod.applybar.swapchain": "%d change(s) will apply once the swapchain is recreated",
+  "vulkanmod.applybar.window": "%d change(s) will apply when the window updates",
+  "vulkanmod.applybar.restart": "%d change(s) will apply after restarting",
+
   "vulkanmod.ui.section.volcanic": "Volcanic",
   "vulkanmod.ui.section.content": "Content",
   "vulkanmod.ui.section.system": "System",

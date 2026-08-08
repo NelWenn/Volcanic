@@ -6,23 +6,24 @@ import net.vulkanmod.config.ui.core.ColorToken;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
+import net.vulkanmod.config.ui.core.SliderGeometry;
 import net.vulkanmod.config.ui.core.Theme;
 import net.vulkanmod.config.ui.render.SurfacePainter;
+import net.vulkanmod.config.ui.settings.SettingBinding;
 
 public final class SettingRowRenderer {
     private static final int ARROW_GAP = 6;
     private static final int GLYPH_INSET = 4;
 
-    private static final int PAD_X = 12;
     private static final int TEXT_HEIGHT = 9;
 
     private static final int PILL_WIDTH = 22;
     private static final int PILL_HEIGHT = 12;
     private static final int KNOB_INSET = 2;
 
-    private static final int TRACK_WIDTH = 56;
     private static final int TRACK_HEIGHT = 3;
     private static final int TRACK_GAP = 8;
+    private static final int KNOB_RADIUS = 2;
 
     private static final String ARROW_LEFT = "\u2039";
     private static final String ARROW_RIGHT = "\u203A";
@@ -37,8 +38,8 @@ public final class SettingRowRenderer {
         this.theme = theme;
     }
 
-    public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, Object value,
-                       boolean hovered, boolean resettable, boolean resetHovered, int min, int max) {
+    public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, SettingBinding binding,
+                       Object value, boolean enabled, boolean hovered, boolean resettable, boolean resetHovered) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
         }
@@ -50,6 +51,9 @@ public final class SettingRowRenderer {
         }
         if (meta == null) {
             throw new IllegalArgumentException("meta must not be null");
+        }
+        if (binding == null) {
+            throw new IllegalArgumentException("binding must not be null for setting " + meta.id());
         }
         if (value == null) {
             throw new IllegalArgumentException("value must not be null for setting " + meta.id());
@@ -63,21 +67,26 @@ public final class SettingRowRenderer {
             return;
         }
 
-        ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS, cardArgb(hovered));
-        ShellRenderer.paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS, borderArgb(hovered));
+        boolean highlighted = hovered && enabled;
+        boolean reset = resettable && enabled;
 
-        painter.text(card.x() + PAD_X, textTop(card), title(meta, resettable),
-                theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT), false);
+        ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS, cardArgb(highlighted));
+        ShellRenderer.paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS, borderArgb(highlighted));
 
-        if (resettable) {
+        painter.text(card.x() + ShellRenderer.CARD_PAD_X, textTop(card), title(meta, reset),
+                titleArgb(enabled, highlighted), false);
+
+        if (reset) {
             paintReset(painter, SettingRowLayout.resetBox(box), resetHovered);
         }
 
-        int right = card.right() - PAD_X;
+        int right = card.right() - ShellRenderer.CARD_PAD_X;
         switch (meta.type()) {
             case BOOL -> paintPill(painter, card, right, booleanValue(meta, value));
-            case INT -> paintTrack(painter, font, card, right, intValue(meta, value), min, max);
-            case ENUM -> paintCycler(painter, font, card, right, I18n.get(value.toString()), hovered);
+            case INT -> paintSlider(painter, font, box, card, right, binding.display(value),
+                    intValue(meta, value), binding.min(), binding.max(), enabled, highlighted);
+            case ENUM -> paintCycler(painter, font, card, right, I18n.get(binding.display(value)),
+                    enabled, highlighted);
         }
     }
 
@@ -124,41 +133,66 @@ public final class SettingRowRenderer {
                 theme.color(on ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_MUTED));
     }
 
-    private void paintTrack(SurfacePainter painter, Font font, Rect box, int right, int value, int min, int max) {
-        int valueX = paintValue(painter, font, box, right, String.valueOf(value));
-        if (max <= min) {
+    private void paintSlider(SurfacePainter painter, Font font, Rect row, Rect card, int right, String text,
+                             int value, int min, int max, boolean enabled, boolean active) {
+        Rect zone = max > min ? ShellRenderer.sliderTrack(row) : Rect.EMPTY;
+        paintValue(painter, font, card, zone.isEmpty() ? right : zone.x() - TRACK_GAP, text, valueArgb(enabled));
+        if (zone.isEmpty()) {
             return;
         }
 
-        Rect track = new Rect(valueX - TRACK_GAP - TRACK_WIDTH, box.y() + (box.height() - TRACK_HEIGHT) / 2,
-                TRACK_WIDTH, TRACK_HEIGHT);
-        if (track.x() <= box.x() + PAD_X) {
-            return;
-        }
-
+        Rect track = new Rect(zone.x(), zone.y() + (zone.height() - TRACK_HEIGHT) / 2,
+                zone.width(), TRACK_HEIGHT);
         painter.fill(track, theme.color(ColorToken.BORDER_DEFAULT));
-        int filled = SettingRowLayout.trackFill(TRACK_WIDTH, value, min, max);
+        int filled = SettingRowLayout.trackFill(track.width(), value, min, max);
         if (filled > 0) {
             painter.fill(new Rect(track.x(), track.y(), filled, TRACK_HEIGHT), theme.color(ColorToken.ACCENT));
         }
+
+        ShellRenderer.paintRoundedFill(painter,
+                SliderGeometry.knob(zone, value, min, max, SliderGeometry.KNOB_WIDTH),
+                KNOB_RADIUS, theme.color(knobToken(enabled, active)));
     }
 
-    private void paintCycler(SurfacePainter painter, Font font, Rect box, int right, String text, boolean hovered) {
-        int argb = theme.color(hovered ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_MUTED);
+    private static ColorToken knobToken(boolean enabled, boolean active) {
+        if (!enabled) {
+            return ColorToken.TEXT_FAINT;
+        }
+        return active ? ColorToken.ACCENT : ColorToken.TEXT_MUTED;
+    }
+
+    private void paintCycler(SurfacePainter painter, Font font, Rect box, int right, String text,
+                             boolean enabled, boolean hovered) {
+        int argb = arrowArgb(enabled, hovered);
         painter.text(right - font.width(ARROW_RIGHT), textTop(box), ARROW_RIGHT, argb, false);
 
         int valueRight = right - font.width(ARROW_RIGHT) - ARROW_GAP;
-        painter.text(valueRight - font.width(text), textTop(box), text,
-                theme.color(ColorToken.TEXT_SECONDARY), false);
+        painter.text(valueRight - font.width(text), textTop(box), text, valueArgb(enabled), false);
 
         int leftArrowX = valueRight - font.width(text) - ARROW_GAP - font.width(ARROW_LEFT);
         painter.text(leftArrowX, textTop(box), ARROW_LEFT, argb, false);
     }
 
-    private int paintValue(SurfacePainter painter, Font font, Rect box, int right, String text) {
-        int x = right - font.width(text);
-        painter.text(x, textTop(box), text, theme.color(ColorToken.TEXT_SECONDARY), false);
-        return x;
+    private void paintValue(SurfacePainter painter, Font font, Rect box, int right, String text, int argb) {
+        painter.text(right - font.width(text), textTop(box), text, argb, false);
+    }
+
+    private int titleArgb(boolean enabled, boolean hovered) {
+        if (!enabled) {
+            return theme.color(ColorToken.TEXT_FAINT);
+        }
+        return theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT);
+    }
+
+    private int valueArgb(boolean enabled) {
+        return theme.color(enabled ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_FAINT);
+    }
+
+    private int arrowArgb(boolean enabled, boolean hovered) {
+        if (!enabled) {
+            return theme.color(ColorToken.TEXT_FAINT);
+        }
+        return theme.color(hovered ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_MUTED);
     }
 
     private int cardArgb(boolean hovered) {

@@ -8,12 +8,16 @@ import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
+import net.vulkanmod.config.ui.core.SettingType;
 import net.vulkanmod.config.ui.core.ShellLayout;
+import net.vulkanmod.config.ui.core.SliderGeometry;
 import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
 import net.vulkanmod.config.ui.render.SurfacePainter;
+import net.vulkanmod.config.ui.settings.SettingBinding;
 
 import java.util.List;
 
@@ -29,6 +33,7 @@ public class VolcanicScreen extends Screen {
     private int sidebarScroll;
     private int contentScroll;
     private RouteId scrolledRoute;
+    private SettingId dragged;
     private boolean drawerOpen;
 
     public VolcanicScreen(Component title, Screen parent) {
@@ -54,7 +59,7 @@ public class VolcanicScreen extends Screen {
         syncContentScroll();
         SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
         renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, contentScroll,
-                mouseX, mouseY, drawerOpen);
+                mouseX, mouseY, dragged, drawerOpen);
     }
 
     @Override
@@ -83,7 +88,28 @@ public class VolcanicScreen extends Screen {
     }
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button == PRIMARY_BUTTON && dragSlider((int) mouseX)) {
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == PRIMARY_BUTTON && dragged != null) {
+            this.dragged = null;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (dragged != null) {
+            return true;
+        }
+
         int direction = (int) Math.signum(scrollY);
         if (direction == 0) {
             return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -128,14 +154,28 @@ public class VolcanicScreen extends Screen {
             }
             case NEXT, PREVIOUS, UP, DOWN, HOME, END -> {
                 presenter.focus().apply(action);
+                revealFocusedSetting();
                 return true;
             }
             case ACTIVATE -> {
                 RouteId route = presenter.focusedRoute();
-                if (route == null) {
+                if (route != null) {
+                    select(route, presenter.focus().activeRegion());
+                    return true;
+                }
+                SettingMeta focused = presenter.focusedSetting();
+                if (focused == null) {
                     return super.keyPressed(keyCode, scanCode, modifiers);
                 }
-                select(route, presenter.focus().activeRegion());
+                presenter.activate(focused);
+                return true;
+            }
+            case INCREASE, DECREASE -> {
+                SettingMeta focused = presenter.focusedSetting();
+                if (focused == null) {
+                    return super.keyPressed(keyCode, scanCode, modifiers);
+                }
+                presenter.step(focused, action == KeyAction.INCREASE ? 1 : -1);
                 return true;
             }
             default -> {
@@ -193,8 +233,51 @@ public class VolcanicScreen extends Screen {
             return true;
         }
 
+        if (meta.type() == SettingType.INT && presenter.catalog().enabled(meta.id())) {
+            Rect track = ShellRenderer.sliderTrack(boxes.get(index));
+            if (track.contains(mouseX, mouseY)) {
+                this.dragged = meta.id();
+                applySlider(meta, track, mouseX);
+                return true;
+            }
+        }
+
         presenter.activate(meta);
         return true;
+    }
+
+    private boolean dragSlider(int mouseX) {
+        if (dragged == null) {
+            return false;
+        }
+
+        List<SettingMeta> settings = presenter.settings();
+        List<Rect> boxes = renderer.settingRowBoxes(layout, presenter, contentScroll);
+        for (int index = 0; index < settings.size() && index < boxes.size(); index++) {
+            SettingMeta meta = settings.get(index);
+            if (meta.id().equals(dragged)) {
+                applySlider(meta, ShellRenderer.sliderTrack(boxes.get(index)), mouseX);
+                return true;
+            }
+        }
+
+        this.dragged = null;
+        return false;
+    }
+
+    private void applySlider(SettingMeta meta, Rect track, int mouseX) {
+        if (track.isEmpty()) {
+            return;
+        }
+
+        SettingBinding binding = presenter.catalog().binding(meta.id());
+        int value = SliderGeometry.valueAt(track, mouseX, binding.min(), binding.max(), binding.step());
+        if (binding.get() instanceof Number current && current.intValue() == value) {
+            return;
+        }
+
+        binding.set(value);
+        presenter.pending().mark(meta.id(), meta.scope());
     }
 
     private boolean clickBreadcrumb(int mouseX, int mouseY) {
@@ -227,6 +310,16 @@ public class VolcanicScreen extends Screen {
             FocusHandoff.enter(presenter.focus(), NavPresenter.REGION_CONTENT,
                     presenter.stack().current().toString());
         }
+    }
+
+    private void revealFocusedSetting() {
+        SettingMeta focused = presenter.focusedSetting();
+        if (focused == null) {
+            return;
+        }
+        List<SettingMeta> settings = presenter.settings();
+        this.contentScroll = SettingRowLayout.scrollToReveal(layout.content(), settings.size(),
+                settings.indexOf(focused), contentScroll, layout.breakpoint());
     }
 
     private void syncContentScroll() {

@@ -8,6 +8,7 @@ import net.vulkanmod.config.ui.core.NavTree;
 import net.vulkanmod.config.ui.core.PendingChanges;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingMeta;
+import net.vulkanmod.config.ui.core.SettingType;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.settings.SettingBinding;
 import net.vulkanmod.config.ui.settings.SettingsCatalog;
@@ -89,6 +90,27 @@ public final class NavPresenter {
                 return false;
             }
         }
+        pending.mark(meta.id(), meta.scope());
+        return true;
+    }
+
+    public boolean step(SettingMeta meta, int direction) {
+        if (meta == null) {
+            throw new IllegalArgumentException("meta must not be null");
+        }
+        if (meta.type() != SettingType.INT || direction == 0 || !catalog.enabled(meta.id())) {
+            return false;
+        }
+
+        SettingBinding binding = catalog.binding(meta.id());
+        int current = intValue(meta, binding.get());
+        int value = Math.max(binding.min(),
+                Math.min(binding.max(), current + Integer.signum(direction) * binding.step()));
+        if (value == current) {
+            return false;
+        }
+
+        binding.set(value);
         pending.mark(meta.id(), meta.scope());
         return true;
     }
@@ -175,6 +197,22 @@ public final class NavPresenter {
         return null;
     }
 
+    public SettingMeta focusedSetting() {
+        if (!REGION_CONTENT.equals(focus.activeRegion())) {
+            return null;
+        }
+        String focusedId = focus.focused();
+        if (focusedId == null) {
+            return null;
+        }
+        for (SettingMeta meta : settings()) {
+            if (meta.id().toString().equals(focusedId)) {
+                return meta;
+            }
+        }
+        return null;
+    }
+
     private List<NavNode> activatableNodes(String regionId) {
         if (REGION_SIDEBAR.equals(regionId)) {
             return tree.sidebarRows();
@@ -190,6 +228,13 @@ public final class NavPresenter {
             throw new IllegalArgumentException("choices must not be empty");
         }
         return choices.get((choices.indexOf(current) + 1) % choices.size());
+    }
+
+    private static int intValue(SettingMeta meta, Object value) {
+        if (!(value instanceof Number number)) {
+            throw new IllegalArgumentException("setting " + meta.id() + " is INT but its value is " + value);
+        }
+        return number.intValue();
     }
 
     private static boolean boolValue(SettingMeta meta, Object value) {
@@ -214,6 +259,9 @@ public final class NavPresenter {
         ring.clear();
         for (NavNode child : subTabs()) {
             ring.register(child.route().toString(), true);
+        }
+        for (SettingMeta meta : settings()) {
+            ring.register(meta.id().toString(), true);
         }
     }
 

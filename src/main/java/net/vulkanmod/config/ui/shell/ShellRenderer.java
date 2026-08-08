@@ -3,6 +3,8 @@ package net.vulkanmod.config.ui.shell;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
+import net.vulkanmod.config.ui.core.ApplyBarModel;
+import net.vulkanmod.config.ui.core.ApplyScope;
 import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.ColorToken;
 import net.vulkanmod.config.ui.core.Gradient;
@@ -11,11 +13,13 @@ import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.ScrollIndicator;
+import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
 import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.core.SidebarViewport;
+import net.vulkanmod.config.ui.core.SliderGeometry;
 import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
 import net.vulkanmod.config.ui.render.SurfacePainter;
@@ -35,6 +39,9 @@ public final class ShellRenderer {
     private static final int ROW_INSET_X = 4;
     private static final int ROW_INSET_Y = 1;
     private static final int ACCENT_BAR_WIDTH = 2;
+
+    static final int CARD_PAD_X = 12;
+    static final int SLIDER_TRACK_WIDTH = 56;
 
     private static final int CONTENT_PAD_X = 14;
     private static final int BREADCRUMB_Y = 12;
@@ -61,7 +68,7 @@ public final class ShellRenderer {
 
     public void render(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
                        NavPresenter presenter, int scroll, int contentScroll, int mouseX, int mouseY,
-                       boolean drawerOpen) {
+                       SettingId dragged, boolean drawerOpen) {
         if (graphics == null) {
             throw new IllegalArgumentException("graphics must not be null");
         }
@@ -77,6 +84,7 @@ public final class ShellRenderer {
         }
 
         paintChrome(painter, layout, drawerOpen);
+        paintApplyBar(painter, layout, presenter);
         painter.flush();
 
         Rect nav = layout.sidebarOrDrawer(drawerOpen);
@@ -88,7 +96,7 @@ public final class ShellRenderer {
         if (!content.isEmpty()) {
             graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
             try {
-                paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
+                paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged);
                 painter.flush();
             } finally {
                 graphics.disableScissor();
@@ -170,6 +178,13 @@ public final class ShellRenderer {
         return SettingRowLayout.rows(layout.content(), presenter.settings().size(), scroll, layout.breakpoint());
     }
 
+    public static Rect sliderTrack(Rect row) {
+        if (row == null) {
+            throw new IllegalArgumentException("row must not be null");
+        }
+        return SliderGeometry.track(SettingRowLayout.cardBox(row), CARD_PAD_X, SLIDER_TRACK_WIDTH);
+    }
+
     public ScrollIndicator contentScrollIndicator(ShellLayout layout, NavPresenter presenter, int scroll) {
         if (layout == null) {
             throw new IllegalArgumentException("layout must not be null");
@@ -222,6 +237,17 @@ public final class ShellRenderer {
         if (!menu.isEmpty()) {
             paintMenuIcon(painter, menu, theme.color(drawerOpen ? ColorToken.ACCENT : ColorToken.TEXT_SECONDARY));
         }
+    }
+
+    private void paintApplyBar(SurfacePainter painter, ShellLayout layout, NavPresenter presenter) {
+        ApplyBarModel bar = ApplyBarModel.of(presenter.pending());
+        Rect region = layout.bottomBar();
+        if (!bar.visible() || region.isEmpty()) {
+            return;
+        }
+        ColorToken token = bar.scope() == ApplyScope.RESTART ? ColorToken.WARNING : ColorToken.TEXT_SECONDARY;
+        painter.text(region.x() + CONTENT_PAD_X, region.y() + (region.height() - TEXT_HEIGHT) / 2,
+                I18n.get(bar.messageKey(), bar.count()), theme.color(token), false);
     }
 
     private static void paintMenuIcon(SurfacePainter painter, Rect button, int argb) {
@@ -283,7 +309,7 @@ public final class ShellRenderer {
     }
 
     private void paintContent(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                              int contentScroll, int mouseX, int mouseY) {
+                              int contentScroll, int mouseX, int mouseY, SettingId dragged) {
         Rect content = layout.content();
         if (content.isEmpty()) {
             return;
@@ -295,7 +321,7 @@ public final class ShellRenderer {
                 theme.color(ColorToken.TEXT_PRIMARY), false);
 
         paintTabStrip(painter, font, layout, presenter);
-        paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
+        paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged);
         paintScrollIndicator(painter, layout, presenter, contentScroll);
     }
 
@@ -314,19 +340,22 @@ public final class ShellRenderer {
     }
 
     private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                               int contentScroll, int mouseX, int mouseY) {
+                               int contentScroll, int mouseX, int mouseY, SettingId dragged) {
         List<SettingMeta> settings = presenter.settings();
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
         SettingsCatalog catalog = presenter.catalog();
+        String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
         for (int i = 0; i < boxes.size(); i++) {
             Rect box = boxes.get(i);
             SettingMeta meta = settings.get(i);
             SettingBinding binding = catalog.binding(meta.id());
-            boolean resettable = presenter.resettable(meta);
-            rowRenderer.render(painter, font, box, meta, binding.get(),
-                    box.contains(mouseX, mouseY) && catalog.enabled(meta.id()), resettable,
-                    resettable && SettingRowLayout.resetBox(box).contains(mouseX, mouseY),
-                    binding.min(), binding.max());
+            rowRenderer.render(painter, font, box, meta, binding, binding.get(), catalog.enabled(meta.id()),
+                    box.contains(mouseX, mouseY) || meta.id().equals(dragged), presenter.resettable(meta),
+                    SettingRowLayout.resetBox(box).contains(mouseX, mouseY));
+            if (meta.id().toString().equals(focusedId)) {
+                paintRoundedOutline(painter, SettingRowLayout.cardBox(box), SettingRowLayout.CARD_RADIUS,
+                        theme.color(ColorToken.ACCENT));
+            }
         }
     }
 

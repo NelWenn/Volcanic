@@ -101,6 +101,34 @@ public final class SettingRowLayout {
         return Math.min(Math.max(0, scroll), maxScroll(content, count, breakpoint));
     }
 
+    public static int scrollToReveal(Rect content, int count, int index, int scroll, Breakpoint breakpoint) {
+        if (content == null) {
+            throw new IllegalArgumentException("content must not be null");
+        }
+        if (count < 0) {
+            throw new IllegalArgumentException("count must not be negative: " + count);
+        }
+        if (scroll < 0) {
+            throw new IllegalArgumentException("scroll must not be negative: " + scroll);
+        }
+        requireBreakpoint(breakpoint);
+
+        if (index < 0 || index >= count) {
+            return clampScroll(scroll, content, count, breakpoint);
+        }
+
+        int top = TOP + index * (rowHeight(breakpoint) + rowGap(breakpoint));
+        int bottom = top + rowHeight(breakpoint);
+        int offset = scroll;
+        if (bottom > offset + content.height() - BOTTOM) {
+            offset = bottom - content.height() + BOTTOM;
+        }
+        if (top < offset + TOP) {
+            offset = top - TOP;
+        }
+        return clampScroll(Math.max(0, offset), content, count, breakpoint);
+    }
+
     public static int trackFill(int trackWidth, int value, int min, int max) {
         if (trackWidth < 0) {
             throw new IllegalArgumentException("trackWidth must not be negative: " + trackWidth);
