@@ -72,8 +72,9 @@ public final class FocusTree {
             int index = Math.floorMod(start + direction * i, order.size());
             String candidate = order.get(index);
             if (Boolean.TRUE.equals(enabled.get(candidate))) {
+                boolean moved = !candidate.equals(focused);
                 focused = candidate;
-                return true;
+                return moved;
             }
         }
         return false;

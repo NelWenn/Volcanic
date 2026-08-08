@@ -125,4 +125,40 @@ class FocusTreeTest {
         assertEquals(0, tree.size());
         assertNull(tree.focused());
     }
+
+    @Test
+    void singleEntryTreeReportsNoMovement() {
+        FocusTree tree = new FocusTree();
+        tree.register("a", true);
+        tree.focus("a");
+        assertFalse(tree.apply(KeyAction.NEXT));
+        assertFalse(tree.apply(KeyAction.PREVIOUS));
+        assertEquals("a", tree.focused());
+    }
+
+    @Test
+    void wrappingOntoTheOnlyEnabledEntryReportsNoMovement() {
+        FocusTree tree = new FocusTree();
+        tree.register("a", true);
+        tree.register("b", true);
+        tree.register("c", true);
+        tree.setEnabled("a", false);
+        tree.setEnabled("c", false);
+        tree.focus("b");
+        assertFalse(tree.apply(KeyAction.NEXT));
+        assertEquals("b", tree.focused());
+    }
+
+    @Test
+    void focusingFromUnfocusedReportsMovement() {
+        FocusTree tree = threeEnabled();
+        assertTrue(tree.apply(KeyAction.NEXT));
+    }
+
+    @Test
+    void previousFromUnfocusedLandsOnTheLastEntry() {
+        FocusTree tree = threeEnabled();
+        assertTrue(tree.apply(KeyAction.PREVIOUS));
+        assertEquals("c", tree.focused());
+    }
 }
