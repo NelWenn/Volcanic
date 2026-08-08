@@ -1,7 +1,6 @@
 package net.vulkanmod.render.profiling;
 
 import com.google.common.base.Strings;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -64,8 +63,6 @@ public class ProfilerOverlay {
 
         Objects.requireNonNull(this.font);
 
-        RenderSystem.enableBlend();
-
         for (int i = 0; i < infoList.size(); ++i) {
             String line = infoList.get(i);
             if (!Strings.isNullOrEmpty(line)) {
@@ -78,8 +75,6 @@ public class ProfilerOverlay {
                 painter.fill(new Rect(x0, y0, x1 - x0, y1 - y0), backgroundColor);
             }
         }
-
-        RenderSystem.disableBlend();
 
         for (int i = 0; i < infoList.size(); ++i) {
             String line = infoList.get(i);

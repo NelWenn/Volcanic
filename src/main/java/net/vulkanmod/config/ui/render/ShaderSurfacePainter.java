@@ -19,8 +19,7 @@ public final class ShaderSurfacePainter implements SurfacePainter {
     private static final int MAX_GLOW_RADIUS = 255;
 
     private final PaintQueue queue = new PaintQueue();
-    private final List<PaintOp.RoundedSurface> surfaces = new ArrayList<>();
-    private final List<PaintOp.Text> texts = new ArrayList<>();
+    private final List<PaintOp.RoundedSurface> pending = new ArrayList<>();
     private final GuiGraphics graphics;
     private final Font font;
 
@@ -47,36 +46,33 @@ public final class ShaderSurfacePainter implements SurfacePainter {
 
     @Override
     public void flush() {
-        surfaces.clear();
-        texts.clear();
+        pending.clear();
 
         for (PaintOp op : queue.drain()) {
-            if (op instanceof PaintOp.Fill fill) {
-                graphics.fill(fill.rect().x(), fill.rect().y(), fill.rect().right(), fill.rect().bottom(), fill.argb());
-            } else if (op instanceof PaintOp.RoundedSurface surface) {
-                surfaces.add(surface);
-            } else if (op instanceof PaintOp.Text text) {
-                texts.add(text);
+            switch (op) {
+                case PaintOp.RoundedSurface surface -> pending.add(surface);
+                case PaintOp.Fill(Rect rect, int argb) -> {
+                    drawPending();
+                    graphics.fill(rect.x(), rect.y(), rect.right(), rect.bottom(), argb);
+                }
+                case PaintOp.Text(int x, int y, String value, int argb, boolean shadow) -> {
+                    drawPending();
+                    graphics.drawString(font, value, x, y, argb, shadow);
+                }
             }
         }
 
-        drawSurfaces();
-
-        for (PaintOp.Text text : texts) {
-            graphics.drawString(font, text.value(), text.x(), text.y(), text.argb(), text.shadow());
-        }
-
-        surfaces.clear();
-        texts.clear();
+        drawPending();
     }
 
-    private void drawSurfaces() {
-        if (surfaces.isEmpty()) {
+    private void drawPending() {
+        if (pending.isEmpty()) {
             return;
         }
 
         if (!GuiSurfacePipeline.isAvailable()) {
-            drawSurfacesAsFills();
+            drawPendingAsFills();
+            pending.clear();
             return;
         }
 
@@ -86,6 +82,8 @@ public final class ShaderSurfacePainter implements SurfacePainter {
         } catch (Throwable throwable) {
             recoverFromDrawFailure(throwable);
         }
+
+        pending.clear();
     }
 
     private void emitBatch() {
@@ -94,23 +92,33 @@ public final class ShaderSurfacePainter implements SurfacePainter {
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.disableCull();
-        RenderSystem.setShader(GuiSurfacePipeline::shader);
 
-        Matrix4f pose = graphics.pose().last().pose();
-        BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, GuiSurfacePipeline.format());
+        try {
+            RenderSystem.setShader(GuiSurfacePipeline::shader);
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
-        for (PaintOp.RoundedSurface surface : surfaces) {
-            emitSurface(builder, pose, surface);
+            Matrix4f pose = graphics.pose().last().pose();
+            BufferBuilder builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, GuiSurfacePipeline.format());
+
+            for (PaintOp.RoundedSurface surface : pending) {
+                emitGlow(builder, pose, surface);
+            }
+            for (PaintOp.RoundedSurface surface : pending) {
+                emitFill(builder, pose, surface);
+            }
+            for (PaintOp.RoundedSurface surface : pending) {
+                emitBorder(builder, pose, surface);
+            }
+
+            MeshData mesh = builder.build();
+            if (mesh != null) {
+                BufferUploader.drawWithShader(mesh);
+            }
+        } finally {
+            RenderSystem.enableDepthTest();
+            RenderSystem.depthMask(true);
+            RenderSystem.enableCull();
         }
-
-        MeshData mesh = builder.build();
-        if (mesh != null) {
-            BufferUploader.drawWithShader(mesh);
-        }
-
-        RenderSystem.enableDepthTest();
-        RenderSystem.depthMask(true);
-        RenderSystem.enableCull();
     }
 
     private void recoverFromDrawFailure(Throwable throwable) {
@@ -120,19 +128,42 @@ public final class ShaderSurfacePainter implements SurfacePainter {
         }
 
         GuiSurfacePipeline.markUnavailable("a rounded surface batch failed to draw", throwable);
-        drawSurfacesAsFills();
+        drawPendingAsFills();
     }
 
-    private void drawSurfacesAsFills() {
+    private void drawPendingAsFills() {
         SurfacePainter fallback = new FillSurfacePainter(graphics, font);
-        for (PaintOp.RoundedSurface surface : surfaces) {
+        for (PaintOp.RoundedSurface surface : pending) {
             fallback.surface(surface.rect(), surface.radius(), surface.fillArgb(), surface.borderArgb(),
                     surface.glowArgb(), surface.glowRadius());
         }
         fallback.flush();
     }
 
-    private static void emitSurface(BufferBuilder builder, Matrix4f pose, PaintOp.RoundedSurface surface) {
+    private static void emitGlow(BufferBuilder builder, Matrix4f pose, PaintOp.RoundedSurface surface) {
+        int glowRadius = clamp(surface.glowRadius(), 0, MAX_GLOW_RADIUS);
+        if (glowRadius <= 0 || alpha(surface.glowArgb()) == 0) {
+            return;
+        }
+        emitLayer(builder, pose, surface, glowRadius, surface.glowArgb(), 1.0f, 0.0f, 0.0f);
+    }
+
+    private static void emitFill(BufferBuilder builder, Matrix4f pose, PaintOp.RoundedSurface surface) {
+        if (alpha(surface.fillArgb()) == 0) {
+            return;
+        }
+        emitLayer(builder, pose, surface, EDGE_PAD, surface.fillArgb(), 0.0f, 1.0f, 0.0f);
+    }
+
+    private static void emitBorder(BufferBuilder builder, Matrix4f pose, PaintOp.RoundedSurface surface) {
+        if (surface.borderArgb() == 0) {
+            return;
+        }
+        emitLayer(builder, pose, surface, EDGE_PAD, surface.borderArgb(), 0.0f, 0.0f, 1.0f);
+    }
+
+    private static void emitLayer(BufferBuilder builder, Matrix4f pose, PaintOp.RoundedSurface surface, int pad,
+                                  int argb, float modeGlow, float modeFill, float modeBorder) {
         Rect rect = surface.rect();
         int width = rect.width();
         int height = rect.height();
@@ -142,26 +173,6 @@ public final class ShaderSurfacePainter implements SurfacePainter {
         float centerX = rect.x() + width * 0.5f;
         float centerY = rect.y() + height * 0.5f;
 
-        if (glowRadius > 0 && alpha(surface.glowArgb()) != 0) {
-            emitLayer(builder, pose, rect, glowRadius, centerX, centerY, width, height, radius, glowRadius,
-                    surface.glowArgb(), 1.0f, 0.0f, 0.0f);
-        }
-
-        if (alpha(surface.fillArgb()) != 0) {
-            emitLayer(builder, pose, rect, EDGE_PAD, centerX, centerY, width, height, radius, glowRadius,
-                    surface.fillArgb(), 0.0f, 1.0f, 0.0f);
-        }
-
-        if (surface.borderArgb() != 0) {
-            emitLayer(builder, pose, rect, EDGE_PAD, centerX, centerY, width, height, radius, glowRadius,
-                    surface.borderArgb(), 0.0f, 0.0f, 1.0f);
-        }
-    }
-
-    private static void emitLayer(BufferBuilder builder, Matrix4f pose, Rect rect, int pad,
-                                  float centerX, float centerY, int width, int height,
-                                  int radius, int glowRadius, int argb,
-                                  float modeGlow, float modeFill, float modeBorder) {
         float left = rect.x() - pad;
         float top = rect.y() - pad;
         float right = rect.right() + pad;
