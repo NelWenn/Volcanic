@@ -61,12 +61,12 @@ public final class FrameGraph {
         }
     }
 
-    static final class Node {
-        final Class<? extends PipelineDefinition> pipeline;
-        final Phase phase;
-        final Class<? extends PassExecutor> executor;
-        final Map<Integer, String> inputs;
-        final String output;
+    public static final class Node {
+        public final Class<? extends PipelineDefinition> pipeline;
+        public final Phase phase;
+        public final Class<? extends PassExecutor> executor;
+        public final Map<Integer, String> inputs;
+        public final String output;
         PassExecutor executorInstance;
 
         Node(Class<? extends PipelineDefinition> pipeline, Phase phase, Class<? extends PassExecutor> executor,
@@ -78,9 +78,13 @@ public final class FrameGraph {
             this.output = output;
         }
 
-        boolean isExecutor() {
+        public boolean isExecutor() {
             return this.executor != PassExecutor.class;
         }
+    }
+
+    public record ResourceInfo(String name, int vkFormat, float scale, float clear, boolean pingpong,
+                                int width, int height, int firstWritePass, int lastReadPass, boolean allocated) {
     }
 
     private final String id;
@@ -97,30 +101,29 @@ public final class FrameGraph {
         for (int i = 0; i < this.passes.size(); i++) {
             Node pass = this.passes.get(i);
             Resource out = this.targets.get(pass.output);
-            if (out != null && out.firstWrite < 0) {
+
+            if (out != null && out.firstWrite < 0)
                 out.firstWrite = i;
-            }
+
             for (String in : pass.inputs.values()) {
                 String base = in.endsWith("_history") ? in.substring(0, in.length() - "_history".length()) : in;
                 Resource r = this.targets.get(base);
-                if (r != null) {
+
+                if (r != null)
                     r.lastRead = i;
-                }
             }
         }
         for (Resource r : this.targets.values()) {
-            if (r.firstWrite < 0) {
+            if (r.firstWrite < 0)
                 Initializer.LOGGER.warn("Frame graph '{}': target '{}' is never written", this.id, r.name);
-            }
         }
     }
 
     public boolean pipelinesReady() {
-        for (Node pass : this.passes) {
-            if (!pass.isExecutor() && PipelineRegistry.getOrNull(pass.pipeline) == null) {
+        for (Node pass : this.passes)
+            if (!pass.isExecutor() && PipelineRegistry.getOrNull(pass.pipeline) == null)
                 return false;
-            }
-        }
+
         return true;
     }
 
@@ -131,9 +134,10 @@ public final class FrameGraph {
         for (Resource target : this.targets.values()) {
             int w = Math.max(1, (int) (mainWidth * target.scale));
             int h = Math.max(1, (int) (mainHeight * target.scale));
-            if (target.framebuffers[0] != null && target.w == w && target.h == h) {
+
+            if (target.framebuffers[0] != null && target.w == w && target.h == h)
                 continue;
-            }
+
             dispose(target);
             for (int i = 0; i < target.buffers(); i++) {
                 VulkanImage image = VulkanImage.builder(w, h)
@@ -142,19 +146,26 @@ public final class FrameGraph {
                         .setLinearFiltering(true)
                         .setClamp(true)
                         .createVulkanImage();
+
                 target.framebuffers[i] = Framebuffer.builder(image, null).build();
+
                 RenderPass.Builder builder = RenderPass.builder(target.framebuffers[i]);
                 builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
                 builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
+
                 target.renderPasses[i] = builder.build();
                 image.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
                 VkClearColorValue clearColor = VkClearColorValue.calloc(stack);
                 clearColor.float32(0, target.clear);
+
                 VkImageSubresourceRange.Buffer range = VkImageSubresourceRange.calloc(1, stack);
                 range.aspectMask(VK_IMAGE_ASPECT_COLOR_BIT).baseMipLevel(0).levelCount(1).baseArrayLayer(0).layerCount(1);
+
                 vkCmdClearColorImage(commandBuffer, image.getId(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, clearColor, range);
                 image.transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
+
             target.index = 0;
             target.w = w;
             target.h = h;
@@ -185,11 +196,14 @@ public final class FrameGraph {
             if (pass.phase != phase) {
                 continue;
             }
+
             if (pass.isExecutor()) {
                 runExecutor(pass, commandBuffer, stack);
                 continue;
             }
+
             GraphicsPipeline pipeline = PipelineRegistry.getOrNull(pass.pipeline);
+
             if (pipeline == null) {
                 return false;
             }
@@ -214,14 +228,13 @@ public final class FrameGraph {
             DrawUtil.blit(pipeline);
             Renderer.getInstance().endRenderPass(commandBuffer);
             fb.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            if (out.pingpong) {
+
+            if (out.pingpong)
                 swapped.add(out);
-            }
         }
 
-        for (Resource r : swapped) {
+        for (Resource r : swapped)
             r.index ^= 1;
-        }
         return presented;
     }
 
@@ -281,44 +294,79 @@ public final class FrameGraph {
         return new Builder(id);
     }
 
+    public Node getRoot() {
+        return this.passes.getFirst();
+    }
+
+    public String getId() {
+        return this.id;
+    }
+
+    /** All passes in execution order, just for the overlay */
+    public List<Node> getPasses() {
+        return List.copyOf(this.passes);
+    }
+
+    /** Snapshot of resources, for the overlay */
+    public List<ResourceInfo> getResourceInfos() {
+        List<ResourceInfo> infos = new ArrayList<>(this.targets.size());
+
+        for (Resource r : this.targets.values()) {
+            infos.add(new ResourceInfo(r.name, r.vkFormat, r.scale, r.clear, r.pingpong,
+                    r.w, r.h, r.firstWrite, r.lastRead, r.framebuffers[0] != null));
+        }
+
+        return infos;
+    }
+
     public static FrameGraph fromPasses(String id, Class<?>... passClasses) {
         Builder builder = new Builder(id);
         List<PassSpec> specs = new ArrayList<>();
+
         for (Class<?> passClass : passClasses) {
             Pass ann = passClass.getAnnotation(Pass.class);
-            if (ann == null) {
+
+            if (ann == null)
                 throw new IllegalStateException(passClass.getName() + " has no @Pass annotation");
-            }
+
             boolean executorPass = ann.executor() != PassExecutor.class;
+
             Map<Integer, String> inputs = new LinkedHashMap<>();
             List<String> outputs = new ArrayList<>();
+
             int slot = 0;
+
             for (Field field : passClass.getDeclaredFields()) {
                 Input in = field.getAnnotation(Input.class);
                 if (in != null) {
                     inputs.put(slot++, in.value());
                     continue;
                 }
+
                 Output out = field.getAnnotation(Output.class);
+
                 if (out != null) {
                     outputs.add(out.value());
-                    if (!SWAPCHAIN.equals(out.value()) && !executorPass) {
+                    if (!SWAPCHAIN.equals(out.value()) && !executorPass)
                         builder.target(out.value(), out.format().vk, out.scale(), out.clear(), out.pingpong());
-                    }
                 }
             }
-            if (outputs.isEmpty()) {
+
+            if (outputs.isEmpty())
                 throw new IllegalStateException(passClass.getName() + " has no @Output field");
-            }
+
             specs.add(new PassSpec(ann.pipeline(), ann.phase(), ann.executor(), inputs, outputs));
         }
+
         for (PassSpec spec : topoSort(id, specs)) {
             PassBuilder passBuilder = builder.pass(spec.pipeline()).phase(spec.phase()).executor(spec.executor());
-            for (Map.Entry<Integer, String> input : spec.inputs().entrySet()) {
+
+            for (Map.Entry<Integer, String> input : spec.inputs().entrySet())
                 passBuilder.in(input.getKey(), input.getValue());
-            }
-            passBuilder.out(spec.outputs().get(0));
+
+            passBuilder.out(spec.outputs().getFirst());
         }
+
         return builder.build();
     }
 
@@ -328,28 +376,32 @@ public final class FrameGraph {
 
     private static List<PassSpec> topoSort(String id, List<PassSpec> specs) {
         Map<String, PassSpec> producer = new HashMap<>();
+
         for (PassSpec spec : specs) {
             for (String out : spec.outputs()) {
                 producer.put(out, spec);
             }
         }
+
         Map<PassSpec, Set<PassSpec>> dependencies = new LinkedHashMap<>();
         Map<PassSpec, Integer> indegree = new LinkedHashMap<>();
+
         for (PassSpec spec : specs) {
             dependencies.put(spec, new LinkedHashSet<>());
             indegree.put(spec, 0);
         }
+
         for (PassSpec spec : specs) {
             for (String input : spec.inputs().values()) {
-                if (input.endsWith("_history")) {
+                if (input.endsWith("_history"))
                     continue;
-                }
+
                 PassSpec upstream = producer.get(input);
-                if (upstream != null && upstream != spec && dependencies.get(spec).add(upstream)) {
+                if (upstream != null && upstream != spec && dependencies.get(spec).add(upstream))
                     indegree.merge(spec, 1, Integer::sum);
-                }
             }
         }
+
         Deque<PassSpec> ready = new ArrayDeque<>();
         for (PassSpec spec : specs) {
             if (indegree.get(spec) == 0) {
@@ -357,6 +409,7 @@ public final class FrameGraph {
             }
         }
         List<PassSpec> ordered = new ArrayList<>();
+
         while (!ready.isEmpty()) {
             PassSpec spec = ready.poll();
             ordered.add(spec);

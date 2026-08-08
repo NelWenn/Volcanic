@@ -1,5 +1,6 @@
 package net.vulkanmod.render.chunk.buffer;
 
+import net.vulkanmod.render.pipeline.RenderPipeline;
 import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.ChunkArea;
 import net.vulkanmod.render.chunk.RenderSection;
@@ -139,7 +140,7 @@ public class DrawBuffers {
 
             boolean isTranslucent = terrainRenderType == TerrainRenderType.TRANSLUCENT;
             boolean fadeFilter = fadeNow != 0L;
-            boolean occlusionActive = occlusion && net.vulkanmod.render.culling.DepthOcclusion.active();
+            boolean occlusionActive = occlusion && DepthOcclusion.active();
 
             int drawCount = 0;
 
@@ -201,7 +202,7 @@ public class DrawBuffers {
     public boolean buildDrawBatchesDirect(StaticQueue<RenderSection> queue, TerrainRenderType renderType, long fadeNow, boolean fadingOnly, boolean occlusion) {
         boolean isTranslucent = renderType == TerrainRenderType.TRANSLUCENT;
         boolean fadeFilter = fadeNow != 0L;
-        boolean occlusionActive = occlusion && net.vulkanmod.render.culling.DepthOcclusion.active();
+        boolean occlusionActive = occlusion && DepthOcclusion.active();
         VkCommandBuffer commandBuffer = Renderer.getCommandBuffer();
 
         boolean sawFading = false;
@@ -249,7 +250,8 @@ public class DrawBuffers {
                 drawParameters.vertexOffset, drawParameters.baseInstance);
     }
 
-    public void bindBuffers(VkCommandBuffer commandBuffer, Pipeline pipeline, TerrainRenderType terrainRenderType, double camX, double camY, double camZ) {
+    public void bindBuffers(VkCommandBuffer commandBuffer, RenderPipeline renderPipeline, TerrainRenderType terrainRenderType, double camX, double camY, double camZ) {
+        Pipeline pipeline = (Pipeline) renderPipeline;
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             var vertexBuffer = getAreaBuffer(terrainRenderType);

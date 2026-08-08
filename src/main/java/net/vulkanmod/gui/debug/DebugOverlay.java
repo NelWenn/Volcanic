@@ -1,10 +1,11 @@
-package net.vulkanmod.gui;
+package net.vulkanmod.gui.debug;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.server.MinecraftServer;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.gui.HUD;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.device.Device;
@@ -54,10 +55,21 @@ public class DebugOverlay extends HUD {
     private long lastFrameTimestamp = System.nanoTime();
     private int cached1PercentLow = 0;
     private long lastLowUpdate = 0;
+    private int HUDState = 0;
 
     public DebugOverlay() {
         super("vulkanmod.keybind.toggle_debug_overlay", GLFW.GLFW_KEY_END, "Volcanic");
         this.setEnabled(false);
+    }
+
+    @Override
+    public void toggle() {
+        HUDState = (HUDState + 1) % 4;
+    }
+
+    @Override
+    public boolean shouldRender() {
+        return HUDState > 0;
     }
 
     @Override
@@ -98,33 +110,37 @@ public class DebugOverlay extends HUD {
         drawPanel(guiGraphics, MARGIN, currentY, perfWidth, perfHeight);
         guiGraphics.drawString(font, perfLine, MARGIN + PADDING, currentY + PADDING, TEXT_COLOR, false);
 
-        currentY += perfHeight + PANEL_GAP;
+        if (HUDState > 1) {
+            currentY += perfHeight + PANEL_GAP;
 
-        List<String> debugLines = buildDebug();
+            List<String> debugLines = buildDebug();
 
-        int debugWidth = 250 + PADDING * 2;
-        int debugHeight = LINE_HEIGHT * debugLines.size() + PADDING * 2;
+            int debugWidth = 250 + PADDING * 2;
+            int debugHeight = LINE_HEIGHT * debugLines.size() + PADDING * 2;
 
-        drawPanel(guiGraphics, MARGIN, currentY, debugWidth, debugHeight);
-        renderTextLines(guiGraphics, debugLines, MARGIN + PADDING, currentY + PADDING);
+            drawPanel(guiGraphics, MARGIN, currentY, debugWidth, debugHeight);
+            renderTextLines(guiGraphics, debugLines, MARGIN + PADDING, currentY + PADDING);
+        }
 
-        int hwTextWidth = getMaxWidth(cachedHwLines);
-        int swTextWidth = getMaxWidth(cachedSwLines);
+        if (HUDState > 2) {
+            int hwTextWidth = getMaxWidth(cachedHwLines);
+            int swTextWidth = getMaxWidth(cachedSwLines);
 
-        int hwWidth = hwTextWidth + PADDING * 2;
-        int swWidth = swTextWidth + PADDING * 2;
+            int hwWidth = hwTextWidth + PADDING * 2;
+            int swWidth = swTextWidth + PADDING * 2;
 
-        int maxLines = Math.max(cachedHwLines.size(), cachedSwLines.size());
-        int bottomPanelsHeight = (maxLines * LINE_HEIGHT) + PADDING * 2;
+            int maxLines = Math.max(cachedHwLines.size(), cachedSwLines.size());
+            int bottomPanelsHeight = (maxLines * LINE_HEIGHT) + PADDING * 2;
 
-        int hwX = MARGIN;
-        int bottomY = guiGraphics.guiHeight() - bottomPanelsHeight - 10;
-        drawPanel(guiGraphics, hwX, bottomY, hwWidth, bottomPanelsHeight);
-        renderTextLines(guiGraphics, cachedHwLines, hwX + PADDING, bottomY + PADDING);
+            int hwX = MARGIN;
+            int bottomY = guiGraphics.guiHeight() - bottomPanelsHeight - 10;
+            drawPanel(guiGraphics, hwX, bottomY, hwWidth, bottomPanelsHeight);
+            renderTextLines(guiGraphics, cachedHwLines, hwX + PADDING, bottomY + PADDING);
 
-        int swX = hwX + hwWidth + PANEL_GAP;
-        drawPanel(guiGraphics, swX, bottomY, swWidth, bottomPanelsHeight);
-        renderTextLines(guiGraphics, cachedSwLines, swX + PADDING, bottomY + PADDING);
+            int swX = hwX + hwWidth + PANEL_GAP;
+            drawPanel(guiGraphics, swX, bottomY, swWidth, bottomPanelsHeight);
+            renderTextLines(guiGraphics, cachedSwLines, swX + PADDING, bottomY + PADDING);
+        }
     }
 
     private void drawPanel(GuiGraphics guiGraphics, int x, int y, int width, int height) {

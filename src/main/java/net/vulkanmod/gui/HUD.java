@@ -17,6 +17,14 @@ public abstract class HUD {
 
     public abstract void render(GuiGraphics guiGraphics);
 
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        return false;
+    }
+
+    public boolean mouseButton(int button) {
+        return false;
+    }
+
     public boolean shouldRender() {
         return enabled && !Minecraft.getInstance().options.hideGui;
     }

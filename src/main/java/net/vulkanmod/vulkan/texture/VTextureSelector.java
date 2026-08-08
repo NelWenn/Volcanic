@@ -1,9 +1,9 @@
 package net.vulkanmod.vulkan.texture;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.gl.GlTexture;
+import net.vulkanmod.render.pipeline.RenderPipeline;
 import net.vulkanmod.vulkan.shader.Pipeline;
 import net.vulkanmod.vulkan.shader.SamplerTextureSlot;
 import net.vulkanmod.vulkan.shader.descriptor.ImageDescriptor;
@@ -27,7 +27,7 @@ public abstract class VTextureSelector {
 
     public static void bindTexture(int i, VulkanImage texture) {
         if(i < 0 || i >= SIZE) {
-            Initializer.LOGGER.error(String.format("On Texture binding: index %d out of range [0, %d]", i, SIZE - 1));
+            Initializer.LOGGER.error("On Texture binding: index {} out of range [0, {}]", i, SIZE - 1);
             return;
         }
 
@@ -37,7 +37,7 @@ public abstract class VTextureSelector {
 
     public static void bindImage(int i, VulkanImage texture, int level) {
         if(i < 0 || i > 7) {
-            Initializer.LOGGER.error(String.format("On Texture binding: index %d out of range [0, %d]", i, SIZE - 1));
+            Initializer.LOGGER.error("On Texture binding: index {} out of range [0, {}]", i, SIZE - 1);
             return;
         }
 
@@ -48,7 +48,7 @@ public abstract class VTextureSelector {
     public static void uploadSubTexture(int mipLevel, int width, int height, int xOffset, int yOffset, int unpackSkipRows, int unpackSkipPixels, int unpackRowLength, ByteBuffer buffer) {
         VulkanImage texture = boundTextures[activeTexture];
 
-        if(texture == null)
+        if (texture == null)
             throw new NullPointerException("Texture is null at index: " + activeTexture);
 
         texture.uploadSubTextureAsync(mipLevel, width, height, xOffset, yOffset, unpackSkipRows, unpackSkipPixels, unpackRowLength, buffer);
@@ -58,7 +58,8 @@ public abstract class VTextureSelector {
         return SamplerTextureSlot.getTextureIdx(name);
     }
 
-    public static void bindShaderTextures(Pipeline pipeline) {
+    public static void bindShaderTextures(RenderPipeline renderPipeline) {
+        Pipeline pipeline = (Pipeline) renderPipeline;
         var imageDescriptors = pipeline.getImageDescriptors();
 
         for (ImageDescriptor state : imageDescriptors) {

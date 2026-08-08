@@ -14,9 +14,12 @@ import net.vulkanmod.rendergraph.radiance.pipeline.shadow.ShadowTerrainTintPipel
 import net.vulkanmod.rendergraph.radiance.pipeline.terrain.TerrainEarlyZPipeline;
 import net.vulkanmod.rendergraph.radiance.pipeline.terrain.TerrainFadePipeline;
 import net.vulkanmod.rendergraph.radiance.pipeline.terrain.TerrainPipeline;
+import net.vulkanmod.render.pipeline.RenderPipeline;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 
 public abstract class PipelineManager {
@@ -24,6 +27,25 @@ public abstract class PipelineManager {
 
     public static void setTerrainVertexFormat(VertexFormat format) {
         TERRAIN_VERTEX_FORMAT = format;
+    }
+
+    public static final String ROLE_TERRAIN_MAIN = "terrain.main";
+    public static final String ROLE_TERRAIN_FADE = "terrain.fade";
+    public static final String ROLE_SHADOW_TERRAIN = "terrain.shadow";
+    public static final String ROLE_SHADOW_TINT = "terrain.shadow_tint";
+    public static final String ROLE_MATERIAL = "terrain.material";
+
+    private static final Map<String, Function<TerrainRenderType, GraphicsPipeline>> terrainRoleProviders = new HashMap<>();
+
+    public static void registerTerrainRole(String role, Function<TerrainRenderType, GraphicsPipeline> provider) {
+        terrainRoleProviders.put(role, provider);
+    }
+
+    public static RenderPipeline getPipeline(String role, TerrainRenderType renderType) {
+        Function<TerrainRenderType, GraphicsPipeline> provider = terrainRoleProviders.get(role);
+        if (provider == null)
+            throw new IllegalStateException("No pipeline registered for role: " + role);
+        return provider.apply(renderType);
     }
 
     static GraphicsPipeline terrainShaderEarlyZ, terrainShader, terrainFadeShader, fastBlitPipeline, renderScaleBlitPipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline, externalLodSolidPipeline, externalLodTexturedSolidPipeline;
@@ -71,6 +93,12 @@ public abstract class PipelineManager {
         shadowTerrainCutoutPipeline = PipelineRegistry.get(ShadowTerrainCutoutPipeline.class);
         shadowTerrainTintPipeline = PipelineRegistry.get(ShadowTerrainTintPipeline.class);
         materialPipeline = PipelineRegistry.get(RadianceMaterialPipeline.class);
+
+        registerTerrainRole(ROLE_TERRAIN_MAIN, PipelineManager::getTerrainShader);
+        registerTerrainRole(ROLE_TERRAIN_FADE, renderType -> terrainFadeShader);
+        registerTerrainRole(ROLE_SHADOW_TERRAIN, PipelineManager::getShadowTerrainShader);
+        registerTerrainRole(ROLE_SHADOW_TINT, renderType -> shadowTerrainTintPipeline);
+        registerTerrainRole(ROLE_MATERIAL, renderType -> materialPipeline);
 
         PipelineRegistry.register(ExternalLodPipeline.class);
         externalLodPipeline = PipelineRegistry.get(ExternalLodPipeline.class);

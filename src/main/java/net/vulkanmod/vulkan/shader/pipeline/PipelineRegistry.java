@@ -9,8 +9,7 @@ import java.util.Map;
 public final class PipelineRegistry {
     private static final Map<Class<? extends PipelineDefinition>, GraphicsPipeline> PIPELINES = new IdentityHashMap<>();
 
-    private PipelineRegistry() {
-    }
+    private PipelineRegistry() {}
 
     @SafeVarargs
     public static void register(Class<? extends PipelineDefinition>... defs) {

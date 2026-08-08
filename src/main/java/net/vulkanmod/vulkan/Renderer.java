@@ -575,7 +575,8 @@ public class Renderer {
         this.onResizeCallbacks.add(runnable);
     }
 
-    public boolean bindGraphicsPipeline(GraphicsPipeline pipeline) {
+    public boolean bindGraphicsPipeline(net.vulkanmod.render.pipeline.RenderPipeline renderPipeline) {
+        GraphicsPipeline pipeline = (GraphicsPipeline) renderPipeline;
         VkCommandBuffer commandBuffer = currentCmdBuffer;
 
         PipelineState currentState = PipelineState.getCurrentPipelineState(boundRenderPass);
@@ -632,7 +633,8 @@ public class Renderer {
         return true;
     }
 
-    public void uploadAndBindUBOs(Pipeline pipeline) {
+    public void uploadAndBindUBOs(net.vulkanmod.render.pipeline.RenderPipeline renderPipeline) {
+        Pipeline pipeline = (Pipeline) renderPipeline;
         VkCommandBuffer commandBuffer = currentCmdBuffer;
         if (GuiRenderTrace.isActive()) {
             boolean hasColorModulator = pipeline.getBuffers().stream()
@@ -645,7 +647,8 @@ public class Renderer {
         pipeline.bindDescriptorSets(commandBuffer, currentFrame);
     }
 
-    public void pushConstants(Pipeline pipeline) {
+    public void pushConstants(net.vulkanmod.render.pipeline.RenderPipeline renderPipeline) {
+        Pipeline pipeline = (Pipeline) renderPipeline;
         VkCommandBuffer commandBuffer = currentCmdBuffer;
 
         PushConstants pushConstants = pipeline.getPushConstants();
