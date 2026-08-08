@@ -13,6 +13,8 @@ import java.nio.file.Path;
 import java.util.Collections;
 
 public class Config {
+    public int configVersion = CURRENT_VERSION;
+
     public int frameQueueSize = 2;
     public VideoModeSet.VideoMode videoMode = VideoModeManager.getFirstAvailable().getVideoMode();
     public boolean windowedFullscreen = false;
@@ -91,6 +93,17 @@ public class Config {
 
     private static Path CONFIG_PATH;
 
+    public static final int CURRENT_VERSION = 1;
+
+    public static Config migrate(Config config) {
+        if (config.configVersion > CURRENT_VERSION) {
+            throw new IllegalStateException("config version " + config.configVersion
+                    + " is newer than this build supports (" + CURRENT_VERSION + ")");
+        }
+        config.configVersion = CURRENT_VERSION;
+        return config;
+    }
+
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .excludeFieldsWithModifiers(Modifier.PRIVATE)
@@ -102,7 +115,7 @@ public class Config {
 
         if (Files.exists(path)) {
             try (FileReader fileReader = new FileReader(path.toFile())) {
-                config = GSON.fromJson(fileReader, Config.class);
+                config = migrate(GSON.fromJson(fileReader, Config.class));
             }
             catch (IOException exception) {
                 throw new RuntimeException(exception.getMessage());
