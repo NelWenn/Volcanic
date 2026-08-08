@@ -12,7 +12,7 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.vulkanmod.config.Config;
 import net.vulkanmod.config.Platform;
 import net.vulkanmod.config.UpdateChecker;
-import net.vulkanmod.config.gui.VOptionScreen;
+import net.vulkanmod.config.ui.shell.VolcanicScreen;
 import net.vulkanmod.config.video.VideoModeManager;
 import net.vulkanmod.compat.CompatBootstrap;
 import net.vulkanmod.compat.CompatReport;
@@ -57,7 +57,7 @@ public class Initializer {
 						FusionModelLoader.INSTANCE));
 		modContainer.registerExtensionPoint(IConfigScreenFactory.class,
 				(Supplier<IConfigScreenFactory>) () ->
-						(container, parent) -> new VOptionScreen(Component.literal("Volcanic Settings"), parent));
+						(container, parent) -> new VolcanicScreen(Component.translatable("vulkanmod.options.title"), parent));
 	}
 
 	private void onInitializeClient(FMLClientSetupEvent event) {
