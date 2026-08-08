@@ -21,7 +21,9 @@ public final class RadianceGraph implements FrameGraphImpl {
                     RadianceReflectionPass.class,
                     RadianceGlassReflectionPass.class,
                     RadianceCompositePass.class,
-                    RadianceAaPass.class);
+                    RadianceAaPass.class,
+                    VsrUpscalePass.class,
+                    VtuPresentPass.class);
         }
         return graph;
     }

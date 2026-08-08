@@ -75,8 +75,28 @@
   "vulkanmod.options.leavesCulling": "Leaves Culling",
   "vulkanmod.options.leavesCulling.tooltip": "Cull adjacent interior faces of leaf blocks to significantly improve performance in forests.",
   "vulkanmod.options.textureAnimations": "Texture Animations",
-  "vulkanmod.options.renderScale": "Render Scale",
-  "vulkanmod.options.renderScale.tooltip": "Renders Minecraft at a lower internal resolution, then scales it back to the current window or fullscreen size.",
+  "vulkanmod.options.renderScale": "Internal Resolution",
+  "vulkanmod.options.renderScale.tooltip": "The resolution the world is rendered at, as a percentage of the window. Lower means more frames and a softer image.",
+
+  "vulkanmod.options.category.vsr": "Volcanic Resolution Scaling",
+
+  "vulkanmod.options.vsrPreset": "Resolution Scaling",
+  "vulkanmod.options.vsrPreset.off": "Off",
+  "vulkanmod.options.vsrPreset.quality": "Quality",
+  "vulkanmod.options.vsrPreset.balanced": "Balanced",
+  "vulkanmod.options.vsrPreset.performance": "Performance",
+  "vulkanmod.options.vsrPreset.custom": "Custom",
+  "vulkanmod.options.vsrPreset.tooltip": "Renders the world below the window resolution, then reconstructs it to full size. Quality renders at 77%, Balanced at 67%, Performance at 50%, each with the sharpening that suits it. Custom lets you set the internal resolution and the sharpening yourself.\n\nThis only helps when the GPU is the bottleneck, which in practice means with shaders enabled. On vanilla rendering the GPU is barely loaded and lowering the internal resolution costs image quality for no frame rate at all.",
+
+  "vulkanmod.options.vsrBackend": "Upscaler",
+  "vulkanmod.options.vsrBackend.bilinear": "Bilinear",
+  "vulkanmod.options.vsrBackend.fsr1": "FSR 1",
+  "vulkanmod.options.vsrBackend.sharpen": "Sharpen only",
+  "vulkanmod.options.vsrBackend.vtu": "VTU (temporal)",
+  "vulkanmod.options.vsrBackend.tooltip": "How the internal resolution is reconstructed.\n\nBilinear is the plain reference filter: cheapest and softest.\nFSR 1 reconstructs edges before sharpening: the crispest single frame, but high contrast edges can shimmer while the camera moves.\nVTU accumulates several frames to rebuild detail: the most stable in motion, and it needs shaders to be enabled. Without them it falls back to FSR 1.",
+
+  "vulkanmod.options.vsrSharpness": "Sharpening",
+  "vulkanmod.options.vsrSharpness.tooltip": "Contrast adaptive sharpening applied after reconstruction. It only affects edges, never flat areas, and never overshoots into halos. Set it to 0% to disable it.",
 
   "vulkanmod.options.pages.shaders": "Shaders",
   "vulkanmod.options.shadersEnabled": "Enable Shaders",

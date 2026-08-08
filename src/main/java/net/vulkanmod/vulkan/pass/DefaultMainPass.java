@@ -77,12 +77,20 @@ public class DefaultMainPass implements MainPass {
     private RenderPass auxRenderPass;
     private RenderPass presentRenderPass;
 
+    private RenderPass swapMainRenderPass;
+    private RenderPass swapAuxRenderPass;
+    private RenderPass scaledMainRenderPass;
+    private RenderPass scaledAuxRenderPass;
+
     private int scaledFramebufferWidth = -1;
     private int scaledFramebufferHeight = -1;
     private int scaledFramebufferScale = RenderScale.DEFAULT;
     private int scaledColorAttachmentGlId = -1;
     private int scaledDepthAttachmentGlId = -1;
     private boolean renderScaleResolvedThisFrame;
+    private boolean mainTargetResolvedThisFrame;
+    private boolean scaledFramebufferPendingDispose;
+    private static int targetSwitches;
 
     public final FrameGraphImpl frameGraph;
 
@@ -91,12 +99,12 @@ public class DefaultMainPass implements MainPass {
         this.mainFramebuffer = this.swapChain;
         this.frameGraph = new RadianceGraph();
 
-        createRenderPasses();
+        bindRenderPasses();
         createPresentRenderPass();
     }
 
-    private void createRenderPasses() {
-        RenderPass.Builder builder = RenderPass.builder(this.mainFramebuffer);
+    private RenderPass[] buildRenderPasses(Framebuffer framebuffer) {
+        RenderPass.Builder builder = RenderPass.builder(framebuffer);
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_STORE_OP_STORE);
@@ -106,9 +114,9 @@ public class DefaultMainPass implements MainPass {
             builder.getColorAttachmentInfo2().setOps(VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
         }
 
-        this.mainRenderPass = builder.build();
+        RenderPass main = builder.build();
 
-        builder = RenderPass.builder(this.mainFramebuffer);
+        builder = RenderPass.builder(framebuffer);
         builder.getColorAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getDepthAttachmentInfo().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         builder.getColorAttachmentInfo().setFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -118,7 +126,30 @@ public class DefaultMainPass implements MainPass {
             builder.getColorAttachmentInfo2().setOps(VK_ATTACHMENT_LOAD_OP_LOAD, VK_ATTACHMENT_STORE_OP_STORE);
         }
 
-        this.auxRenderPass = builder.build();
+        return new RenderPass[]{main, builder.build()};
+    }
+
+    private void bindRenderPasses() {
+        if (this.scaledFramebuffer != null && this.mainFramebuffer == this.scaledFramebuffer) {
+            if (this.scaledMainRenderPass == null) {
+                RenderPass[] passes = buildRenderPasses(this.scaledFramebuffer);
+                this.scaledMainRenderPass = passes[0];
+                this.scaledAuxRenderPass = passes[1];
+            }
+
+            this.mainRenderPass = this.scaledMainRenderPass;
+            this.auxRenderPass = this.scaledAuxRenderPass;
+            return;
+        }
+
+        if (this.swapMainRenderPass == null) {
+            RenderPass[] passes = buildRenderPasses(this.swapChain);
+            this.swapMainRenderPass = passes[0];
+            this.swapAuxRenderPass = passes[1];
+        }
+
+        this.mainRenderPass = this.swapMainRenderPass;
+        this.auxRenderPass = this.swapAuxRenderPass;
     }
 
     private void createPresentRenderPass() {
@@ -135,25 +166,32 @@ public class DefaultMainPass implements MainPass {
             return;
         }
 
-        if (this.mainRenderPass != null) {
-            this.mainRenderPass.cleanUp();
-        }
-        if (this.auxRenderPass != null) {
-            this.auxRenderPass.cleanUp();
-        }
+        targetSwitches++;
 
         this.mainFramebuffer = framebuffer;
-        createRenderPasses();
+        bindRenderPasses();
     }
 
     private void ensureMainFramebuffer() {
+        if (this.mainTargetResolvedThisFrame) {
+            return;
+        }
+
+        resolveMainFramebuffer();
+    }
+
+    private void resolveMainFramebuffer() {
+        this.mainTargetResolvedThisFrame = true;
+
         int scale = RenderScale.clamp(Initializer.CONFIG.renderScale);
 
         if (!shouldUseScaledFramebuffer(scale)) {
-            disposeScaledFramebuffer();
             setMainFramebuffer(this.swapChain);
+            this.scaledFramebufferPendingDispose = true;
             return;
         }
+
+        this.scaledFramebufferPendingDispose = false;
 
         int scaledWidth = RenderScale.scaleDimension(this.swapChain.getWidth(), scale);
         int scaledHeight = RenderScale.scaleDimension(this.swapChain.getHeight(), scale);
@@ -186,7 +224,6 @@ public class DefaultMainPass implements MainPass {
 
         boolean base = this.swapChain.getWidth() > 0
                 && this.swapChain.getHeight() > 0
-                && !this.renderScaleResolvedThisFrame
                 && minecraft.level != null;
 
         if (postShaderActive())
@@ -204,6 +241,16 @@ public class DefaultMainPass implements MainPass {
         if (this.scaledFramebuffer == null) {
             return;
         }
+
+        if (this.scaledMainRenderPass != null) {
+            this.scaledMainRenderPass.cleanUp();
+            this.scaledMainRenderPass = null;
+        }
+        if (this.scaledAuxRenderPass != null) {
+            this.scaledAuxRenderPass.cleanUp();
+            this.scaledAuxRenderPass = null;
+        }
+
         this.scaledFramebuffer.cleanUp();
         this.scaledFramebuffer = null;
 
@@ -244,13 +291,45 @@ public class DefaultMainPass implements MainPass {
         return this.scaledFramebuffer != null && this.mainFramebuffer == this.scaledFramebuffer;
     }
 
+    public static int consumeTargetSwitches() {
+        int value = targetSwitches;
+        targetSwitches = 0;
+        return value;
+    }
+
+    @Override
+    public int renderTargetWidth() {
+        return this.mainFramebuffer.getWidth();
+    }
+
+    @Override
+    public int renderTargetHeight() {
+        return this.mainFramebuffer.getHeight();
+    }
+
+    @Override
+    public String renderScaleStatus() {
+        String target = this.scaledFramebuffer == null
+                ? "none"
+                : this.scaledFramebufferWidth + "x" + this.scaledFramebufferHeight;
+
+        return String.format("scaledTarget=%s  swapchain=%dx%d  postShader=%b",
+                target, this.swapChain.getWidth(), this.swapChain.getHeight(), postShaderActive());
+    }
+
     @Override
     public void begin(VkCommandBuffer commandBuffer, MemoryStack stack) {
         this.renderScaleResolvedThisFrame = false;
+        this.mainTargetResolvedThisFrame = false;
         this.scaledDepthClears = 0;
         this.liveDepthIsForeground = false;
 
-        ensureMainFramebuffer();
+        if (this.scaledFramebufferPendingDispose) {
+            disposeScaledFramebuffer();
+            this.scaledFramebufferPendingDispose = false;
+        }
+
+        resolveMainFramebuffer();
 
         frameGraph.get().execute(
                 Phase.FRAME_START, commandBuffer, stack, name -> null, () -> {});
@@ -661,6 +740,34 @@ public class DefaultMainPass implements MainPass {
         bi.blendOp = sBlendOp; bi.blendOpRgb = sBlendOpRgb; bi.blendOpAlpha = sBlendOpAlpha;
     }
 
+    private void updateVsrState() {
+        Framebuffer source = this.mainFramebuffer;
+        int backend = net.vulkanmod.render.vsr.Vsr.clampBackend(Initializer.CONFIG.vsrBackend);
+
+        boolean oneToOne = source.getWidth() == this.swapChain.getWidth()
+                && source.getHeight() == this.swapChain.getHeight();
+
+        if (oneToOne && backend == net.vulkanmod.render.vsr.Vsr.FSR1) {
+            backend = net.vulkanmod.render.vsr.Vsr.SHARPEN_ONLY;
+        }
+
+        if (!postShaderActive() && backend == net.vulkanmod.render.vsr.Vsr.VTU) {
+            backend = net.vulkanmod.render.vsr.Vsr.FSR1;
+        }
+
+        net.vulkanmod.render.vsr.Vsr.update(source.getWidth(), source.getHeight(),
+                source.getWidth(), source.getHeight(),
+                this.swapChain.getWidth(), this.swapChain.getHeight(),
+                backend, Initializer.CONFIG.vsrSharpness);
+    }
+
+    private void blitToSwapchain() {
+        updateVsrState();
+        VTextureSelector.bindTexture(1, VTextureSelector.getWhiteTexture());
+        VTextureSelector.bindTexture(2, VTextureSelector.getWhiteTexture());
+        DrawUtil.blitVsrToScreen();
+    }
+
     private void resolveScaledFramebufferToSwapchain(VkCommandBuffer commandBuffer, boolean keepRendering) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             this.mainFramebuffer.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -679,7 +786,7 @@ public class DefaultMainPass implements MainPass {
             Renderer.resetViewport();
             Renderer.resetScissor();
             VTextureSelector.bindTexture(0, this.mainFramebuffer.getColorAttachment());
-            DrawUtil.blitRenderScaleToScreen();
+            blitToSwapchain();
             if (!keepRendering) {
                 Renderer.getInstance().endRenderPass(commandBuffer);
             }
@@ -714,7 +821,7 @@ public class DefaultMainPass implements MainPass {
         Renderer.resetViewport();
         Renderer.resetScissor();
         VTextureSelector.bindTexture(0, this.mainFramebuffer.getColorAttachment());
-        DrawUtil.blitRenderScaleToScreen();
+        blitToSwapchain();
         if (!keepRendering) {
             Renderer.getInstance().endRenderPass(commandBuffer);
         }
@@ -729,11 +836,16 @@ public class DefaultMainPass implements MainPass {
         }
 
         graph.setTargetScale("light", Initializer.CONFIG.optimizedShadows ? 0.5f : 1.0f);
+        graph.setTargetScale("vtu", this.mainFramebuffer.getWidth() > 0
+                ? (float) this.swapChain.getWidth() / this.mainFramebuffer.getWidth()
+                : 1.0f);
         graph.resize(commandBuffer, stack, this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
 
         if (!graph.targetsReady()) {
             return false;
         }
+
+        updateVsrState();
 
         final VulkanImage scene = this.mainFramebuffer.getColorAttachment();
 

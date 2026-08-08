@@ -3,7 +3,7 @@ package net.vulkanmod.config;
 public final class RenderScale {
     public static final int MIN = 50;
     public static final int MAX = 100;
-    public static final int STEP = 5;
+    public static final int STEP = 1;
     public static final int DEFAULT = 100;
 
     private RenderScale() {
