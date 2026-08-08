@@ -11,9 +11,8 @@ import net.vulkanmod.config.ui.render.SurfacePainter;
 
 public final class SettingRowRenderer {
     private static final int CARD_RADIUS = 6;
-    private static final int GLOW_RADIUS = 8;
-    private static final float HOVER_GLOW_ALPHA = 0.60f;
-    private static final float CHANGED_GLOW_ALPHA = 0.45f;
+    private static final int ARROW_GAP = 6;
+    private static final int RESET_GAP = 8;
 
     private static final int PAD_X = 12;
     private static final int TEXT_HEIGHT = 9;
@@ -26,6 +25,10 @@ public final class SettingRowRenderer {
     private static final int TRACK_HEIGHT = 3;
     private static final int TRACK_GAP = 8;
 
+    private static final String ARROW_LEFT = "\u2039";
+    private static final String ARROW_RIGHT = "\u203A";
+    private static final String RESET_GLYPH = "\u27F2";
+
     private final Theme theme;
 
     public SettingRowRenderer(Theme theme) {
@@ -36,12 +39,7 @@ public final class SettingRowRenderer {
     }
 
     public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, Object value,
-                       boolean hovered, boolean changed) {
-        render(painter, font, box, meta, value, hovered, changed, 0, 0);
-    }
-
-    public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, Object value,
-                       boolean hovered, boolean changed, int min, int max) {
+                       boolean hovered, boolean resettable, boolean resetHovered, int min, int max) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
         }
@@ -61,21 +59,33 @@ public final class SettingRowRenderer {
             return;
         }
 
-        painter.surface(box, CARD_RADIUS, cardArgb(hovered), borderArgb(hovered, changed),
-                glowArgb(hovered, changed), hovered || changed ? GLOW_RADIUS : 0);
+        ShellRenderer.paintRoundedFill(painter, box, CARD_RADIUS, cardArgb(hovered));
+        ShellRenderer.paintRoundedOutline(painter, box, CARD_RADIUS, borderArgb(hovered));
 
         painter.text(box.x() + PAD_X, textTop(box), I18n.get(meta.titleKey()),
                 theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT), false);
 
+        Rect reset = resettable ? SettingRowLayout.resetBox(box) : Rect.EMPTY;
+        int right = box.right() - PAD_X;
+        if (!reset.isEmpty()) {
+            paintReset(painter, font, reset, resetHovered);
+            right = reset.x() - RESET_GAP;
+        }
+
         switch (meta.type()) {
-            case BOOL -> paintPill(painter, box, booleanValue(meta, value));
-            case INT -> paintTrack(painter, font, box, intValue(meta, value), min, max);
-            case ENUM -> paintValue(painter, font, box, I18n.get(value.toString()));
+            case BOOL -> paintPill(painter, box, right, booleanValue(meta, value));
+            case INT -> paintTrack(painter, font, box, right, intValue(meta, value), min, max);
+            case ENUM -> paintCycler(painter, font, box, right, I18n.get(value.toString()), hovered);
         }
     }
 
-    private void paintPill(SurfacePainter painter, Rect box, boolean on) {
-        Rect pill = new Rect(box.right() - PAD_X - PILL_WIDTH, box.y() + (box.height() - PILL_HEIGHT) / 2,
+    private void paintReset(SurfacePainter painter, Font font, Rect box, boolean hovered) {
+        painter.text(box.x() + (box.width() - font.width(RESET_GLYPH)) / 2, box.y(), RESET_GLYPH,
+                theme.color(hovered ? ColorToken.ACCENT : ColorToken.TEXT_MUTED), false);
+    }
+
+    private void paintPill(SurfacePainter painter, Rect box, int right, boolean on) {
+        Rect pill = new Rect(right - PILL_WIDTH, box.y() + (box.height() - PILL_HEIGHT) / 2,
                 PILL_WIDTH, PILL_HEIGHT);
         ShellRenderer.paintRoundedFill(painter, pill, PILL_HEIGHT / 2,
                 theme.color(on ? ColorToken.SUCCESS : ColorToken.BORDER_DEFAULT));
@@ -86,8 +96,8 @@ public final class SettingRowRenderer {
                 theme.color(on ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_MUTED));
     }
 
-    private void paintTrack(SurfacePainter painter, Font font, Rect box, int value, int min, int max) {
-        int valueX = paintValue(painter, font, box, String.valueOf(value));
+    private void paintTrack(SurfacePainter painter, Font font, Rect box, int right, int value, int min, int max) {
+        int valueX = paintValue(painter, font, box, right, String.valueOf(value));
         if (max <= min) {
             return;
         }
@@ -105,8 +115,20 @@ public final class SettingRowRenderer {
         }
     }
 
-    private int paintValue(SurfacePainter painter, Font font, Rect box, String text) {
-        int x = box.right() - PAD_X - font.width(text);
+    private void paintCycler(SurfacePainter painter, Font font, Rect box, int right, String text, boolean hovered) {
+        int argb = theme.color(hovered ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_MUTED);
+        painter.text(right - font.width(ARROW_RIGHT), textTop(box), ARROW_RIGHT, argb, false);
+
+        int valueRight = right - font.width(ARROW_RIGHT) - ARROW_GAP;
+        painter.text(valueRight - font.width(text), textTop(box), text,
+                theme.color(ColorToken.TEXT_SECONDARY), false);
+
+        int leftArrowX = valueRight - font.width(text) - ARROW_GAP - font.width(ARROW_LEFT);
+        painter.text(leftArrowX, textTop(box), ARROW_LEFT, argb, false);
+    }
+
+    private int paintValue(SurfacePainter painter, Font font, Rect box, int right, String text) {
+        int x = right - font.width(text);
         painter.text(x, textTop(box), text, theme.color(ColorToken.TEXT_SECONDARY), false);
         return x;
     }
@@ -115,18 +137,8 @@ public final class SettingRowRenderer {
         return theme.color(hovered ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD);
     }
 
-    private int borderArgb(boolean hovered, boolean changed) {
-        if (changed) {
-            return theme.color(ColorToken.BORDER_ACCENT);
-        }
+    private int borderArgb(boolean hovered) {
         return theme.color(hovered ? ColorToken.BORDER_STRONG : ColorToken.BORDER_SUBTLE);
-    }
-
-    private int glowArgb(boolean hovered, boolean changed) {
-        if (hovered) {
-            return theme.color(ColorToken.ACCENT, HOVER_GLOW_ALPHA);
-        }
-        return changed ? theme.color(ColorToken.WARNING, CHANGED_GLOW_ALPHA) : 0;
     }
 
     private static int textTop(Rect box) {

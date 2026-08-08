@@ -42,6 +42,37 @@ class SettingRowLayoutTest {
     }
 
     @Test
+    void resetBoxSitsAtTheRightEndOfTheRowAndIsVerticallyCentred() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0).get(0);
+        Rect reset = SettingRowLayout.resetBox(row);
+        assertFalse(reset.isEmpty());
+        assertTrue(reset.right() < row.right());
+        assertTrue(reset.x() > row.x() + row.width() / 2);
+        assertTrue(Math.abs((reset.y() - row.y()) - (row.bottom() - reset.bottom())) <= 1);
+        assertTrue(reset.y() >= row.y() && reset.bottom() <= row.bottom());
+    }
+
+    @Test
+    void resetBoxFollowsTheRowAsItScrolls() {
+        Rect unscrolled = SettingRowLayout.rows(CONTENT, 2, 0).get(1);
+        Rect scrolled = SettingRowLayout.rows(CONTENT, 2, 40).get(1);
+        assertEquals(SettingRowLayout.resetBox(unscrolled).y() - 40, SettingRowLayout.resetBox(scrolled).y());
+        assertEquals(SettingRowLayout.resetBox(unscrolled).x(), SettingRowLayout.resetBox(scrolled).x());
+    }
+
+    @Test
+    void resetBoxIsEmptyWhenTheRowCannotHoldIt() {
+        assertEquals(Rect.EMPTY, SettingRowLayout.resetBox(Rect.EMPTY));
+        assertEquals(Rect.EMPTY, SettingRowLayout.resetBox(new Rect(0, 0, 8, SettingRowLayout.ROW_HEIGHT)));
+        assertEquals(Rect.EMPTY, SettingRowLayout.resetBox(new Rect(0, 0, 300, 4)));
+    }
+
+    @Test
+    void resetBoxRejectsInvalidInput() {
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.resetBox(null));
+    }
+
+    @Test
     void trackFillSpansTheRangeAndClampsOutsideIt() {
         assertEquals(0, SettingRowLayout.trackFill(60, 10, 10, 260));
         assertEquals(60, SettingRowLayout.trackFill(60, 260, 10, 260));

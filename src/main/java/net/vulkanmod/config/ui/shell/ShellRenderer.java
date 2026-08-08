@@ -286,9 +286,11 @@ public final class ShellRenderer {
             Rect box = boxes.get(i);
             SettingMeta meta = settings.get(i);
             SettingBinding binding = catalog.binding(meta.id());
+            boolean resettable = presenter.resettable(meta);
             rowRenderer.render(painter, font, box, meta, binding.get(),
-                    box.contains(mouseX, mouseY) && catalog.enabled(meta.id()),
-                    presenter.pending().isChanged(meta.id()), binding.min(), binding.max());
+                    box.contains(mouseX, mouseY) && catalog.enabled(meta.id()), resettable,
+                    resettable && SettingRowLayout.resetBox(box).contains(mouseX, mouseY),
+                    binding.min(), binding.max());
         }
     }
 
@@ -355,7 +357,7 @@ public final class ShellRenderer {
         }
     }
 
-    private static void paintRoundedOutline(SurfacePainter painter, Rect rect, int radius, int argb) {
+    static void paintRoundedOutline(SurfacePainter painter, Rect rect, int radius, int argb) {
         for (Rect span : RoundedScanline.outlineSpans(rect, radius)) {
             painter.fill(span, argb);
         }

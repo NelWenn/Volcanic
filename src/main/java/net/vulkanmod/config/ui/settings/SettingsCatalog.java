@@ -12,6 +12,7 @@ import net.vulkanmod.config.video.WindowMode;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 // Choice labels are translation keys; Minecraft renders an unknown key as itself, so plain
@@ -68,7 +69,8 @@ public final class SettingsCatalog {
                     Initializer.CONFIG.windowedFullscreen = mode == WindowMode.WINDOWED_FULLSCREEN;
                     Options.fullscreenDirty = true;
                 },
-                () -> Arrays.stream(WindowMode.values()).map(WindowMode::getComponentName).toList()));
+                () -> Arrays.stream(WindowMode.values()).map(WindowMode::getComponentName).toList())
+                .withDefault(() -> WindowMode.getComponentName(WindowMode.WINDOWED)));
 
         bindings.put(SettingsDefinitions.RESOLUTION, SettingBinding.choosing(
                 () -> selectedResolution().toString(),
@@ -80,7 +82,8 @@ public final class SettingsCatalog {
                             : resolution.getVideoMode();
                     applyVideoMode();
                 },
-                () -> Arrays.stream(VideoModeManager.getVideoResolutions()).map(VideoModeSet::toString).toList()));
+                () -> Arrays.stream(VideoModeManager.getVideoResolutions()).map(VideoModeSet::toString).toList())
+                .withDefault(() -> VideoModeManager.getFirstAvailable().toString()));
 
         bindings.put(SettingsDefinitions.REFRESH_RATE, SettingBinding.choosing(
                 () -> String.valueOf(selectedVideoMode().refreshRate),
@@ -94,7 +97,8 @@ public final class SettingsCatalog {
                     selectedVideoMode().refreshRate = refreshRate;
                     applyVideoMode();
                 },
-                () -> selectedResolution().getRefreshRates().stream().map(String::valueOf).toList()));
+                () -> selectedResolution().getRefreshRates().stream().map(String::valueOf).toList())
+                .withDefault(() -> String.valueOf(highestRefreshRate())));
 
         bindings.put(SettingsDefinitions.VSYNC, SettingBinding.of(
                 () -> Minecraft.getInstance().options.enableVsync().get(),
@@ -102,7 +106,7 @@ public final class SettingsCatalog {
                     boolean enabled = boolValue(value);
                     Minecraft.getInstance().options.enableVsync().set(enabled);
                     Minecraft.getInstance().getWindow().updateVsync(enabled);
-                }));
+                }).withDefault(() -> Boolean.TRUE));
 
         bindings.put(SettingsDefinitions.FRAMERATE_LIMIT, SettingBinding.ranged(
                 () -> Minecraft.getInstance().options.framerateLimit().get(),
@@ -112,7 +116,13 @@ public final class SettingsCatalog {
                     Minecraft.getInstance().getWindow().setFramerateLimit(limit);
                 },
                 SettingsDefinitions.FRAMERATE_LIMIT_MIN, SettingsDefinitions.FRAMERATE_LIMIT_MAX,
-                SettingsDefinitions.FRAMERATE_LIMIT_STEP));
+                SettingsDefinitions.FRAMERATE_LIMIT_STEP)
+                .withDefault(() -> SettingsDefinitions.FRAMERATE_LIMIT_DEFAULT));
+    }
+
+    private static int highestRefreshRate() {
+        List<Integer> rates = selectedResolution().getRefreshRates();
+        return rates.get(rates.size() - 1);
     }
 
     private static WindowMode windowMode() {

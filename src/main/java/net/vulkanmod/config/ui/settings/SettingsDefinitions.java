@@ -21,6 +21,7 @@ public final class SettingsDefinitions {
     public static final int FRAMERATE_LIMIT_MIN = 10;
     public static final int FRAMERATE_LIMIT_MAX = 260;
     public static final int FRAMERATE_LIMIT_STEP = 10;
+    public static final int FRAMERATE_LIMIT_DEFAULT = 120;
 
     private SettingsDefinitions() {
     }

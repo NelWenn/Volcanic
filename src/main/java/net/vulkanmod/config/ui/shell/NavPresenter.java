@@ -93,6 +93,29 @@ public final class NavPresenter {
         return true;
     }
 
+    public boolean resettable(SettingMeta meta) {
+        if (meta == null) {
+            throw new IllegalArgumentException("meta must not be null");
+        }
+        if (!catalog.enabled(meta.id())) {
+            return false;
+        }
+
+        SettingBinding binding = catalog.binding(meta.id());
+        return binding.hasDefault() && !binding.defaultValue().equals(binding.get());
+    }
+
+    public boolean reset(SettingMeta meta) {
+        if (!resettable(meta)) {
+            return false;
+        }
+
+        SettingBinding binding = catalog.binding(meta.id());
+        binding.set(binding.defaultValue());
+        pending.mark(meta.id(), meta.scope());
+        return true;
+    }
+
     public boolean navigate(RouteId route) {
         if (route == null) {
             throw new IllegalArgumentException("route must not be null");

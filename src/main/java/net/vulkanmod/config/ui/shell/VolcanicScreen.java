@@ -8,6 +8,8 @@ import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.SettingMeta;
+import net.vulkanmod.config.ui.core.SettingRowLayout;
 import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
@@ -166,12 +168,18 @@ public class VolcanicScreen extends Screen {
     }
 
     private boolean clickSettingRow(int mouseX, int mouseY) {
-        int index = TabStripModel.indexAt(renderer.settingRowBoxes(layout, presenter), mouseX, mouseY);
+        List<Rect> boxes = renderer.settingRowBoxes(layout, presenter);
+        int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
         if (index < 0) {
             return false;
         }
 
-        presenter.activate(presenter.settings().get(index));
+        SettingMeta meta = presenter.settings().get(index);
+        if (SettingRowLayout.resetBox(boxes.get(index)).contains(mouseX, mouseY) && presenter.reset(meta)) {
+            return true;
+        }
+
+        presenter.activate(meta);
         return true;
     }
 
