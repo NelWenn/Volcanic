@@ -25,25 +25,14 @@ public final class UiKeys {
         if ((modifiers & MOD_CONTROL) != 0) {
             return keyCode == KEY_K ? KeyAction.SEARCH : KeyAction.NONE;
         }
-        if ((modifiers & MOD_SHIFT) != 0) {
-            return keyCode == KEY_TAB ? KeyAction.PREVIOUS : switch (keyCode) {
-                case KEY_UP -> KeyAction.UP;
-                case KEY_DOWN -> KeyAction.DOWN;
-                case KEY_LEFT -> KeyAction.DECREASE;
-                case KEY_RIGHT -> KeyAction.INCREASE;
-                case KEY_ENTER -> KeyAction.ACTIVATE;
-                case KEY_ESCAPE -> KeyAction.BACK;
-                case KEY_HOME -> KeyAction.HOME;
-                case KEY_END -> KeyAction.END;
-                default -> KeyAction.NONE;
-            };
+        if (keyCode == KEY_TAB) {
+            return (modifiers & MOD_SHIFT) != 0 ? KeyAction.PREVIOUS : KeyAction.NEXT;
         }
         return switch (keyCode) {
             case KEY_UP -> KeyAction.UP;
             case KEY_DOWN -> KeyAction.DOWN;
             case KEY_LEFT -> KeyAction.DECREASE;
             case KEY_RIGHT -> KeyAction.INCREASE;
-            case KEY_TAB -> KeyAction.NEXT;
             case KEY_ENTER -> KeyAction.ACTIVATE;
             case KEY_ESCAPE -> KeyAction.BACK;
             case KEY_HOME -> KeyAction.HOME;

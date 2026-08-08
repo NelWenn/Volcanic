@@ -60,7 +60,19 @@ class UiKeysTest {
 
     @Test
     void shiftDoesNotChangeNonTabKeys() {
+        assertEquals(KeyAction.UP, UiKeys.actionFor(UiKeys.KEY_UP, UiKeys.MOD_SHIFT));
         assertEquals(KeyAction.DOWN, UiKeys.actionFor(UiKeys.KEY_DOWN, UiKeys.MOD_SHIFT));
+        assertEquals(KeyAction.DECREASE, UiKeys.actionFor(UiKeys.KEY_LEFT, UiKeys.MOD_SHIFT));
+        assertEquals(KeyAction.INCREASE, UiKeys.actionFor(UiKeys.KEY_RIGHT, UiKeys.MOD_SHIFT));
+        assertEquals(KeyAction.ACTIVATE, UiKeys.actionFor(UiKeys.KEY_ENTER, UiKeys.MOD_SHIFT));
         assertEquals(KeyAction.BACK, UiKeys.actionFor(UiKeys.KEY_ESCAPE, UiKeys.MOD_SHIFT));
+        assertEquals(KeyAction.HOME, UiKeys.actionFor(UiKeys.KEY_HOME, UiKeys.MOD_SHIFT));
+        assertEquals(KeyAction.END, UiKeys.actionFor(UiKeys.KEY_END, UiKeys.MOD_SHIFT));
+    }
+
+    @Test
+    void controlShortCircuitsOverShift() {
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_TAB, UiKeys.MOD_CONTROL | UiKeys.MOD_SHIFT));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_UP, UiKeys.MOD_CONTROL | UiKeys.MOD_SHIFT));
     }
 }
