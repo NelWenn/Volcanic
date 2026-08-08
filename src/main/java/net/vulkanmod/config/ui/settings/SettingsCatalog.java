@@ -160,13 +160,12 @@ public final class SettingsCatalog {
     }
 
     private static VideoModeSet.VideoMode selectedVideoMode() {
-        if (VideoModeManager.selectedVideoMode == null) {
-            VideoModeSet.VideoMode configured = Initializer.CONFIG.videoMode;
-            VideoModeManager.selectedVideoMode = configured != null
-                    ? configured
-                    : VideoModeManager.getFirstAvailable().getVideoMode();
+        VideoModeSet.VideoMode selected = VideoModeManager.selectedVideoMode;
+        if (selected != null) {
+            return selected;
         }
-        return VideoModeManager.selectedVideoMode;
+        VideoModeSet.VideoMode configured = Initializer.CONFIG.videoMode;
+        return configured != null ? configured : VideoModeManager.getFirstAvailable().getVideoMode();
     }
 
     private static VideoModeSet selectedResolution() {
