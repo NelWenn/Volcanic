@@ -24,9 +24,6 @@ class CorePurityTest {
         try (Stream<Path> files = Files.walk(root)) {
             for (Path file : files.filter(p -> p.toString().endsWith(".java")).toList()) {
                 for (String line : Files.readAllLines(file)) {
-                    if (!line.startsWith("import ")) {
-                        continue;
-                    }
                     for (String forbidden : FORBIDDEN) {
                         if (line.contains(forbidden)) {
                             violations.add(file.getFileName() + " -> " + line.trim());
