@@ -8,7 +8,8 @@ public interface SurfacePainter {
 
     void fill(Rect rect, int argb);
 
-    void surface(Rect rect, int radius, int fillArgb, int borderArgb, int glowArgb, int glowRadius);
+    void surface(Rect nonOverlappingRect, int radius, int fillArgb, int borderArgb,
+                 int bestEffortGlowArgb, int bestEffortGlowRadius);
 
     void text(int x, int y, String value, int argb, boolean shadow);
 
