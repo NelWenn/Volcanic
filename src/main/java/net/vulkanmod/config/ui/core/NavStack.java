@@ -27,7 +27,10 @@ public final class NavStack {
     }
 
     public boolean navigate(RouteId route) {
-        if (route == null || route.equals(current) || !tree.contains(route)) {
+        if (route == null) {
+            throw new IllegalArgumentException("route must not be null");
+        }
+        if (route.equals(current) || !tree.contains(route)) {
             return false;
         }
         back.push(current);
@@ -73,6 +76,6 @@ public final class NavStack {
         for (int i = reversed.size() - 1; i >= 0; i--) {
             result.add(reversed.get(i));
         }
-        return result;
+        return List.copyOf(result);
     }
 }

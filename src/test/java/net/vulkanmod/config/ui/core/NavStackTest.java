@@ -96,4 +96,9 @@ class NavStackTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new NavStack(tree(), RouteId.parse("nope")));
     }
+
+    @Test
+    void navigatingToANullRouteIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> stack().navigate(null));
+    }
 }
