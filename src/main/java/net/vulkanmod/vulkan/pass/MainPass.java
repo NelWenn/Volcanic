@@ -48,6 +48,18 @@ public interface MainPass {
 
     default void resolveRenderScaleForGui() {}
 
+    default int renderTargetWidth() {
+        return 0;
+    }
+
+    default int renderTargetHeight() {
+        return 0;
+    }
+
+    default String renderScaleStatus() {
+        return "n/a";
+    }
+
     default int getColorAttachmentGlId() {
         return -1;
     }

@@ -55,6 +55,8 @@ public class SwapChain extends Framebuffer {
     }
 
     public void recreate() {
+        net.vulkanmod.vulkan.VkSurfaceUtil.syncMetalDrawableScale(window);
+
         if (this.depthAttachment != null) {
             this.depthAttachment.free();
             this.depthAttachment = null;
@@ -322,7 +324,20 @@ public class SwapChain extends Framebuffer {
     private static VkExtent2D getExtent(VkSurfaceCapabilitiesKHR capabilities) {
 
         if (capabilities.currentExtent().width() != UINT32_MAX) {
-            return capabilities.currentExtent();
+            VkExtent2D current = capabilities.currentExtent();
+
+            IntBuffer fbWidth = stackGet().ints(0);
+            IntBuffer fbHeight = stackGet().ints(0);
+            glfwGetFramebufferSize(window, fbWidth, fbHeight);
+
+            if (fbWidth.get(0) > 0 && fbHeight.get(0) > 0
+                    && (current.width() != fbWidth.get(0) || current.height() != fbHeight.get(0))) {
+                net.vulkanmod.Initializer.LOGGER.warn(
+                        "VulkanMod: surface extent {}x{} does not match the window framebuffer {}x{}",
+                        current.width(), current.height(), fbWidth.get(0), fbHeight.get(0));
+            }
+
+            return current;
         }
 
         IntBuffer width = stackGet().ints(0);

@@ -22,13 +22,21 @@ public final class FrameTimer {
     public static FrameTimer instance() { return INSTANCE; }
 
     /** Create the timer (no-op unless perf diagnostics are enabled). Call once, after the device exists. */
+    public static double gpuMs() {
+        return INSTANCE != null ? INSTANCE.smoothGpuMs : -1.0;
+    }
+
+    public static double frameMs() {
+        return INSTANCE != null ? INSTANCE.smoothWallMs : -1.0;
+    }
+
     public static void init(int framesNum) {
         if (INSTANCE != null) return;
-        if (!MoltenVKConfig.perfDiagEnabled()) return;
         try {
             INSTANCE = new FrameTimer(framesNum);
-            Initializer.LOGGER.info("FrameTimer: GPU timing enabled ({} frames, timestampPeriod={} ns)",
-                    framesNum, INSTANCE.timestampPeriod);
+            INSTANCE.logging = MoltenVKConfig.perfDiagEnabled();
+            Initializer.LOGGER.info("FrameTimer: GPU timing enabled ({} frames, timestampPeriod={} ns, logging={})",
+                    framesNum, INSTANCE.timestampPeriod, INSTANCE.logging);
         } catch (Throwable t) {
             Initializer.LOGGER.warn("FrameTimer: disabled ({})", t.toString());
             INSTANCE = null;
@@ -63,6 +71,9 @@ public final class FrameTimer {
     private int samples;
     private long lastReportNanos = 0;
     private boolean anyGpuSample = false;
+    private boolean logging = false;
+    private double smoothGpuMs = -1.0;
+    private double smoothWallMs = -1.0;
     private long lastGcMillis = -1; // cumulative JVM GC time, delta'd per window
 
     private FrameTimer(int framesNum) {
@@ -101,7 +112,12 @@ public final class FrameTimer {
 
         if (wallMs > 0) {
             accWallMs += wallMs;
-            if (gpuMs >= 0) { accGpuMs += gpuMs; anyGpuSample = true; }
+            smoothWallMs = smoothWallMs < 0 ? wallMs : smoothWallMs * 0.9 + wallMs * 0.1;
+            if (gpuMs >= 0) {
+                accGpuMs += gpuMs;
+                anyGpuSample = true;
+                smoothGpuMs = smoothGpuMs < 0 ? gpuMs : smoothGpuMs * 0.9 + gpuMs * 0.1;
+            }
             // cpuMs is added at endFrame, paired with this wall sample
             pendingWall = true;
         }
@@ -161,6 +177,21 @@ public final class FrameTimer {
         if (lastReportNanos == 0) { lastReportNanos = now; return; }
         if (now - lastReportNanos < REPORT_INTERVAL_NS || samples < 1) return;
 
+        if (!this.logging) {
+            net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuilds();
+            net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuildMs();
+            net.vulkanmod.vulkan.framebuffer.RenderPass.consumeCreations();
+            net.vulkanmod.vulkan.pass.DefaultMainPass.consumeTargetSwitches();
+            net.vulkanmod.render.vsr.Vsr.consumePasses();
+
+            accWallMs = accCpuMs = accGpuMs = accCpuBusyMs = 0;
+            accUploadMs = accTerrainMs = accSetupMs = 0;
+            samples = 0;
+            anyGpuSample = false;
+            lastReportNanos = now;
+            return;
+        }
+
         double wall = accWallMs / samples;
         double cpu = accCpuMs / samples;
         double gpu = anyGpuSample ? accGpuMs / samples : -1;
@@ -196,13 +227,30 @@ public final class FrameTimer {
                 "  breakdown: upload=%.2fms  setup/cull=%.2fms  terrain=%.2fms  entities/BE/GUI=%.2fms  |  GC=%.2fms/frame",
                 upload, setup, terrain, renderOther, gcMsPerFrame));
 
-        // actual render resolutions
+        int pipelineBuilds = net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuilds();
+        double pipelineBuildMs = net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuildMs();
+        int renderPassCreations = net.vulkanmod.vulkan.framebuffer.RenderPass.consumeCreations();
+
+        Initializer.LOGGER.info(String.format(
+                "  pipelines: builds=%.1f/frame  buildTime=%.2fms/frame  liveVariants=%d  renderPassCreations=%.1f/frame",
+                pipelineBuilds / (double) samples, pipelineBuildMs / samples,
+                net.vulkanmod.vulkan.shader.GraphicsPipeline.totalVariants(),
+                renderPassCreations / (double) samples));
+
+        int targetSwitches = net.vulkanmod.vulkan.pass.DefaultMainPass.consumeTargetSwitches();
+
         try {
-            net.vulkanmod.vulkan.framebuffer.SwapChain sc = Vulkan.getSwapChain();
-            com.mojang.blaze3d.platform.Window win = net.minecraft.client.Minecraft.getInstance().getWindow();
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            com.mojang.blaze3d.platform.Window win = mc.getWindow();
             Initializer.LOGGER.info(String.format(
-                    "  resolution: swapchain=%dx%d  mcFramebuffer=%dx%d",
-                    sc.getWidth(), sc.getHeight(), win.getWidth(), win.getHeight()));
+                    "  renderScale: config=%d%%  %s  targetSwitches=%.1f/frame  mcFramebuffer=%dx%d  fpsLimit=%d  vsrBackend=%d  vsrPasses=%.1f/frame",
+                    net.vulkanmod.config.RenderScale.clamp(Initializer.CONFIG.renderScale),
+                    Renderer.getInstance().getMainPass().renderScaleStatus(),
+                    targetSwitches / (double) samples,
+                    win.getWidth(), win.getHeight(),
+                    mc.options.framerateLimit().get(),
+                    net.vulkanmod.render.vsr.Vsr.getLastBackend(),
+                    net.vulkanmod.render.vsr.Vsr.consumePasses() / (double) samples));
         } catch (Throwable ignored) {}
 
         // post-shader settings snapshot, so windows with different settings aren't compared blind

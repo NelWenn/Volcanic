@@ -6,8 +6,12 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.server.MinecraftServer;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.chunk.WorldRenderer;
+import net.vulkanmod.render.vsr.Vsr;
+import net.vulkanmod.render.vtu.VtuJitter;
+import net.vulkanmod.vulkan.FrameTimer;
 import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.device.Device;
+import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.BufferedReader;
@@ -172,8 +176,38 @@ public class DebugOverlay extends HUD {
 
         sb.addAll(WorldRenderer.getInstance().getChunkStatisticsAsList());
         sb.addAll(WorldRenderer.getInstance().getChunkAreaManager().getStatsAsList());
+        sb.addAll(buildVsr());
 
         return sb;
+    }
+
+    private List<String> buildVsr() {
+        int backend = Vsr.getLastBackend();
+        int inWidth = Vsr.getInputWidth();
+        int outWidth = Vsr.getOutputWidth();
+
+        double gpu = FrameTimer.gpuMs();
+        double frame = FrameTimer.frameMs();
+
+        String timing = gpu >= 0
+                ? String.format("§7GPU:§r %.2fms  §7Frame:§r %.2fms  §7Bound:§r %d%%",
+                        gpu, frame, frame > 0 ? Math.round(Math.min(100.0, gpu / frame * 100.0)) : 0)
+                : "§7GPU:§r n/a";
+
+        if (backend < 0 || outWidth <= 0) {
+            return List.of("§7VSR:§r inactive", timing);
+        }
+
+        return List.of(
+                String.format("§7VSR:§r %s  %dx%d > %dx%d (%d%%)",
+                        Vsr.backendName(backend), inWidth, Vsr.getInputHeight(),
+                        outWidth, Vsr.getOutputHeight(), Math.round(100.0f * inWidth / outWidth)),
+                String.format("§7Sharp:§r %d%%  §7Pipelines:§r %d",
+                        Math.round(Vsr.getSharpness() * 100.0f), GraphicsPipeline.totalVariants()),
+                String.format("§7Jitter:§r %.3f,%.3f px  §7phase§r %d/%d",
+                        VtuJitter.pixelX(), VtuJitter.pixelY(),
+                        VtuJitter.phase(), VtuJitter.phaseCount()),
+                timing);
     }
 
     private void updateFrameTimeBuffer(long frameTimeNanos) {
