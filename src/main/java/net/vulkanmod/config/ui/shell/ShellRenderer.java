@@ -10,6 +10,7 @@ import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.ScrollIndicator;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
 import net.vulkanmod.config.ui.core.ShellLayout;
@@ -166,6 +167,17 @@ public final class ShellRenderer {
         return SettingRowLayout.rows(layout.content(), presenter.settings().size(), scroll, layout.breakpoint());
     }
 
+    public ScrollIndicator contentScrollIndicator(ShellLayout layout, NavPresenter presenter, int scroll) {
+        if (layout == null) {
+            throw new IllegalArgumentException("layout must not be null");
+        }
+        if (presenter == null) {
+            throw new IllegalArgumentException("presenter must not be null");
+        }
+        return ScrollIndicator.of(layout.content(),
+                SettingRowLayout.contentHeight(presenter.settings().size(), layout.breakpoint()), scroll);
+    }
+
     private static int revealIndex(NavPresenter presenter, List<NavNode> tabs) {
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
         RouteId current = presenter.stack().current();
@@ -279,6 +291,18 @@ public final class ShellRenderer {
 
         paintTabStrip(painter, font, layout, presenter);
         paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
+        paintScrollIndicator(painter, layout, presenter, contentScroll);
+    }
+
+    private void paintScrollIndicator(SurfacePainter painter, ShellLayout layout, NavPresenter presenter,
+                                      int contentScroll) {
+        ScrollIndicator indicator = contentScrollIndicator(layout, presenter, contentScroll);
+        if (!indicator.visible()) {
+            return;
+        }
+        int radius = indicator.track().width() / 2;
+        paintRoundedFill(painter, indicator.track(), radius, theme.color(ColorToken.BORDER_SUBTLE));
+        paintRoundedFill(painter, indicator.thumb(), radius, theme.color(ColorToken.BORDER_ACCENT));
     }
 
     private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,

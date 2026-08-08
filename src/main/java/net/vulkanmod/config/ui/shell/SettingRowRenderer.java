@@ -26,6 +26,7 @@ public final class SettingRowRenderer {
 
     private static final String ARROW_LEFT = "\u2039";
     private static final String ARROW_RIGHT = "\u203A";
+    private static final String ITALIC = "\u00A7o";
 
     private final Theme theme;
 
@@ -65,7 +66,7 @@ public final class SettingRowRenderer {
         ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS, cardArgb(hovered));
         ShellRenderer.paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS, borderArgb(hovered));
 
-        painter.text(card.x() + PAD_X, textTop(card), I18n.get(meta.titleKey()),
+        painter.text(card.x() + PAD_X, textTop(card), title(meta, resettable),
                 theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT), false);
 
         if (resettable) {
@@ -78,6 +79,11 @@ public final class SettingRowRenderer {
             case INT -> paintTrack(painter, font, card, right, intValue(meta, value), min, max);
             case ENUM -> paintCycler(painter, font, card, right, I18n.get(value.toString()), hovered);
         }
+    }
+
+    private static String title(SettingMeta meta, boolean modified) {
+        String text = I18n.get(meta.titleKey());
+        return modified ? ITALIC + text : text;
     }
 
     private void paintReset(SurfacePainter painter, Rect box, boolean hovered) {

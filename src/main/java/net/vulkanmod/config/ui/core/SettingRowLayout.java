@@ -77,20 +77,24 @@ public final class SettingRowLayout {
                 RESET_SIZE, RESET_SIZE);
     }
 
-    public static int maxScroll(Rect content, int count, Breakpoint breakpoint) {
-        if (content == null) {
-            throw new IllegalArgumentException("content must not be null");
-        }
+    public static int contentHeight(int count, Breakpoint breakpoint) {
         if (count < 0) {
             throw new IllegalArgumentException("count must not be negative: " + count);
         }
         requireBreakpoint(breakpoint);
 
-        if (count == 0 || content.isEmpty()) {
+        if (count == 0) {
             return 0;
         }
-        int needed = TOP + count * (rowHeight(breakpoint) + rowGap(breakpoint)) - rowGap(breakpoint) + BOTTOM;
-        return Math.max(0, needed - content.height());
+        return TOP + count * (rowHeight(breakpoint) + rowGap(breakpoint)) - rowGap(breakpoint) + BOTTOM;
+    }
+
+    public static int maxScroll(Rect content, int count, Breakpoint breakpoint) {
+        if (content == null) {
+            throw new IllegalArgumentException("content must not be null");
+        }
+        int needed = contentHeight(count, breakpoint);
+        return content.isEmpty() ? 0 : Math.max(0, needed - content.height());
     }
 
     public static int clampScroll(int scroll, Rect content, int count, Breakpoint breakpoint) {
