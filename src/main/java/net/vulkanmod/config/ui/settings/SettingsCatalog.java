@@ -164,7 +164,7 @@ public final class SettingsCatalog {
         }
         if (SettingsDefinitions.CULLING_LOD_GPU.equals(id)) {
             return Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw()
-                    && LodCulling.isAvailable();
+                    && lodCullingAvailable();
         }
         if (SettingsDefinitions.INDIRECT_DRAW.equals(id)) {
             return DeviceManager.supportsFastIndirectDraw();
@@ -887,6 +887,15 @@ public final class SettingsCatalog {
     private static int highestRefreshRate() {
         List<Integer> rates = selectedResolution().getRefreshRates();
         return rates.get(rates.size() - 1);
+    }
+
+    private Boolean lodCullingAvailable;
+
+    private boolean lodCullingAvailable() {
+        if (lodCullingAvailable == null) {
+            lodCullingAvailable = LodCulling.isAvailable();
+        }
+        return lodCullingAvailable;
     }
 
     private static WindowMode windowMode() {

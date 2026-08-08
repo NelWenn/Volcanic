@@ -122,7 +122,7 @@ public class VolcanicScreen extends Screen {
         }
         if (!drawerOpen && layout.content().contains((int) mouseX, (int) mouseY)) {
             this.contentScroll = SettingRowLayout.clampScroll(this.contentScroll - direction * CONTENT_SCROLL_STEP,
-                    layout.content(), presenter.settings().size(), layout.breakpoint());
+                    layout.content(), presenter.contentRowCount(), layout.breakpoint());
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -335,7 +335,7 @@ public class VolcanicScreen extends Screen {
             this.contentScroll = 0;
         }
         this.contentScroll = SettingRowLayout.clampScroll(this.contentScroll, layout.content(),
-                presenter.settings().size(), layout.breakpoint());
+                presenter.contentRowCount(), layout.breakpoint());
     }
 
     private Rect navViewport() {

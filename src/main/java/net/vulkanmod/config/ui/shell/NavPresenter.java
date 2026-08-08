@@ -1,5 +1,6 @@
 package net.vulkanmod.config.ui.shell;
 
+import net.vulkanmod.Initializer;
 import net.vulkanmod.config.ui.core.DeferredValues;
 import net.vulkanmod.config.ui.core.FocusModel;
 import net.vulkanmod.config.ui.core.FocusRing;
@@ -132,11 +133,22 @@ public final class NavPresenter {
         return true;
     }
 
+    private static final RouteId OVERVIEW_ROUTE = RouteId.parse("overview");
+
+    public int contentRowCount() {
+        return isOverview() ? catalog.overview().rows().size() : settings().size();
+    }
+
+    public boolean isOverview() {
+        return OVERVIEW_ROUTE.equals(stack().current());
+    }
+
     public void apply() {
         deferred.drainTo((id, value) -> {
             catalog.binding(id).set(value);
             pending.unmark(id);
         });
+        Initializer.CONFIG.write();
     }
 
     public void discard() {

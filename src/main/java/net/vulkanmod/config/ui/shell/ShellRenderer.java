@@ -180,7 +180,7 @@ public final class ShellRenderer {
         if (presenter == null) {
             throw new IllegalArgumentException("presenter must not be null");
         }
-        return SettingRowLayout.rows(layout.content(), presenter.settings().size(), scroll, layout.breakpoint());
+        return SettingRowLayout.rows(layout.content(), presenter.contentRowCount(), scroll, layout.breakpoint());
     }
 
     public static Rect sliderTrack(Rect row) {
@@ -198,7 +198,7 @@ public final class ShellRenderer {
             throw new IllegalArgumentException("presenter must not be null");
         }
         return ScrollIndicator.of(layout.content(),
-                SettingRowLayout.contentHeight(presenter.settings().size(), layout.breakpoint()), scroll);
+                SettingRowLayout.contentHeight(presenter.contentRowCount(), layout.breakpoint()), scroll);
     }
 
     private static int revealIndex(NavPresenter presenter, List<NavNode> tabs) {
@@ -375,8 +375,7 @@ public final class ShellRenderer {
     private void paintOverview(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
                                int contentScroll) {
         List<OverviewModel.Row> rows = presenter.catalog().overview().rows();
-        List<Rect> boxes = SettingRowLayout.rows(layout.content(), rows.size(), contentScroll,
-                layout.breakpoint());
+        List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
         int labelArgb = theme.color(ColorToken.TEXT_DEFAULT);
         int valueArgb = theme.color(ColorToken.TEXT_SECONDARY);
 
