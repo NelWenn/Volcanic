@@ -1,10 +1,18 @@
 package net.vulkanmod.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import org.lwjgl.glfw.GLFW;
 
 public abstract class HUD {
+
+    public static final KeyMapping optionsKeyMapping = new KeyMapping(
+            "vulkanmod.keybind.open_options",
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_O,
+            "Volcanic");
 
     private int priority = 0;
     private boolean enabled = true;
