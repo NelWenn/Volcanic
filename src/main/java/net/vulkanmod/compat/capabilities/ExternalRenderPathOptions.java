@@ -1,5 +1,8 @@
 package net.vulkanmod.compat.capabilities;
 
+import net.vulkanmod.Initializer;
+import net.vulkanmod.config.Config;
+
 public final class ExternalRenderPathOptions {
     private static final String EXTERNAL_LOD = "vulkanmod.compat.externalLod";
     private static final String EXTERNAL_LOD_DRAW = "vulkanmod.compat.externalLod.draw";
@@ -8,12 +11,26 @@ public final class ExternalRenderPathOptions {
     private ExternalRenderPathOptions() {
     }
 
+    public static String externalLodMode() {
+        String property = System.getProperty(EXTERNAL_LOD);
+        if (property != null) {
+            return property;
+        }
+        Config config = Initializer.CONFIG;
+        return config == null || config.externalLod == null ? "off" : config.externalLod;
+    }
+
     public static boolean externalLodEnabled() {
-        return "on".equalsIgnoreCase(System.getProperty(EXTERNAL_LOD, "off"));
+        return "on".equalsIgnoreCase(externalLodMode());
     }
 
     public static boolean externalLodDrawEnabled() {
-        return Boolean.parseBoolean(System.getProperty(EXTERNAL_LOD_DRAW, "true"));
+        String property = System.getProperty(EXTERNAL_LOD_DRAW);
+        if (property != null) {
+            return Boolean.parseBoolean(property);
+        }
+        Config config = Initializer.CONFIG;
+        return config == null || config.externalLodDraw;
     }
 
     public static boolean externalLodDebugDrawEnabled() {

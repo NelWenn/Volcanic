@@ -22,6 +22,14 @@ class ApplyScopeTest {
     }
 
     @Test
+    void onlyInstantTakesEffectWithoutBeingApplied() {
+        for (ApplyScope scope : ApplyScope.values()) {
+            assertEquals(scope == ApplyScope.INSTANT, scope.immediate(),
+                    scope + " must " + (scope == ApplyScope.INSTANT ? "" : "not ") + "apply on the spot");
+        }
+    }
+
+    @Test
     void nothingPendingMeansNothingToAnnounce() {
         assertEquals(ApplyScope.INSTANT, ApplyScope.heaviest(List.of()));
     }

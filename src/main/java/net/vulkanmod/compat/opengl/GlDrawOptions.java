@@ -1,5 +1,8 @@
 package net.vulkanmod.compat.opengl;
 
+import net.vulkanmod.Initializer;
+import net.vulkanmod.config.Config;
+
 public final class GlDrawOptions {
     private static final String PRESERVE_LEGACY_PROPERTY = "vulkanmod.compat.glDraw.preserveLegacyBridge";
     private static final String DEBUG_PROPERTY = "vulkanmod.compat.glDraw.debug";
@@ -9,7 +12,8 @@ public final class GlDrawOptions {
     }
 
     public static boolean shouldPreserveLegacyBridge() {
-        return Boolean.parseBoolean(System.getProperty(PRESERVE_LEGACY_PROPERTY, "true"));
+        Config config = Initializer.CONFIG;
+        return resolve(PRESERVE_LEGACY_PROPERTY, config == null || config.glLegacyBridge);
     }
 
     public static boolean debugDrawContracts() {
@@ -17,6 +21,12 @@ public final class GlDrawOptions {
     }
 
     public static boolean fboViewportUsesFboConvention() {
-        return Boolean.parseBoolean(System.getProperty(FBO_VIEWPORT_PROPERTY, "true"));
+        Config config = Initializer.CONFIG;
+        return resolve(FBO_VIEWPORT_PROPERTY, config == null || config.glFboViewport);
+    }
+
+    private static boolean resolve(String property, boolean configured) {
+        String value = System.getProperty(property);
+        return value == null ? configured : Boolean.parseBoolean(value);
     }
 }

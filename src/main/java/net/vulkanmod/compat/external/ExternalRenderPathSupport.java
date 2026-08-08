@@ -1,12 +1,11 @@
 package net.vulkanmod.compat.external;
 
+import net.vulkanmod.compat.capabilities.ExternalRenderPathOptions;
+
 import java.util.Locale;
 
 public final class ExternalRenderPathSupport {
-    public static final String MODE_PROPERTY = "vulkanmod.compat.externalLod";
-    public static final String DRAW_PROPERTY = "vulkanmod.compat.externalLod.draw";
-
-    private static final Mode MODE = Mode.fromProperty(System.getProperty(MODE_PROPERTY));
+    private static final Mode MODE = Mode.fromProperty(ExternalRenderPathOptions.externalLodMode());
 
     private ExternalRenderPathSupport() {
     }
@@ -20,19 +19,20 @@ public final class ExternalRenderPathSupport {
     }
 
     public static boolean shouldDrawExternalLodBridge() {
-        return shouldDrawExternalLodBridge(MODE, System.getProperty(DRAW_PROPERTY));
+        return shouldDrawExternalLodBridge(MODE, ExternalRenderPathOptions.externalLodDrawEnabled());
     }
 
-    static boolean shouldDrawExternalLodBridge(Mode mode, String drawProperty) {
-        return mode == Mode.EXPERIMENTAL && Boolean.parseBoolean(drawProperty == null ? "true" : drawProperty);
+    static boolean shouldDrawExternalLodBridge(Mode mode, boolean draw) {
+        return mode == Mode.EXPERIMENTAL && draw;
     }
 
     public static boolean shouldDrawExternalLodBridgeDirectlyToMainFramebuffer() {
-        return shouldDrawExternalLodBridgeDirectlyToMainFramebuffer(MODE, System.getProperty(DRAW_PROPERTY));
+        return shouldDrawExternalLodBridgeDirectlyToMainFramebuffer(MODE,
+                ExternalRenderPathOptions.externalLodDrawEnabled());
     }
 
-    static boolean shouldDrawExternalLodBridgeDirectlyToMainFramebuffer(Mode mode, String drawProperty) {
-        return shouldDrawExternalLodBridge(mode, drawProperty);
+    static boolean shouldDrawExternalLodBridgeDirectlyToMainFramebuffer(Mode mode, boolean draw) {
+        return shouldDrawExternalLodBridge(mode, draw);
     }
 
     public static boolean shouldSkipExternalLodApplyPass() {

@@ -16,6 +16,13 @@ public final class PendingChanges {
         scopes.merge(id, scope, (left, right) -> left.ordinal() >= right.ordinal() ? left : right);
     }
 
+    public void unmark(SettingId id) {
+        if (id == null) {
+            throw new IllegalArgumentException("id must not be null");
+        }
+        scopes.remove(id);
+    }
+
     public void clear() {
         scopes.clear();
     }

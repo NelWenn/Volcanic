@@ -9,6 +9,7 @@ import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.ColorToken;
 import net.vulkanmod.config.ui.core.Gradient;
 import net.vulkanmod.config.ui.core.NavNode;
+import net.vulkanmod.config.ui.core.OverviewModel;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;
 import net.vulkanmod.config.ui.core.RouteId;
@@ -52,8 +53,12 @@ public final class ShellRenderer {
     private static final int BRAND_Y = 12;
     private static final int BRAND_GAP = 8;
     private static final float SCRIM_ALPHA = 0.72f;
+    private static final int BAR_BUTTON_RADIUS = 5;
+    private static final String KEY_APPLY = "vulkanmod.applybar.apply";
+    private static final String KEY_DISCARD = "vulkanmod.applybar.discard";
     private static final String BRAND = "VOLCANIC";
     private static final String BREADCRUMB_SEPARATOR = "›";
+    private static final RouteId OVERVIEW = RouteId.parse("overview");
 
     private final Theme theme;
     private final SettingRowRenderer rowRenderer;
@@ -84,7 +89,7 @@ public final class ShellRenderer {
         }
 
         paintChrome(painter, layout, drawerOpen);
-        paintApplyBar(painter, layout, presenter);
+        paintApplyBar(painter, font, layout, presenter, mouseX, mouseY);
         painter.flush();
 
         Rect nav = layout.sidebarOrDrawer(drawerOpen);
@@ -239,7 +244,18 @@ public final class ShellRenderer {
         }
     }
 
-    private void paintApplyBar(SurfacePainter painter, ShellLayout layout, NavPresenter presenter) {
+    public Rect applyButton(ShellLayout layout, NavPresenter presenter) {
+        requireBarInputs(layout, presenter);
+        return ApplyBarModel.of(presenter.pending()).visible() ? layout.applyButton() : Rect.EMPTY;
+    }
+
+    public Rect discardButton(ShellLayout layout, NavPresenter presenter) {
+        requireBarInputs(layout, presenter);
+        return ApplyBarModel.of(presenter.pending()).visible() ? layout.discardButton() : Rect.EMPTY;
+    }
+
+    private void paintApplyBar(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                               int mouseX, int mouseY) {
         ApplyBarModel bar = ApplyBarModel.of(presenter.pending());
         Rect region = layout.bottomBar();
         if (!bar.visible() || region.isEmpty()) {
@@ -248,6 +264,33 @@ public final class ShellRenderer {
         ColorToken token = bar.scope() == ApplyScope.RESTART ? ColorToken.WARNING : ColorToken.TEXT_SECONDARY;
         painter.text(region.x() + CONTENT_PAD_X, region.y() + (region.height() - TEXT_HEIGHT) / 2,
                 I18n.get(bar.messageKey(), bar.count()), theme.color(token), false);
+
+        paintBarButton(painter, font, applyButton(layout, presenter), I18n.get(KEY_APPLY),
+                ColorToken.ACCENT, mouseX, mouseY);
+        paintBarButton(painter, font, discardButton(layout, presenter), I18n.get(KEY_DISCARD),
+                ColorToken.BORDER_STRONG, mouseX, mouseY);
+    }
+
+    private void paintBarButton(SurfacePainter painter, Font font, Rect box, String text, ColorToken border,
+                                int mouseX, int mouseY) {
+        if (box.isEmpty()) {
+            return;
+        }
+        boolean hovered = box.contains(mouseX, mouseY);
+        paintRoundedFill(painter, box, BAR_BUTTON_RADIUS,
+                theme.color(hovered ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD));
+        paintRoundedOutline(painter, box, BAR_BUTTON_RADIUS, theme.color(hovered ? ColorToken.ACCENT : border));
+        painter.text(box.x() + (box.width() - font.width(text)) / 2, box.y() + (box.height() - TEXT_HEIGHT) / 2,
+                text, theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT), false);
+    }
+
+    private static void requireBarInputs(ShellLayout layout, NavPresenter presenter) {
+        if (layout == null) {
+            throw new IllegalArgumentException("layout must not be null");
+        }
+        if (presenter == null) {
+            throw new IllegalArgumentException("presenter must not be null");
+        }
     }
 
     private static void paintMenuIcon(SurfacePainter painter, Rect button, int argb) {
@@ -321,8 +364,37 @@ public final class ShellRenderer {
                 theme.color(ColorToken.TEXT_PRIMARY), false);
 
         paintTabStrip(painter, font, layout, presenter);
-        paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged);
+        if (OVERVIEW.equals(presenter.stack().current())) {
+            paintOverview(painter, font, layout, presenter, contentScroll);
+        } else {
+            paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged);
+        }
         paintScrollIndicator(painter, layout, presenter, contentScroll);
+    }
+
+    private void paintOverview(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                               int contentScroll) {
+        List<OverviewModel.Row> rows = presenter.catalog().overview().rows();
+        List<Rect> boxes = SettingRowLayout.rows(layout.content(), rows.size(), contentScroll,
+                layout.breakpoint());
+        int labelArgb = theme.color(ColorToken.TEXT_DEFAULT);
+        int valueArgb = theme.color(ColorToken.TEXT_SECONDARY);
+
+        for (int i = 0; i < boxes.size(); i++) {
+            Rect card = SettingRowLayout.cardBox(boxes.get(i));
+            if (card.isEmpty()) {
+                continue;
+            }
+            paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS,
+                    theme.color(ColorToken.SURFACE_CARD));
+            paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS,
+                    theme.color(ColorToken.BORDER_SUBTLE));
+
+            int top = card.y() + (card.height() - TEXT_HEIGHT) / 2;
+            String value = rows.get(i).value();
+            painter.text(card.x() + CARD_PAD_X, top, I18n.get(rows.get(i).labelKey()), labelArgb, false);
+            painter.text(card.right() - CARD_PAD_X - font.width(value), top, value, valueArgb, false);
+        }
     }
 
     private void paintScrollIndicator(SurfacePainter painter, ShellLayout layout, NavPresenter presenter,
@@ -349,7 +421,8 @@ public final class ShellRenderer {
             Rect box = boxes.get(i);
             SettingMeta meta = settings.get(i);
             SettingBinding binding = catalog.binding(meta.id());
-            rowRenderer.render(painter, font, box, meta, binding, binding.get(), catalog.enabled(meta.id()),
+            rowRenderer.render(painter, font, box, meta, binding, presenter.valueOf(meta),
+                    catalog.enabled(meta.id()),
                     box.contains(mouseX, mouseY) || meta.id().equals(dragged), presenter.resettable(meta),
                     SettingRowLayout.resetBox(box).contains(mouseX, mouseY));
             if (meta.id().toString().equals(focusedId)) {

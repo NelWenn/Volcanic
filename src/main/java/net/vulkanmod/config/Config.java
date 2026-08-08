@@ -43,6 +43,12 @@ public class Config {
     public int particleCulling = 2;
     public int device = -1;
 
+    public boolean moltenvkAggressive = false;
+    public String externalLod = "off";
+    public boolean externalLodDraw = true;
+    public boolean glLegacyBridge = true;
+    public boolean glFboViewport = true;
+
     public int ambientOcclusion = 1;
     public boolean textureAnimations = true;
     public boolean ctmEnabled = true;

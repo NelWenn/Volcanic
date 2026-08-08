@@ -102,6 +102,38 @@ class ShellLayoutTest {
     }
 
     @Test
+    void applyAndDiscardSitSideBySideInsideTheBottomBar() {
+        ShellLayout layout = ShellLayout.of(854, 480);
+        Rect bar = layout.bottomBar();
+        Rect apply = layout.applyButton();
+        Rect discard = layout.discardButton();
+
+        assertFalse(apply.isEmpty());
+        assertFalse(discard.isEmpty());
+        assertEquals(apply.y(), discard.y());
+        assertEquals(apply.height(), discard.height());
+        assertTrue(discard.right() < apply.x(), "the two buttons must not overlap");
+        assertTrue(discard.x() >= bar.x());
+        assertTrue(apply.right() <= bar.right());
+        assertTrue(apply.y() >= bar.y() && apply.bottom() <= bar.bottom());
+    }
+
+    @Test
+    void aBottomBarTooNarrowForBothButtonsOffersNeither() {
+        ShellLayout layout = ShellLayout.of(90, 480);
+        assertTrue(layout.applyButton().isEmpty());
+        assertTrue(layout.discardButton().isEmpty());
+    }
+
+    @Test
+    void aCollapsedBottomBarOffersNoButtons() {
+        ShellLayout layout = ShellLayout.of(854, 20);
+        assertTrue(layout.bottomBar().isEmpty());
+        assertTrue(layout.applyButton().isEmpty());
+        assertTrue(layout.discardButton().isEmpty());
+    }
+
+    @Test
     void degenerateViewportDoesNotProduceNegativeContent() {
         ShellLayout layout = ShellLayout.of(40, 20);
         assertFalse(layout.content().isEmpty() && layout.content().width() < 0);

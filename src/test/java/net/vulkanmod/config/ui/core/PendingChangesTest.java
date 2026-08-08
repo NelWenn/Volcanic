@@ -16,6 +16,29 @@ class PendingChangesTest {
     }
 
     @Test
+    void unmarkingDropsOnlyThatSetting() {
+        PendingChanges pending = new PendingChanges();
+        pending.mark(A, ApplyScope.RESTART);
+        pending.mark(B, ApplyScope.WINDOW);
+
+        pending.unmark(A);
+
+        assertEquals(1, pending.count());
+        assertFalse(pending.isChanged(A));
+        assertTrue(pending.isChanged(B));
+        assertEquals(ApplyScope.WINDOW, pending.heaviestScope());
+    }
+
+    @Test
+    void unmarkingSomethingThatWasNeverMarkedChangesNothing() {
+        PendingChanges pending = new PendingChanges();
+        pending.mark(A, ApplyScope.RESTART);
+        pending.unmark(B);
+        assertEquals(1, pending.count());
+        assertThrows(IllegalArgumentException.class, () -> pending.unmark(null));
+    }
+
+    @Test
     void markingTwiceCountsOneSettingAndKeepsTheHeavierScope() {
         PendingChanges pending = new PendingChanges();
         pending.mark(A, ApplyScope.INSTANT);

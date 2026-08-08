@@ -1,5 +1,6 @@
 package net.vulkanmod.config.ui.shell;
 
+import net.vulkanmod.config.ui.core.DeferredValues;
 import net.vulkanmod.config.ui.core.FocusModel;
 import net.vulkanmod.config.ui.core.FocusRing;
 import net.vulkanmod.config.ui.core.NavNode;
@@ -8,7 +9,6 @@ import net.vulkanmod.config.ui.core.NavTree;
 import net.vulkanmod.config.ui.core.PendingChanges;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingMeta;
-import net.vulkanmod.config.ui.core.SettingType;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.settings.SettingBinding;
 import net.vulkanmod.config.ui.settings.SettingsCatalog;
@@ -25,6 +25,7 @@ public final class NavPresenter {
     private final FocusModel focus;
     private final SettingsCatalog catalog = new SettingsCatalog();
     private final PendingChanges pending = new PendingChanges();
+    private final DeferredValues deferred = new DeferredValues();
 
     public NavPresenter() {
         this.tree = buildTree();
@@ -68,6 +69,13 @@ public final class NavPresenter {
         return catalog.registry().forRoute(stack.current());
     }
 
+    public Object valueOf(SettingMeta meta) {
+        if (meta == null) {
+            throw new IllegalArgumentException("meta must not be null");
+        }
+        return deferred.valueOr(meta.id(), catalog.binding(meta.id()).get());
+    }
+
     public boolean activate(SettingMeta meta) {
         if (meta == null) {
             throw new IllegalArgumentException("meta must not be null");
@@ -76,43 +84,64 @@ public final class NavPresenter {
             return false;
         }
 
-        SettingBinding binding = catalog.binding(meta.id());
-        switch (meta.type()) {
-            case BOOL -> binding.set(!boolValue(meta, binding.get()));
+        return switch (meta.type()) {
+            case BOOL -> set(meta, !boolValue(meta, valueOf(meta)));
             case ENUM -> {
-                List<String> choices = binding.choices();
-                if (choices.isEmpty()) {
-                    return false;
-                }
-                binding.set(cycled(choices, binding.get()));
+                List<String> choices = catalog.binding(meta.id()).choices();
+                yield !choices.isEmpty() && set(meta, cycled(choices, valueOf(meta)));
             }
-            case INT -> {
-                return false;
-            }
-        }
-        pending.mark(meta.id(), meta.scope());
-        return true;
+            case INT, FLOAT -> false;
+        };
     }
 
     public boolean step(SettingMeta meta, int direction) {
         if (meta == null) {
             throw new IllegalArgumentException("meta must not be null");
         }
-        if (meta.type() != SettingType.INT || direction == 0 || !catalog.enabled(meta.id())) {
+        if (!meta.type().slider() || direction == 0 || !catalog.enabled(meta.id())) {
             return false;
         }
 
         SettingBinding binding = catalog.binding(meta.id());
-        int current = intValue(meta, binding.get());
-        int value = Math.max(binding.min(),
-                Math.min(binding.max(), current + Integer.signum(direction) * binding.step()));
-        if (value == current) {
+        int current = intValue(meta, valueOf(meta));
+        return set(meta, Math.max(binding.min(),
+                Math.min(binding.max(), current + Integer.signum(direction) * binding.step())));
+    }
+
+    public boolean set(SettingMeta meta, Object value) {
+        if (meta == null) {
+            throw new IllegalArgumentException("meta must not be null");
+        }
+        if (value == null) {
+            throw new IllegalArgumentException("value must not be null for setting " + meta.id());
+        }
+        if (!catalog.enabled(meta.id()) || value.equals(valueOf(meta))) {
             return false;
         }
 
-        binding.set(value);
-        pending.mark(meta.id(), meta.scope());
+        SettingBinding binding = catalog.binding(meta.id());
+        if (meta.scope().immediate()) {
+            binding.set(value);
+            return true;
+        }
+        if (deferred.set(meta.id(), value, binding.get())) {
+            pending.mark(meta.id(), meta.scope());
+        } else {
+            pending.unmark(meta.id());
+        }
         return true;
+    }
+
+    public void apply() {
+        deferred.drainTo((id, value) -> {
+            catalog.binding(id).set(value);
+            pending.unmark(id);
+        });
+    }
+
+    public void discard() {
+        deferred.clear();
+        pending.clear();
     }
 
     public boolean resettable(SettingMeta meta) {
@@ -124,18 +153,14 @@ public final class NavPresenter {
         }
 
         SettingBinding binding = catalog.binding(meta.id());
-        return binding.hasDefault() && !binding.defaultValue().equals(binding.get());
+        return binding.hasDefault() && !binding.defaultValue().equals(valueOf(meta));
     }
 
     public boolean reset(SettingMeta meta) {
         if (!resettable(meta)) {
             return false;
         }
-
-        SettingBinding binding = catalog.binding(meta.id());
-        binding.set(binding.defaultValue());
-        pending.mark(meta.id(), meta.scope());
-        return true;
+        return set(meta, catalog.binding(meta.id()).defaultValue());
     }
 
     public boolean navigate(RouteId route) {
@@ -270,7 +295,7 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("overview"), "vulkanmod.ui.page.overview", "vulkanmod.ui.section.volcanic", true))
                 .add(new NavNode(RouteId.parse("display"), "vulkanmod.ui.page.display", null, true))
                 .add(new NavNode(RouteId.parse("display.general"), "vulkanmod.ui.page.display.general", null, false))
-                .add(new NavNode(RouteId.parse("display.resolution"), "vulkanmod.ui.page.display.resolution", null, false))
+                .add(new NavNode(RouteId.parse("display.interface"), "vulkanmod.ui.page.display.interface", null, false))
                 .add(new NavNode(RouteId.parse("display.advanced"), "vulkanmod.ui.page.display.advanced", null, false))
                 .add(new NavNode(RouteId.parse("rendering"), "vulkanmod.ui.page.rendering", null, true))
                 .add(new NavNode(RouteId.parse("rendering.general"), "vulkanmod.ui.page.rendering.general", null, false))

@@ -11,7 +11,6 @@ import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
-import net.vulkanmod.config.ui.core.SettingType;
 import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.SliderGeometry;
 import net.vulkanmod.config.ui.core.TabStripModel;
@@ -81,7 +80,7 @@ public class VolcanicScreen extends Screen {
             setDrawerOpen(false);
             return true;
         }
-        if (clickTabStrip(x, y) || clickBreadcrumb(x, y) || clickSettingRow(x, y)) {
+        if (clickApplyBar(x, y) || clickTabStrip(x, y) || clickBreadcrumb(x, y) || clickSettingRow(x, y)) {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -186,6 +185,7 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public void onClose() {
+        presenter.discard();
         this.minecraft.setScreen(this.parent);
     }
 
@@ -208,6 +208,18 @@ public class VolcanicScreen extends Screen {
         select(route, NavPresenter.REGION_SIDEBAR);
         setDrawerOpen(false);
         return true;
+    }
+
+    private boolean clickApplyBar(int mouseX, int mouseY) {
+        if (renderer.applyButton(layout, presenter).contains(mouseX, mouseY)) {
+            presenter.apply();
+            return true;
+        }
+        if (renderer.discardButton(layout, presenter).contains(mouseX, mouseY)) {
+            presenter.discard();
+            return true;
+        }
+        return false;
     }
 
     private boolean clickTabStrip(int mouseX, int mouseY) {
@@ -233,7 +245,7 @@ public class VolcanicScreen extends Screen {
             return true;
         }
 
-        if (meta.type() == SettingType.INT && presenter.catalog().enabled(meta.id())) {
+        if (meta.type().slider() && presenter.catalog().enabled(meta.id())) {
             Rect track = ShellRenderer.sliderTrack(boxes.get(index));
             if (track.contains(mouseX, mouseY)) {
                 this.dragged = meta.id();
@@ -271,13 +283,7 @@ public class VolcanicScreen extends Screen {
         }
 
         SettingBinding binding = presenter.catalog().binding(meta.id());
-        int value = SliderGeometry.valueAt(track, mouseX, binding.min(), binding.max(), binding.step());
-        if (binding.get() instanceof Number current && current.intValue() == value) {
-            return;
-        }
-
-        binding.set(value);
-        presenter.pending().mark(meta.id(), meta.scope());
+        presenter.set(meta, SliderGeometry.valueAt(track, mouseX, binding.min(), binding.max(), binding.step()));
     }
 
     private boolean clickBreadcrumb(int mouseX, int mouseY) {

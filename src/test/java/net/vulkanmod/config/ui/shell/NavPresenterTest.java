@@ -93,7 +93,9 @@ class NavPresenterTest {
     void backReturnsToThePreviousLeafAndRebuildsTheContentRing() {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("rendering"));
-        assertEquals(6, presenter.focus().ring(NavPresenter.REGION_CONTENT).size());
+        assertEquals(6, presenter.subTabs().size());
+        assertEquals(4, presenter.settings().size());
+        assertEquals(10, presenter.focus().ring(NavPresenter.REGION_CONTENT).size());
 
         assertTrue(presenter.back());
 
@@ -184,6 +186,28 @@ class NavPresenterTest {
     }
 
     @Test
+    void theBarOffersApplyAndDiscardAndWarnsThatLeavingDiscards() throws IOException {
+        Map<String, String> lang = readLang();
+        assertFalse(lang.getOrDefault("vulkanmod.applybar.apply", "").isBlank());
+        assertFalse(lang.getOrDefault("vulkanmod.applybar.discard", "").isBlank());
+
+        SettingId probe = SettingId.parse("vulkanmod:probe");
+        List<String> silent = new ArrayList<>();
+        for (ApplyScope scope : ApplyScope.values()) {
+            if (scope == ApplyScope.INSTANT) {
+                continue;
+            }
+            PendingChanges pending = new PendingChanges();
+            pending.mark(probe, scope);
+            String message = lang.getOrDefault(ApplyBarModel.of(pending).messageKey(), "");
+            if (!message.contains("Esc")) {
+                silent.add(scope.name());
+            }
+        }
+        assertEquals(List.of(), silent, "every held change must warn that leaving discards it");
+    }
+
+    @Test
     void theContentRingHoldsTheSubTabsAndThenTheRowsOfTheCurrentRoute() {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("display.general"));
@@ -197,7 +221,7 @@ class NavPresenterTest {
         }
 
         presenter.navigate(RouteId.parse("display.advanced"));
-        assertEquals(3, ring.size());
+        assertEquals(4, ring.size());
     }
 
     @Test
@@ -227,15 +251,18 @@ class NavPresenterTest {
     }
 
     @Test
-    void displayGeneralIsTheOnlyRouteWithRowsToday() {
+    void eachDisplayRouteServesItsOwnRows() {
         NavPresenter presenter = new NavPresenter();
         assertEquals(List.of(), presenter.settings());
 
         presenter.navigate(RouteId.parse("display.general"));
         assertEquals(5, presenter.settings().size());
 
+        presenter.navigate(RouteId.parse("display.interface"));
+        assertEquals(4, presenter.settings().size());
+
         presenter.navigate(RouteId.parse("display.advanced"));
-        assertEquals(List.of(), presenter.settings());
+        assertEquals(1, presenter.settings().size());
     }
 
     @Test

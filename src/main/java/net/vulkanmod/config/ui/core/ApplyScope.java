@@ -10,6 +10,10 @@ public enum ApplyScope {
     WINDOW,
     RESTART;
 
+    public boolean immediate() {
+        return this == INSTANT;
+    }
+
     public static ApplyScope heaviest(Collection<ApplyScope> scopes) {
         if (scopes == null) {
             throw new IllegalArgumentException("scopes must not be null");

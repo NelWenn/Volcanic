@@ -38,6 +38,7 @@ public final class MoltenVKConfig {
 
     private static boolean aggressiveEnabled() {
         if (Boolean.getBoolean("vulkanmod.mvk.aggressive")) return true;
+        if (Initializer.CONFIG != null && Initializer.CONFIG.moltenvkAggressive) return true;
         try {
             java.nio.file.Path dir = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
             return java.nio.file.Files.exists(dir.resolve("moltenvk-aggressive"));

@@ -8,6 +8,10 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
     public static final int DETAILS_WIDTH = 196;
     public static final int MENU_BUTTON_SIZE = 14;
     private static final int MENU_BUTTON_X = 10;
+    private static final int BAR_BUTTON_WIDTH = 54;
+    private static final int BAR_BUTTON_HEIGHT = 18;
+    private static final int BAR_BUTTON_GAP = 6;
+    private static final int BAR_BUTTON_MARGIN = 12;
 
     public static ShellLayout of(int guiWidth, int guiHeight) {
         int width = Math.max(0, guiWidth);
@@ -59,6 +63,25 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
         }
         return new Rect(topBar.x() + Math.min(MENU_BUTTON_X, topBar.width() - size),
                 topBar.y() + (topBar.height() - size) / 2, size, size);
+    }
+
+    public Rect applyButton() {
+        return barButton(0);
+    }
+
+    public Rect discardButton() {
+        return barButton(1);
+    }
+
+    private Rect barButton(int fromRight) {
+        int needed = BAR_BUTTON_MARGIN * 2 + BAR_BUTTON_WIDTH * 2 + BAR_BUTTON_GAP;
+        if (bottomBar.height() < BAR_BUTTON_HEIGHT || bottomBar.width() < needed) {
+            return Rect.EMPTY;
+        }
+        return new Rect(bottomBar.right() - BAR_BUTTON_MARGIN
+                - (fromRight + 1) * BAR_BUTTON_WIDTH - fromRight * BAR_BUTTON_GAP,
+                bottomBar.y() + (bottomBar.height() - BAR_BUTTON_HEIGHT) / 2,
+                BAR_BUTTON_WIDTH, BAR_BUTTON_HEIGHT);
     }
 
     public Rect sidebarOrDrawer(boolean drawerOpen) {
