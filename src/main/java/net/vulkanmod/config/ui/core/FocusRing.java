@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class FocusTree {
+public final class FocusRing {
     private final List<String> order = new ArrayList<>();
     private final Map<String, Boolean> enabled = new HashMap<>();
     private String focused;
