@@ -83,7 +83,7 @@ public final class SettingRowRenderer {
         int right = card.right() - ShellRenderer.CARD_PAD_X;
         switch (meta.type()) {
             case BOOL -> paintPill(painter, card, right, booleanValue(meta, value));
-            case INT, FLOAT -> paintSlider(painter, font, box, card, right, binding.display(value),
+            case INT -> paintSlider(painter, font, box, card, right, binding.display(value),
                     intValue(meta, value), binding.min(), binding.max(), enabled, highlighted);
             case ENUM -> paintCycler(painter, font, card, right, I18n.get(binding.display(value)),
                     enabled, highlighted);

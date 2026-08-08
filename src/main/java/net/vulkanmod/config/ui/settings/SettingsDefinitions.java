@@ -39,7 +39,7 @@ public final class SettingsDefinitions {
     public static final SettingId GUI_SCALE = SettingId.parse("minecraft:display.gui_scale");
     public static final SettingId BRIGHTNESS = SettingId.parse("minecraft:display.brightness");
     public static final SettingId DISTORTION_EFFECTS = SettingId.parse("minecraft:display.distortion_effects");
-    public static final SettingId SCREEN_EFFECTS_SCALE = SettingId.parse("minecraft:display.screen_effects_scale");
+    public static final SettingId FOV_EFFECTS = SettingId.parse("minecraft:display.fov_effects");
     public static final SettingId DISABLE_HIDPI = SettingId.parse("vulkanmod:display.disable_hidpi");
 
     public static final SettingId RENDER_DISTANCE = SettingId.parse("minecraft:rendering.render_distance");
@@ -172,7 +172,7 @@ public final class SettingsDefinitions {
                 new SettingMeta.Builder(DISTORTION_EFFECTS, DISPLAY_INTERFACE, "options.screenEffectScale",
                         SettingType.INT, SettingSource.MINECRAFT)
                         .scope(ApplyScope.INSTANT).build(),
-                new SettingMeta.Builder(SCREEN_EFFECTS_SCALE, DISPLAY_INTERFACE, "options.fovEffectScale",
+                new SettingMeta.Builder(FOV_EFFECTS, DISPLAY_INTERFACE, "options.fovEffectScale",
                         SettingType.INT, SettingSource.MINECRAFT)
                         .scope(ApplyScope.INSTANT).build());
     }

@@ -8,7 +8,6 @@ class SettingTypeTest {
     @Test
     void theTypesDrawnAsASliderAreTheOnesTheSliderPathAccepts() {
         assertTrue(SettingType.INT.slider());
-        assertTrue(SettingType.FLOAT.slider());
         assertFalse(SettingType.BOOL.slider());
         assertFalse(SettingType.ENUM.slider());
     }

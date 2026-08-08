@@ -91,7 +91,7 @@ public final class NavPresenter {
                 List<String> choices = catalog.binding(meta.id()).choices();
                 yield !choices.isEmpty() && set(meta, cycled(choices, valueOf(meta)));
             }
-            case INT, FLOAT -> false;
+            case INT -> false;
         };
     }
 

@@ -52,7 +52,7 @@ class SettingsDefinitionsTest {
     @Test
     void displayInterfaceHasItsFourSettingsInSpecOrder() {
         assertEquals(List.of("minecraft:display.gui_scale", "minecraft:display.brightness",
-                        "minecraft:display.distortion_effects", "minecraft:display.screen_effects_scale"),
+                        "minecraft:display.distortion_effects", "minecraft:display.fov_effects"),
                 SettingsDefinitions.displayInterface().stream().map(meta -> meta.id().toString()).toList());
     }
 

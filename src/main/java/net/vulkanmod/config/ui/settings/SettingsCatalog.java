@@ -338,7 +338,7 @@ public final class SettingsCatalog {
                 .withDefault(() -> SettingsDefinitions.EFFECT_SCALE_DEFAULT)
                 .withFormatter(SettingsCatalog::percentLabel));
 
-        bindings.put(SettingsDefinitions.SCREEN_EFFECTS_SCALE, SettingBinding.scaled(
+        bindings.put(SettingsDefinitions.FOV_EFFECTS, SettingBinding.scaled(
                 () -> Minecraft.getInstance().options.fovEffectScale().get(),
                 value -> Minecraft.getInstance().options.fovEffectScale().set(doubleValue(value)),
                 SettingsDefinitions.EFFECT_SCALE_MIN, SettingsDefinitions.EFFECT_SCALE_MAX,
