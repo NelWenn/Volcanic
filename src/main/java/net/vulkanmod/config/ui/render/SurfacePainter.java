@@ -15,6 +15,8 @@ public interface SurfacePainter {
     void flush();
 
     static SurfacePainter create(GuiGraphics graphics, Font font) {
-        return new FillSurfacePainter(graphics, font);
+        return GuiSurfacePipeline.isAvailable()
+                ? new ShaderSurfacePainter(graphics, font)
+                : new FillSurfacePainter(graphics, font);
     }
 }
