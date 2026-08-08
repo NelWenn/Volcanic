@@ -58,9 +58,19 @@ class ScrollIndicatorTest {
     }
 
     @Test
-    void theThumbIsProportionalToTheVisibleFraction() {
-        assertEquals(200, ScrollIndicator.of(VIEWPORT, 800, 0).thumb().height());
+    void theThumbIsProportionalToTheVisibleFractionUntilItHitsTheCap() {
         assertEquals(100, ScrollIndicator.of(VIEWPORT, 1600, 0).thumb().height());
+        assertEquals(133, ScrollIndicator.of(VIEWPORT, 1200, 0).thumb().height());
+    }
+
+    @Test
+    void aBarelyOverflowingListStillGetsAShortThumbThatTravels() {
+        ScrollIndicator indicator = ScrollIndicator.of(VIEWPORT, 413, 0);
+        int thumb = indicator.thumb().height();
+        assertTrue(thumb <= VIEWPORT.height() / 3,
+                "a 13px overflow must not produce a near-full-height thumb, was " + thumb);
+        assertTrue(indicator.track().height() - thumb > VIEWPORT.height() / 2,
+                "the thumb must have room to travel visibly");
     }
 
     @Test

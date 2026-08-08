@@ -3,9 +3,10 @@ package net.vulkanmod.config.ui.core;
 public record ScrollIndicator(Rect track, Rect thumb) {
     public static final ScrollIndicator NONE = new ScrollIndicator(Rect.EMPTY, Rect.EMPTY);
 
-    private static final int WIDTH = 4;
-    private static final int MARGIN = 4;
+    private static final int WIDTH = 3;
+    private static final int MARGIN = 1;
     private static final int MIN_THUMB = 8;
+    private static final int MAX_THUMB_DIVISOR = 3;
 
     public ScrollIndicator {
         if (track == null) {
@@ -33,8 +34,9 @@ public record ScrollIndicator(Rect track, Rect thumb) {
         }
 
         Rect track = new Rect(viewport.right() - MARGIN - WIDTH, viewport.y(), WIDTH, height);
-        int thumbHeight = Math.min(height,
-                Math.max(MIN_THUMB, Math.round((float) height * height / contentHeight)));
+        int proportional = Math.round((float) height * height / contentHeight);
+        int thumbHeight = Math.min(Math.max(MIN_THUMB, Math.min(proportional, height / MAX_THUMB_DIVISOR)),
+                height);
         int travel = height - thumbHeight;
         int offset = travel == 0
                 ? 0
