@@ -22,7 +22,7 @@ void main() {
     float glowRadius = shapeRadii.y;
 
     float dist = roundedBoxDistance(localPos, halfExtent, cornerRadius);
-    float edge = max(fwidth(dist), 0.0001);
+    float edge = max(0.5 * fwidth(dist), 0.0001);
 
     float shapeMask = 1.0 - smoothstep(-edge, edge, dist);
     float innerMask = 1.0 - smoothstep(-edge, edge, dist + BORDER_WIDTH);
