@@ -53,22 +53,50 @@ public final class FillSurfacePainter implements SurfacePainter {
     private void emitRoundedSurface(PaintOp.RoundedSurface surface) {
         Rect rect = surface.rect();
         int radius = Math.max(0, Math.min(surface.radius(), Math.min(rect.width(), rect.height()) / 2));
+        List<Rect> fillRects = decomposeRoundedFill(rect, surface.radius());
 
-        emitRect(new Rect(rect.x() + radius, rect.y(), rect.width() - radius * 2, rect.height()),
-                surface.fillArgb());
-        emitRect(new Rect(rect.x(), rect.y() + radius, radius, rect.height() - radius * 2),
-                surface.fillArgb());
-        emitRect(new Rect(rect.right() - radius, rect.y() + radius, radius, rect.height() - radius * 2),
-                surface.fillArgb());
+        for (Rect fillRect : fillRects) {
+            emitRect(fillRect, surface.fillArgb());
+        }
 
-        if (surface.borderArgb() != 0) {
+        if (surface.borderArgb() == 0) {
+            return;
+        }
+
+        if (fillRects.size() == 3) {
             emitRect(new Rect(rect.x() + radius, rect.y(), rect.width() - radius * 2, 1), surface.borderArgb());
             emitRect(new Rect(rect.x() + radius, rect.bottom() - 1, rect.width() - radius * 2, 1),
                     surface.borderArgb());
             emitRect(new Rect(rect.x(), rect.y() + radius, 1, rect.height() - radius * 2), surface.borderArgb());
             emitRect(new Rect(rect.right() - 1, rect.y() + radius, 1, rect.height() - radius * 2),
                     surface.borderArgb());
+        } else {
+            emitRect(new Rect(rect.x(), rect.y(), rect.width(), 1), surface.borderArgb());
+            emitRect(new Rect(rect.x(), rect.bottom() - 1, rect.width(), 1), surface.borderArgb());
+            emitRect(new Rect(rect.x(), rect.y(), 1, rect.height()), surface.borderArgb());
+            emitRect(new Rect(rect.right() - 1, rect.y(), 1, rect.height()), surface.borderArgb());
         }
+    }
+
+    static List<Rect> decomposeRoundedFill(Rect rect, int radius) {
+        if (rect.isEmpty()) {
+            return List.of();
+        }
+
+        int clampedRadius = Math.max(0, Math.min(radius, Math.min(rect.width(), rect.height()) / 2));
+        if (clampedRadius == 0) {
+            return List.of(rect);
+        }
+        if (rect.width() < 3 * clampedRadius || rect.height() < 3 * clampedRadius) {
+            return List.of(rect);
+        }
+
+        return List.of(
+                new Rect(rect.x() + clampedRadius, rect.y(), rect.width() - clampedRadius * 2, rect.height()),
+                new Rect(rect.x(), rect.y() + clampedRadius, clampedRadius, rect.height() - clampedRadius * 2),
+                new Rect(rect.right() - clampedRadius, rect.y() + clampedRadius, clampedRadius,
+                        rect.height() - clampedRadius * 2)
+        );
     }
 
     private void emitRect(Rect rect, int argb) {
