@@ -62,7 +62,7 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        KeyAction action = UiKeys.actionFor(keyCode, Screen.hasControlDown());
+        KeyAction action = UiKeys.actionFor(keyCode, modifiers);
         if (action == KeyAction.BACK) {
             this.onClose();
             return true;
