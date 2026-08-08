@@ -69,7 +69,7 @@ public class VolcanicScreen extends Screen {
             setDrawerOpen(false);
             return true;
         }
-        if (clickTabStrip(x, y) || clickBreadcrumb(x, y)) {
+        if (clickTabStrip(x, y) || clickBreadcrumb(x, y) || clickSettingRow(x, y)) {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -162,6 +162,16 @@ public class VolcanicScreen extends Screen {
         }
 
         select(presenter.subTabs().get(index).route(), NavPresenter.REGION_CONTENT);
+        return true;
+    }
+
+    private boolean clickSettingRow(int mouseX, int mouseY) {
+        int index = TabStripModel.indexAt(renderer.settingRowBoxes(layout, presenter), mouseX, mouseY);
+        if (index < 0) {
+            return false;
+        }
+
+        presenter.activate(presenter.settings().get(index));
         return true;
     }
 

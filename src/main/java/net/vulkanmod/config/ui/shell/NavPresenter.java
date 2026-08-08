@@ -5,8 +5,12 @@ import net.vulkanmod.config.ui.core.FocusRing;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.NavStack;
 import net.vulkanmod.config.ui.core.NavTree;
+import net.vulkanmod.config.ui.core.PendingChanges;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SidebarModel;
+import net.vulkanmod.config.ui.settings.SettingBinding;
+import net.vulkanmod.config.ui.settings.SettingsCatalog;
 
 import java.util.List;
 
@@ -18,6 +22,8 @@ public final class NavPresenter {
     private final NavStack stack;
     private final SidebarModel sidebar;
     private final FocusModel focus;
+    private final SettingsCatalog catalog = new SettingsCatalog();
+    private final PendingChanges pending = new PendingChanges();
 
     public NavPresenter() {
         this.tree = buildTree();
@@ -47,6 +53,44 @@ public final class NavPresenter {
 
     public FocusModel focus() {
         return focus;
+    }
+
+    public SettingsCatalog catalog() {
+        return catalog;
+    }
+
+    public PendingChanges pending() {
+        return pending;
+    }
+
+    public List<SettingMeta> settings() {
+        return catalog.registry().forRoute(stack.current());
+    }
+
+    public boolean activate(SettingMeta meta) {
+        if (meta == null) {
+            throw new IllegalArgumentException("meta must not be null");
+        }
+        if (!catalog.enabled(meta.id())) {
+            return false;
+        }
+
+        SettingBinding binding = catalog.binding(meta.id());
+        switch (meta.type()) {
+            case BOOL -> binding.set(!boolValue(meta, binding.get()));
+            case ENUM -> {
+                List<String> choices = binding.choices();
+                if (choices.isEmpty()) {
+                    return false;
+                }
+                binding.set(cycled(choices, binding.get()));
+            }
+            case INT -> {
+                return false;
+            }
+        }
+        pending.mark(meta.id(), meta.scope());
+        return true;
     }
 
     public boolean navigate(RouteId route) {
@@ -116,6 +160,20 @@ public final class NavPresenter {
             return subTabs();
         }
         return List.of();
+    }
+
+    static String cycled(List<String> choices, Object current) {
+        if (choices == null || choices.isEmpty()) {
+            throw new IllegalArgumentException("choices must not be empty");
+        }
+        return choices.get((choices.indexOf(current) + 1) % choices.size());
+    }
+
+    private static boolean boolValue(SettingMeta meta, Object value) {
+        if (!(value instanceof Boolean flag)) {
+            throw new IllegalArgumentException("setting " + meta.id() + " is BOOL but its value is " + value);
+        }
+        return flag;
     }
 
     private static RouteId destinationOf(NavTree tree, RouteId route) {

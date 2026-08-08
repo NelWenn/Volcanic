@@ -49,7 +49,6 @@ public final class ShellRenderer {
 
     private final Theme theme;
     private final SettingRowRenderer rowRenderer;
-    private final SettingsCatalog catalog = new SettingsCatalog();
 
     public ShellRenderer(Theme theme) {
         if (theme == null) {
@@ -160,7 +159,7 @@ public final class ShellRenderer {
         if (presenter == null) {
             throw new IllegalArgumentException("presenter must not be null");
         }
-        return SettingRowLayout.rows(layout.content(), settingsOf(presenter).size(), 0);
+        return SettingRowLayout.rows(layout.content(), presenter.settings().size(), 0);
     }
 
     private static int revealIndex(NavPresenter presenter, List<NavNode> tabs) {
@@ -280,20 +279,17 @@ public final class ShellRenderer {
 
     private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
                                int mouseX, int mouseY) {
-        List<SettingMeta> settings = settingsOf(presenter);
+        List<SettingMeta> settings = presenter.settings();
         List<Rect> boxes = settingRowBoxes(layout, presenter);
+        SettingsCatalog catalog = presenter.catalog();
         for (int i = 0; i < boxes.size(); i++) {
             Rect box = boxes.get(i);
             SettingMeta meta = settings.get(i);
             SettingBinding binding = catalog.binding(meta.id());
             rowRenderer.render(painter, font, box, meta, binding.get(),
-                    box.contains(mouseX, mouseY) && catalog.enabled(meta.id()), false,
-                    binding.min(), binding.max());
+                    box.contains(mouseX, mouseY) && catalog.enabled(meta.id()),
+                    presenter.pending().isChanged(meta.id()), binding.min(), binding.max());
         }
-    }
-
-    private List<SettingMeta> settingsOf(NavPresenter presenter) {
-        return catalog.registry().forRoute(presenter.stack().current());
     }
 
     private void paintBreadcrumbs(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {

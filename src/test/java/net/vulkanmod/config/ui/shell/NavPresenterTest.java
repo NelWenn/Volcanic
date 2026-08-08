@@ -3,6 +3,8 @@ package net.vulkanmod.config.ui.shell;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.NavTree;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.SettingMeta;
+import net.vulkanmod.config.ui.settings.SettingsDefinitions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -132,6 +134,46 @@ class NavPresenterTest {
             }
         }
         assertEquals(List.of(), unresolved);
+    }
+
+    @Test
+    void everySettingTitleKeyWeOwnResolvesInEnUs() throws IOException {
+        Map<String, String> lang = readLang();
+        List<String> keys = SettingsDefinitions.displayGeneral().stream()
+                .map(SettingMeta::titleKey)
+                .filter(key -> key.startsWith("vulkanmod."))
+                .toList();
+        assertEquals(2, keys.size());
+
+        List<String> unresolved = new ArrayList<>();
+        for (String key : keys) {
+            String value = lang.get(key);
+            if (value == null || value.isBlank()) {
+                unresolved.add(key);
+            }
+        }
+        assertEquals(List.of(), unresolved);
+    }
+
+    @Test
+    void displayGeneralIsTheOnlyRouteWithRowsToday() {
+        NavPresenter presenter = new NavPresenter();
+        assertEquals(List.of(), presenter.settings());
+
+        presenter.navigate(RouteId.parse("display.general"));
+        assertEquals(5, presenter.settings().size());
+
+        presenter.navigate(RouteId.parse("display.advanced"));
+        assertEquals(List.of(), presenter.settings());
+    }
+
+    @Test
+    void cyclingWrapsAndStartsAtTheFirstChoice() {
+        List<String> choices = List.of("Windowed", "Windowed Fullscreen", "Exclusive Fullscreen");
+        assertEquals("Windowed Fullscreen", NavPresenter.cycled(choices, "Windowed"));
+        assertEquals("Windowed", NavPresenter.cycled(choices, "Exclusive Fullscreen"));
+        assertEquals("Windowed", NavPresenter.cycled(choices, "unknown"));
+        assertThrows(IllegalArgumentException.class, () -> NavPresenter.cycled(List.of(), "Windowed"));
     }
 
     @Test
