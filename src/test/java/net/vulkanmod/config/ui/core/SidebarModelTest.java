@@ -88,4 +88,31 @@ class SidebarModelTest {
         assertEquals(0, model.totalHeight());
         assertNull(model.routeAt(0));
     }
+
+    @Test
+    void constructorRejectsANullTree() {
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel(null));
+    }
+
+    @Test
+    void indexOfRouteRejectsANullRoute() {
+        SidebarModel model = model();
+        assertThrows(IllegalArgumentException.class, () -> model.indexOfRoute(null));
+    }
+
+    @Test
+    void rowRejectsANullRoute() {
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Row(null, "k.title"));
+    }
+
+    @Test
+    void rowRejectsABlankTitleKey() {
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Row(RouteId.parse("overview"), " "));
+    }
+
+    @Test
+    void sectionRejectsABlankLabelKey() {
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Section(null));
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Section(""));
+    }
 }

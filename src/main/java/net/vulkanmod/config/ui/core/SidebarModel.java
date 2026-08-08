@@ -11,15 +11,31 @@ public final class SidebarModel {
     }
 
     public record Section(String labelKey) implements Entry {
+        public Section {
+            if (labelKey == null || labelKey.isBlank()) {
+                throw new IllegalArgumentException("labelKey must not be blank");
+            }
+        }
     }
 
     public record Row(RouteId route, String titleKey) implements Entry {
+        public Row {
+            if (route == null) {
+                throw new IllegalArgumentException("route must not be null");
+            }
+            if (titleKey == null || titleKey.isBlank()) {
+                throw new IllegalArgumentException("titleKey must not be blank");
+            }
+        }
     }
 
     private final List<Entry> entries;
     private final ListModel listModel;
 
     public SidebarModel(NavTree tree) {
+        if (tree == null) {
+            throw new IllegalArgumentException("tree must not be null");
+        }
         List<Entry> built = new ArrayList<>();
         ListModel model = new ListModel(0);
         for (NavNode node : tree.sidebarRows()) {
@@ -74,6 +90,9 @@ public final class SidebarModel {
     }
 
     public int indexOfRoute(RouteId route) {
+        if (route == null) {
+            throw new IllegalArgumentException("route must not be null");
+        }
         for (int i = 0; i < entries.size(); i++) {
             switch (entries.get(i)) {
                 case Row(RouteId candidate, String titleKey) -> {
