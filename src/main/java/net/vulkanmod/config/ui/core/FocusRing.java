@@ -23,7 +23,7 @@ public final class FocusRing {
 
     public void setEnabled(String id, boolean isEnabled) {
         if (!enabled.containsKey(id)) {
-            return;
+            throw new IllegalArgumentException("unknown focus id " + id);
         }
         enabled.put(id, isEnabled);
         if (!isEnabled && id.equals(focused)) {

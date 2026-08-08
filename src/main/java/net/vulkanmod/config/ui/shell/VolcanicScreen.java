@@ -4,6 +4,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.vulkanmod.config.ui.core.BreadcrumbModel;
+import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
@@ -37,7 +38,8 @@ public class VolcanicScreen extends Screen {
             this.drawerOpen = false;
         }
         if (!isNavVisible() && NavPresenter.REGION_SIDEBAR.equals(presenter.focus().activeRegion())) {
-            presenter.focus().focusRegion(NavPresenter.REGION_CONTENT);
+            FocusHandoff.enter(presenter.focus(), NavPresenter.REGION_CONTENT,
+                    presenter.stack().current().toString());
         }
         this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, navViewport().height());
     }
@@ -76,11 +78,11 @@ public class VolcanicScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         Rect nav = layout.sidebarOrDrawer(drawerOpen);
-        if (!nav.contains((int) mouseX, (int) mouseY)) {
+        int step = (int) Math.signum(scrollY) * SIDEBAR_SCROLL_STEP;
+        if (step == 0 || !nav.contains((int) mouseX, (int) mouseY)) {
             return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         }
 
-        int step = (int) Math.signum(scrollY) * SIDEBAR_SCROLL_STEP;
         this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll - step, nav.height());
         return true;
     }
@@ -142,7 +144,7 @@ public class VolcanicScreen extends Screen {
             return false;
         }
 
-        RouteId route = presenter.sidebar().routeAt(mouseY - nav.y() + sidebarScroll);
+        RouteId route = renderer.sidebarRouteAt(nav, presenter.sidebar(), sidebarScroll, mouseX, mouseY);
         if (route == null) {
             return true;
         }
@@ -186,7 +188,13 @@ public class VolcanicScreen extends Screen {
             return;
         }
         this.drawerOpen = open;
-        presenter.focus().focusRegion(open ? NavPresenter.REGION_SIDEBAR : NavPresenter.REGION_CONTENT);
+        if (open) {
+            FocusHandoff.enter(presenter.focus(), NavPresenter.REGION_SIDEBAR,
+                    presenter.activeSidebarRoute().toString());
+        } else {
+            FocusHandoff.enter(presenter.focus(), NavPresenter.REGION_CONTENT,
+                    presenter.stack().current().toString());
+        }
     }
 
     private Rect navViewport() {

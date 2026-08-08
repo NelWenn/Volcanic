@@ -8,8 +8,9 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.ShaderInstance;
+import net.vulkanmod.compat.render.RenderStateSnapshot;
 import net.vulkanmod.config.ui.core.Rect;
-import net.vulkanmod.vulkan.shader.PipelineState;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
@@ -97,16 +98,8 @@ public final class ShaderSurfacePainter implements SurfacePainter {
     }
 
     private void emitBatch() {
-        float[] currentShaderColor = RenderSystem.getShaderColor();
-        float previousR = currentShaderColor[0];
-        float previousG = currentShaderColor[1];
-        float previousB = currentShaderColor[2];
-        float previousA = currentShaderColor[3];
-        boolean previousBlendEnabled = PipelineState.blendInfo.enabled;
-        int previousSrcRgbFactor = PipelineState.blendInfo.srcRgbFactor;
-        int previousDstRgbFactor = PipelineState.blendInfo.dstRgbFactor;
-        int previousSrcAlphaFactor = PipelineState.blendInfo.srcAlphaFactor;
-        int previousDstAlphaFactor = PipelineState.blendInfo.dstAlphaFactor;
+        RenderStateSnapshot snapshot = new RenderStateSnapshot();
+        ShaderInstance previousShader = RenderSystem.getShader();
 
         try {
             RenderSystem.enableBlend();
@@ -136,19 +129,8 @@ public final class ShaderSurfacePainter implements SurfacePainter {
                 BufferUploader.drawWithShader(mesh);
             }
         } finally {
-            if (previousBlendEnabled) {
-                RenderSystem.enableBlend();
-            } else {
-                RenderSystem.disableBlend();
-            }
-            PipelineState.blendInfo.srcRgbFactor = previousSrcRgbFactor;
-            PipelineState.blendInfo.dstRgbFactor = previousDstRgbFactor;
-            PipelineState.blendInfo.srcAlphaFactor = previousSrcAlphaFactor;
-            PipelineState.blendInfo.dstAlphaFactor = previousDstAlphaFactor;
-            RenderSystem.setShaderColor(previousR, previousG, previousB, previousA);
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthMask(true);
-            RenderSystem.enableCull();
+            snapshot.restore();
+            RenderSystem.setShader(() -> previousShader);
         }
     }
 

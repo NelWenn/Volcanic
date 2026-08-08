@@ -78,6 +78,14 @@ public final class SidebarModel {
         return listModel.clampScroll(scroll, viewportHeight);
     }
 
+    public int firstVisible(int scroll) {
+        return listModel.firstVisible(scroll);
+    }
+
+    public int lastVisible(int scroll, int viewportHeight) {
+        return listModel.lastVisible(scroll, viewportHeight);
+    }
+
     public RouteId routeAt(int contentY) {
         int index = listModel.indexAt(contentY);
         if (index < 0) {

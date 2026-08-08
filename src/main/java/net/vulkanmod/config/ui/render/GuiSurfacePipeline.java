@@ -9,11 +9,15 @@ import net.vulkanmod.Initializer;
 import net.vulkanmod.interfaces.ShaderMixed;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 public final class GuiSurfacePipeline {
     public static final String SHADER_NAME = "gui_surface";
     private static final String VULKAN_BIND_PATH = "vulkanmod/core/gui_surface/gui_surface";
+    private static final int MAX_DRAW_FAILURES = 3;
 
     private static final VertexFormat FORMAT = createFormat();
+    private static final AtomicInteger DRAW_FAILURES = new AtomicInteger();
 
     private static volatile ShaderInstance shader;
     private static volatile boolean disabled;
@@ -24,8 +28,16 @@ public final class GuiSurfacePipeline {
     public static void register(RegisterShadersEvent event) {
         shader = null;
 
-        if (disabled || FORMAT == null) {
+        if (FORMAT == null) {
             return;
+        }
+
+        if (disabled) {
+            if (DRAW_FAILURES.get() >= MAX_DRAW_FAILURES) {
+                return;
+            }
+            disabled = false;
+            Initializer.LOGGER.info("Re-enabling the {} shader for this resource reload", SHADER_NAME);
         }
 
         try {
@@ -56,7 +68,15 @@ public final class GuiSurfacePipeline {
         }
         disabled = true;
         shader = null;
-        Initializer.LOGGER.error("Disabling the {} shader: {}", SHADER_NAME, reason, throwable);
+
+        if (DRAW_FAILURES.incrementAndGet() >= MAX_DRAW_FAILURES) {
+            Initializer.LOGGER.error("Disabling the {} shader for the rest of this session after {} failures: {}",
+                    SHADER_NAME, MAX_DRAW_FAILURES, reason, throwable);
+            return;
+        }
+
+        Initializer.LOGGER.error("Disabling the {} shader until the next resource reload: {}",
+                SHADER_NAME, reason, throwable);
     }
 
     private static void onLoaded(ShaderInstance instance) {

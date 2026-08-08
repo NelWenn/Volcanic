@@ -19,6 +19,22 @@ class SidebarModelTest {
     }
 
     @Test
+    void theVisibleRangeBracketsExactlyTheEntriesTouchingTheViewport() {
+        SidebarModel model = model();
+        int viewport = 40;
+        for (int scroll = 0; scroll <= model.maxScroll(viewport); scroll++) {
+            int first = model.firstVisible(scroll);
+            int last = model.lastVisible(scroll, viewport);
+            for (int index = 0; index < model.entryCount(); index++) {
+                int top = model.offsetOf(index);
+                boolean touches = top + model.heightOf(index) > scroll && top < scroll + viewport;
+                assertEquals(touches, index >= first && index <= last,
+                        "entry " + index + " at scroll " + scroll);
+            }
+        }
+    }
+
+    @Test
     void insertsASectionHeaderBeforeEachLabelledRow() {
         SidebarModel model = model();
         assertEquals(5, model.entryCount());

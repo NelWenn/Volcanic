@@ -14,16 +14,20 @@ public final class UiKeys {
     public static final int KEY_HOME = 268;
     public static final int KEY_END = 269;
     public static final int KEY_K = 75;
-    public static final int KEY_Q = 81;
 
     public static final int MOD_SHIFT = 0x0001;
     public static final int MOD_CONTROL = 0x0002;
+    public static final int MOD_ALT = 0x0004;
+    public static final int MOD_SUPER = 0x0008;
 
     private UiKeys() {
     }
 
     public static KeyAction actionFor(int keyCode, int modifiers) {
-        if ((modifiers & MOD_CONTROL) != 0) {
+        if ((modifiers & MOD_ALT) != 0) {
+            return KeyAction.NONE;
+        }
+        if ((modifiers & (MOD_CONTROL | MOD_SUPER)) != 0) {
             return keyCode == KEY_K ? KeyAction.SEARCH : KeyAction.NONE;
         }
         if (keyCode == KEY_TAB) {

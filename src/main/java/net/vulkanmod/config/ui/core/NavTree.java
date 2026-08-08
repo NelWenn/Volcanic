@@ -51,7 +51,10 @@ public final class NavTree {
     }
 
     public RouteId defaultRoute() {
-        return sidebarRows.isEmpty() ? null : sidebarRows.get(0).route();
+        if (sidebarRows.isEmpty()) {
+            throw new IllegalStateException("tree has no sidebar rows, so it has no default route");
+        }
+        return sidebarRows.get(0).route();
     }
 
     public static final class Builder {

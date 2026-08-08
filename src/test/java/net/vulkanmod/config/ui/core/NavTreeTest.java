@@ -82,7 +82,18 @@ class NavTreeTest {
     }
 
     @Test
-    void anEmptyTreeHasNoDefaultRoute() {
-        assertNull(new NavTree.Builder().build().defaultRoute());
+    void anEmptyTreeRejectsDefaultRoute() {
+        NavTree tree = new NavTree.Builder().build();
+        IllegalStateException thrown = assertThrows(IllegalStateException.class, tree::defaultRoute);
+        assertTrue(thrown.getMessage().contains("sidebar rows"));
+    }
+
+    @Test
+    void aTreeWithoutSidebarVisibleRowsRejectsDefaultRoute() {
+        NavTree tree = new NavTree.Builder()
+                .add(new NavNode(RouteId.parse("hidden"), "k.hidden", null, false))
+                .build();
+        assertEquals(1, tree.size());
+        assertThrows(IllegalStateException.class, tree::defaultRoute);
     }
 }

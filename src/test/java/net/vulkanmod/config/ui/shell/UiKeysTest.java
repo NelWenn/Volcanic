@@ -49,7 +49,7 @@ class UiKeysTest {
     @Test
     void unknownKeysAreNone() {
         assertEquals(KeyAction.NONE, UiKeys.actionFor(-1, 0));
-        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_Q, 0));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(81, 0));
     }
 
     @Test
@@ -81,5 +81,31 @@ class UiKeysTest {
     void controlShortCircuitsOverShift() {
         assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_TAB, UiKeys.MOD_CONTROL | UiKeys.MOD_SHIFT));
         assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_UP, UiKeys.MOD_CONTROL | UiKeys.MOD_SHIFT));
+    }
+
+    @Test
+    void altHeldMeansTheShellOwnsNothing() {
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_TAB, UiKeys.MOD_ALT));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_ENTER, UiKeys.MOD_ALT));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_DOWN, UiKeys.MOD_ALT));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_ESCAPE, UiKeys.MOD_ALT));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_K, UiKeys.MOD_CONTROL | UiKeys.MOD_ALT));
+    }
+
+    @Test
+    void superIsTheMacAliasOfControl() {
+        assertEquals(KeyAction.SEARCH, UiKeys.actionFor(UiKeys.KEY_K, UiKeys.MOD_SUPER));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_ENTER, UiKeys.MOD_SUPER));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_TAB, UiKeys.MOD_SUPER));
+        assertEquals(KeyAction.NONE, UiKeys.actionFor(UiKeys.KEY_BACKSPACE, UiKeys.MOD_SUPER));
+    }
+
+    @Test
+    void lockModifiersDoNotSuppressMappings() {
+        int capsLock = 0x0010;
+        int numLock = 0x0020;
+        assertEquals(KeyAction.DOWN, UiKeys.actionFor(UiKeys.KEY_DOWN, capsLock));
+        assertEquals(KeyAction.ACTIVATE, UiKeys.actionFor(UiKeys.KEY_ENTER, numLock));
+        assertEquals(KeyAction.PREVIOUS, UiKeys.actionFor(UiKeys.KEY_TAB, capsLock | UiKeys.MOD_SHIFT));
     }
 }

@@ -12,6 +12,7 @@ import net.vulkanmod.config.ui.core.RoundedScanline;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.SidebarModel;
+import net.vulkanmod.config.ui.core.SidebarViewport;
 import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
 import net.vulkanmod.config.ui.render.SurfacePainter;
@@ -107,6 +108,17 @@ public final class ShellRenderer {
         }
     }
 
+    public RouteId sidebarRouteAt(Rect nav, SidebarModel model, int scroll, int mouseX, int mouseY) {
+        if (nav == null) {
+            throw new IllegalArgumentException("nav must not be null");
+        }
+        if (model == null) {
+            throw new IllegalArgumentException("model must not be null");
+        }
+        SidebarViewport viewport = new SidebarViewport(nav, scroll);
+        return viewport.contains(mouseX, mouseY) ? model.routeAt(viewport.contentY(mouseY)) : null;
+    }
+
     public List<Rect> breadcrumbBoxes(Font font, ShellLayout layout, NavPresenter presenter) {
         requireInputs(font, layout, presenter);
         List<RouteId> trail = presenter.stack().trail();
@@ -192,18 +204,16 @@ public final class ShellRenderer {
         painter.gradient(sidebar, background.topArgb(), background.bottomArgb());
 
         SidebarModel model = presenter.sidebar();
+        SidebarViewport viewport = new SidebarViewport(sidebar, scroll);
         RouteId activeRoute = presenter.activeSidebarRoute();
-        RouteId hoveredRoute = sidebar.contains(mouseX, mouseY)
-                ? model.routeAt(mouseY - sidebar.y() + scroll)
-                : null;
+        RouteId hoveredRoute = sidebarRouteAt(sidebar, model, scroll, mouseX, mouseY);
         String focusedId = focusedIn(presenter, NavPresenter.REGION_SIDEBAR);
 
-        for (int index = 0; index < model.entryCount(); index++) {
-            int top = sidebar.y() + model.offsetOf(index) - scroll;
+        int first = model.firstVisible(scroll);
+        int last = model.lastVisible(scroll, sidebar.height());
+        for (int index = first; first >= 0 && index <= last; index++) {
             int height = model.heightOf(index);
-            if (top + height <= sidebar.y() || top >= sidebar.bottom()) {
-                continue;
-            }
+            int top = viewport.screenTop(model.offsetOf(index));
 
             switch (model.entries().get(index)) {
                 case SidebarModel.Section(String labelKey) -> painter.text(sidebar.x() + SECTION_TEXT_X,

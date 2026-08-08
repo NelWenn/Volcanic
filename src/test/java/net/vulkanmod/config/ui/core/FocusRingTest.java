@@ -74,6 +74,22 @@ class FocusRingTest {
     }
 
     @Test
+    void settingEnabledOnAnUnknownEntryIsRejected() {
+        FocusRing tree = threeEnabled();
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> tree.setEnabled("zzz", false));
+        assertTrue(thrown.getMessage().contains("zzz"));
+        assertEquals(3, tree.size());
+    }
+
+    @Test
+    void settingEnabledOnAnEntryOfAClearedRingIsRejected() {
+        FocusRing tree = threeEnabled();
+        tree.clear();
+        assertThrows(IllegalArgumentException.class, () -> tree.setEnabled("a", true));
+    }
+
+    @Test
     void disablingTheFocusedEntryClearsFocus() {
         FocusRing tree = threeEnabled();
         tree.focus("b");
