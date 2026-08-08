@@ -1,5 +1,7 @@
 package net.vulkanmod.config.ui.render;
 
+import net.vulkanmod.config.ui.core.Rect;
+
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -45,15 +47,10 @@ public final class PaintQueue {
     }
 
     private static boolean isDegenerate(PaintOp op) {
-        if (op instanceof PaintOp.Fill fill) {
-            return fill.rect().isEmpty();
-        }
-        if (op instanceof PaintOp.RoundedSurface surface) {
-            return surface.rect().isEmpty();
-        }
-        if (op instanceof PaintOp.Text text) {
-            return text.value() == null || text.value().isEmpty();
-        }
-        return false;
+        return switch (op) {
+            case PaintOp.Fill(Rect rect, int ignoredArgb) -> rect.isEmpty();
+            case PaintOp.RoundedSurface surface -> surface.rect().isEmpty();
+            case PaintOp.Text text -> text.value() == null || text.value().isEmpty();
+        };
     }
 }

@@ -41,12 +41,11 @@ public final class FillSurfacePainter implements SurfacePainter {
     }
 
     private void emit(PaintOp op) {
-        if (op instanceof PaintOp.Fill fill) {
-            emitRect(fill.rect(), fill.argb());
-        } else if (op instanceof PaintOp.RoundedSurface surface) {
-            emitRoundedSurface(surface);
-        } else if (op instanceof PaintOp.Text text) {
-            graphics.drawString(font, text.value(), text.x(), text.y(), text.argb(), text.shadow());
+        switch (op) {
+            case PaintOp.Fill(Rect rect, int argb) -> emitRect(rect, argb);
+            case PaintOp.RoundedSurface surface -> emitRoundedSurface(surface);
+            case PaintOp.Text(int x, int y, String value, int argb, boolean shadow) ->
+                    graphics.drawString(font, value, x, y, argb, shadow);
         }
     }
 
