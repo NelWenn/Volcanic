@@ -13,6 +13,7 @@ public final class Vsr {
     private static final MappedBuffer OUTPUT_INFO = new MappedBuffer(4 * Float.BYTES);
     private static final MappedBuffer UV_BOUNDS = new MappedBuffer(4 * Float.BYTES);
     private static final MappedBuffer PARAMS = new MappedBuffer(4 * Float.BYTES);
+    private static final MappedBuffer JITTER = new MappedBuffer(4 * Float.BYTES);
 
     private static int passes;
     private static int lastBackend = -1;
@@ -102,9 +103,16 @@ public final class Vsr {
         lastOutputHeight = outputHeight;
         lastSharpness = sharpness;
 
+        float jx = net.vulkanmod.render.vtu.VtuJitter.pixelX();
+        float jy = net.vulkanmod.render.vtu.VtuJitter.pixelY();
+        JITTER.putFloat(0, jx);
+        JITTER.putFloat(4, jy);
+        JITTER.putFloat(8, net.vulkanmod.render.vtu.VtuJitter.prevPixelX() - jx);
+        JITTER.putFloat(12, net.vulkanmod.render.vtu.VtuJitter.prevPixelY() - jy);
+
         PARAMS.putFloat(0, sharpness);
         PARAMS.putFloat(4, lastBackend);
-        PARAMS.putFloat(8, 0.0f);
+        PARAMS.putFloat(8, net.vulkanmod.Initializer.CONFIG.vsrDebug ? 1.0f : 0.0f);
         PARAMS.putFloat(12, 0.0f);
     }
 
@@ -122,5 +130,9 @@ public final class Vsr {
 
     public static MappedBuffer getParams() {
         return PARAMS;
+    }
+
+    public static MappedBuffer getJitter() {
+        return JITTER;
     }
 }

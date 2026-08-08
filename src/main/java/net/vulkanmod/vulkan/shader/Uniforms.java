@@ -93,6 +93,7 @@ public class Uniforms {
         vec4f_uniformMap.put("VsrOutputInfo", net.vulkanmod.render.vsr.Vsr::getOutputInfo);
         vec4f_uniformMap.put("VsrUvBounds", net.vulkanmod.render.vsr.Vsr::getUvBounds);
         vec4f_uniformMap.put("VsrParams", net.vulkanmod.render.vsr.Vsr::getParams);
+        vec4f_uniformMap.put("VsrJitter", net.vulkanmod.render.vsr.Vsr::getJitter);
 
     }
 }

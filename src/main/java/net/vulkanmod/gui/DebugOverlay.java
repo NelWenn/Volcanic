@@ -204,8 +204,7 @@ public class DebugOverlay extends HUD {
                         outWidth, Vsr.getOutputHeight(), Math.round(100.0f * inWidth / outWidth)),
                 String.format("§7Sharp:§r %d%%  §7Pipelines:§r %d",
                         Math.round(Vsr.getSharpness() * 100.0f), GraphicsPipeline.totalVariants()),
-                String.format("§7Jitter:§r %s %.3f,%.3f px  §7phase§r %d/%d",
-                        net.vulkanmod.Initializer.CONFIG.vtuJitter ? "on" : "off",
+                String.format("§7Jitter:§r %.3f,%.3f px  §7phase§r %d/%d",
                         VtuJitter.pixelX(), VtuJitter.pixelY(),
                         VtuJitter.phase(), VtuJitter.phaseCount()),
                 timing);

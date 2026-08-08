@@ -9,6 +9,7 @@ layout(binding = 0) uniform UBO {
     vec4 VsrOutputInfo;
     vec4 VsrUvBounds;
     vec4 VsrParams;
+    vec4 VsrJitter;
 };
 
 layout(binding = 1) uniform sampler2D Sampler0;
@@ -75,6 +76,13 @@ void easuTap(inout vec3 acc, inout float accW, vec2 off, vec2 dir, vec2 len2,
     accW += w;
 }
 
+void narrowTap(inout vec3 acc, inout float accW, vec2 offset, vec2 pp, vec3 c) {
+    vec2 d = offset - pp;
+    float w = exp2(-3.3 * dot(d, d));
+    acc += c * w;
+    accW += w;
+}
+
 vec3 sampleHistory(vec2 uv) {
     vec2 texSize = VsrOutputInfo.xy;
     vec2 samplePos = uv * texSize;
@@ -110,9 +118,14 @@ vec3 sampleHistory(vec2 uv) {
     return abs(accW) < 1.0e-5 ? texture(Sampler2, uv).rgb : acc / accW;
 }
 
+float debugFeedback = -1.0;
+
 vec3 accumulate(vec3 current, vec3 mn, vec3 mx) {
+    debugFeedback = 0.0;
+
     float depth = texture(Sampler1, texCoord).r;
     if (depth >= 1.0) {
+        debugFeedback = -2.0;
         return current;
     }
 
@@ -130,7 +143,7 @@ vec3 accumulate(vec3 current, vec3 mn, vec3 mx) {
     }
 
     vec2 pndc = pc.xy / pc.w;
-    vec2 prevUV = vec2(pndc.x * 0.5 + 0.5, 0.5 - pndc.y * 0.5);
+    vec2 prevUV = vec2(pndc.x * 0.5 + 0.5, 0.5 - pndc.y * 0.5) - VsrJitter.zw * VsrInputInfo.zw;
     if (any(lessThan(prevUV, vec2(0.0))) || any(greaterThan(prevUV, vec2(1.0)))) {
         return current;
     }
@@ -141,6 +154,7 @@ vec3 accumulate(vec3 current, vec3 mn, vec3 mx) {
 
     float motion = length(prevUV - texCoord);
     float feedback = 0.92 * (1.0 - smoothstep(0.02, 0.12, motion));
+    debugFeedback = feedback;
 
     return mix(current, history, feedback);
 }
@@ -148,12 +162,17 @@ vec3 accumulate(vec3 current, vec3 mn, vec3 mx) {
 void main() {
     float mode = VsrParams.y;
 
+    if (VsrParams.z > 0.5 && mode < 2.5) {
+        fragColor = vec4(1.0, 0.0, 1.0, 1.0);
+        return;
+    }
+
     if (mode < 0.5) {
         fragColor = vec4(texture(Sampler0, texCoord).rgb, 1.0);
         return;
     }
 
-    vec2 pp = texCoord * VsrInputInfo.xy - 0.5;
+    vec2 pp = texCoord * VsrInputInfo.xy - 0.5 + VsrJitter.xy;
     vec2 fp = floor(pp);
     pp -= fp;
 
@@ -253,6 +272,24 @@ void main() {
 
         result = acc / max(accW, 1.0 / 32768.0);
         result = clamp(result, mn, mx);
+    } else if (temporal) {
+        vec3 acc = vec3(0.0);
+        float accW = 0.0;
+
+        narrowTap(acc, accW, vec2(0.0, -1.0), pp, cB);
+        narrowTap(acc, accW, vec2(1.0, -1.0), pp, cC);
+        narrowTap(acc, accW, vec2(-1.0, 0.0), pp, cE);
+        narrowTap(acc, accW, vec2(0.0, 0.0), pp, cF);
+        narrowTap(acc, accW, vec2(1.0, 0.0), pp, cG);
+        narrowTap(acc, accW, vec2(2.0, 0.0), pp, cH);
+        narrowTap(acc, accW, vec2(-1.0, 1.0), pp, cI);
+        narrowTap(acc, accW, vec2(0.0, 1.0), pp, cJ);
+        narrowTap(acc, accW, vec2(1.0, 1.0), pp, cK);
+        narrowTap(acc, accW, vec2(2.0, 1.0), pp, cL);
+        narrowTap(acc, accW, vec2(0.0, 2.0), pp, cN);
+        narrowTap(acc, accW, vec2(1.0, 2.0), pp, cO);
+
+        result = acc / max(accW, 1.0 / 32768.0);
     } else {
         result = bilinear;
     }
@@ -275,6 +312,16 @@ void main() {
 
     if (temporal) {
         result = accumulate(result, mn, mx);
+
+        if (VsrParams.z > 0.5) {
+            if (debugFeedback < -1.5) {
+                result = vec3(0.0, 0.0, 0.4);
+            } else if (debugFeedback <= 0.0) {
+                result = vec3(1.0, 0.0, 0.0);
+            } else {
+                result = vec3(0.0, debugFeedback, 0.0);
+            }
+        }
     }
 
     fragColor = vec4(result, 1.0);

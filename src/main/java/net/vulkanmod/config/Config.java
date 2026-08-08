@@ -24,8 +24,7 @@ public class Config {
     public int vsrPreset = VsrPreset.OFF.id;
     public int vsrBackend = 0;
     public float vsrSharpness = 0.0f;
-    public boolean vtuJitter = false;
-    public float vtuJitterScale = 1.0f;
+    public boolean vsrDebug = false;
 
     public boolean disableHiDPI = false;
 
