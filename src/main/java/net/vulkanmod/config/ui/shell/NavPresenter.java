@@ -1,6 +1,7 @@
 package net.vulkanmod.config.ui.shell;
 
 import net.vulkanmod.config.ui.core.FocusModel;
+import net.vulkanmod.config.ui.core.FocusRing;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.NavStack;
 import net.vulkanmod.config.ui.core.NavTree;
@@ -10,6 +11,9 @@ import net.vulkanmod.config.ui.core.SidebarModel;
 import java.util.List;
 
 public final class NavPresenter {
+    public static final String REGION_SIDEBAR = "sidebar";
+    public static final String REGION_CONTENT = "content";
+
     private final NavTree tree;
     private final NavStack stack;
     private final SidebarModel sidebar;
@@ -17,9 +21,16 @@ public final class NavPresenter {
 
     public NavPresenter() {
         this.tree = buildTree();
-        this.stack = new NavStack(tree, tree.defaultRoute());
+        this.stack = new NavStack(tree, destinationOf(tree, tree.defaultRoute()));
         this.sidebar = new SidebarModel(tree);
         this.focus = new FocusModel();
+        this.focus.addRegion(REGION_SIDEBAR);
+        this.focus.addRegion(REGION_CONTENT);
+        FocusRing sidebarRing = this.focus.ring(REGION_SIDEBAR);
+        for (NavNode row : tree.sidebarRows()) {
+            sidebarRing.register(row.route().toString(), true);
+        }
+        rebuildContentRing();
     }
 
     public NavTree tree() {
@@ -39,19 +50,90 @@ public final class NavPresenter {
     }
 
     public boolean navigate(RouteId route) {
-        return stack.navigate(route);
+        if (route == null) {
+            throw new IllegalArgumentException("route must not be null");
+        }
+        boolean moved = stack.navigate(destinationOf(tree, route));
+        if (moved) {
+            rebuildContentRing();
+        }
+        return moved;
+    }
+
+    public boolean back() {
+        boolean moved = stack.back();
+        if (moved) {
+            rebuildContentRing();
+        }
+        return moved;
     }
 
     public String currentTitleKey() {
-        return tree.find(stack.current()).titleKey();
+        return titleKeyOf(stack.current());
+    }
+
+    public String titleKeyOf(RouteId route) {
+        if (route == null) {
+            throw new IllegalArgumentException("route must not be null");
+        }
+        NavNode node = tree.find(route);
+        if (node == null) {
+            throw new IllegalArgumentException("route is not present in the tree: " + route);
+        }
+        return node.titleKey();
+    }
+
+    public RouteId activeSidebarRoute() {
+        RouteId route = stack.current();
+        while (route.depth() > 1) {
+            route = route.parent();
+        }
+        return route;
     }
 
     public List<NavNode> subTabs() {
-        RouteId topLevel = stack.current();
-        while (topLevel.depth() > 1) {
-            topLevel = topLevel.parent();
+        return tree.children(activeSidebarRoute());
+    }
+
+    public RouteId focusedRoute() {
+        String focusedId = focus.focused();
+        if (focusedId == null) {
+            return null;
         }
-        return tree.children(topLevel);
+        for (NavNode node : activatableNodes(focus.activeRegion())) {
+            if (node.route().toString().equals(focusedId)) {
+                return node.route();
+            }
+        }
+        return null;
+    }
+
+    private List<NavNode> activatableNodes(String regionId) {
+        if (REGION_SIDEBAR.equals(regionId)) {
+            return tree.sidebarRows();
+        }
+        if (REGION_CONTENT.equals(regionId)) {
+            return subTabs();
+        }
+        return List.of();
+    }
+
+    private static RouteId destinationOf(NavTree tree, RouteId route) {
+        RouteId destination = route;
+        List<NavNode> children = tree.children(destination);
+        while (!children.isEmpty()) {
+            destination = children.get(0).route();
+            children = tree.children(destination);
+        }
+        return destination;
+    }
+
+    private void rebuildContentRing() {
+        FocusRing ring = focus.ring(REGION_CONTENT);
+        ring.clear();
+        for (NavNode child : subTabs()) {
+            ring.register(child.route().toString(), true);
+        }
     }
 
     private static NavTree buildTree() {
@@ -86,7 +168,7 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("shaders.profiles"), "vulkanmod.ui.page.shaders.profiles", null, false))
                 .add(new NavNode(RouteId.parse("shaders.settings"), "vulkanmod.ui.page.shaders.settings", null, false))
                 .add(new NavNode(RouteId.parse("mods"), "vulkanmod.ui.page.mods", "vulkanmod.ui.section.content", true))
-                .add(new NavNode(RouteId.parse("favorites"), "vulkanmod.ui.page.favorites", "vulkanmod.ui.page.favorites", true))
+                .add(new NavNode(RouteId.parse("favorites"), "vulkanmod.ui.page.favorites", null, true))
                 .add(new NavNode(RouteId.parse("advanced"), "vulkanmod.ui.page.advanced", "vulkanmod.ui.section.system", true))
                 .add(new NavNode(RouteId.parse("advanced.renderer"), "vulkanmod.ui.page.advanced.renderer", null, false))
                 .add(new NavNode(RouteId.parse("advanced.synchronization"), "vulkanmod.ui.page.advanced.synchronization", null, false))

@@ -1,0 +1,335 @@
+package net.vulkanmod.config.ui.shell;
+
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.language.I18n;
+import net.vulkanmod.config.ui.core.BreadcrumbModel;
+import net.vulkanmod.config.ui.core.ColorToken;
+import net.vulkanmod.config.ui.core.Gradient;
+import net.vulkanmod.config.ui.core.NavNode;
+import net.vulkanmod.config.ui.core.Rect;
+import net.vulkanmod.config.ui.core.RoundedScanline;
+import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.ShellLayout;
+import net.vulkanmod.config.ui.core.SidebarModel;
+import net.vulkanmod.config.ui.core.TabStripModel;
+import net.vulkanmod.config.ui.core.Theme;
+import net.vulkanmod.config.ui.render.SurfacePainter;
+
+import java.util.List;
+import java.util.Locale;
+
+public final class ShellRenderer {
+    private static final int NAV_RADIUS = 8;
+    private static final int PILL_RADIUS = 11;
+    private static final int TEXT_HEIGHT = 9;
+
+    private static final int SECTION_TEXT_X = 9;
+    private static final int ROW_TEXT_X = 17;
+    private static final int ROW_INSET_X = 4;
+    private static final int ROW_INSET_Y = 1;
+    private static final int ACCENT_BAR_WIDTH = 2;
+
+    private static final int CONTENT_PAD_X = 14;
+    private static final int BREADCRUMB_Y = 12;
+    private static final int TITLE_Y = 30;
+    private static final int TAB_STRIP_Y = 48;
+
+    private static final int BRAND_X = 12;
+    private static final int BRAND_Y = 12;
+    private static final int BRAND_GAP = 8;
+    private static final float SCRIM_ALPHA = 0.72f;
+    private static final String BRAND = "VOLCANIC";
+    private static final String BREADCRUMB_SEPARATOR = "›";
+
+    private final Theme theme;
+
+    public ShellRenderer(Theme theme) {
+        if (theme == null) {
+            throw new IllegalArgumentException("theme must not be null");
+        }
+        this.theme = theme;
+    }
+
+    public void render(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
+                       NavPresenter presenter, int scroll, int mouseX, int mouseY, boolean drawerOpen) {
+        if (graphics == null) {
+            throw new IllegalArgumentException("graphics must not be null");
+        }
+        if (painter == null) {
+            throw new IllegalArgumentException("painter must not be null");
+        }
+        requireInputs(font, layout, presenter);
+        if (scroll < 0) {
+            throw new IllegalArgumentException("scroll must not be negative: " + scroll);
+        }
+
+        paintChrome(painter, layout, drawerOpen);
+        painter.flush();
+
+        Rect nav = layout.sidebarOrDrawer(drawerOpen);
+        if (!layout.hasDrawer()) {
+            paintNav(graphics, painter, nav, presenter, scroll, mouseX, mouseY);
+        }
+
+        paintContent(painter, font, layout, presenter);
+        painter.flush();
+
+        if (layout.hasDrawer() && !nav.isEmpty()) {
+            painter.fill(layout.content(), theme.color(ColorToken.SURFACE_SUNKEN, SCRIM_ALPHA));
+            painter.flush();
+            paintNav(graphics, painter, nav, presenter, scroll, mouseX, mouseY);
+            painter.fill(new Rect(nav.right(), nav.y(), 1, nav.height()),
+                    theme.color(ColorToken.BORDER_ACCENT));
+            painter.flush();
+        }
+    }
+
+    private void paintNav(GuiGraphics graphics, SurfacePainter painter, Rect region, NavPresenter presenter,
+                          int scroll, int mouseX, int mouseY) {
+        if (region.isEmpty()) {
+            return;
+        }
+        graphics.enableScissor(region.x(), region.y(), region.right(), region.bottom());
+        try {
+            paintSidebar(painter, region, presenter, scroll, mouseX, mouseY);
+            painter.flush();
+        } finally {
+            graphics.disableScissor();
+        }
+    }
+
+    public List<Rect> breadcrumbBoxes(Font font, ShellLayout layout, NavPresenter presenter) {
+        requireInputs(font, layout, presenter);
+        List<RouteId> trail = presenter.stack().trail();
+        int[] widths = new int[trail.size()];
+        for (int i = 0; i < trail.size(); i++) {
+            widths[i] = font.width(label(presenter, trail.get(i)));
+        }
+        return BreadcrumbModel.layout(widths,
+                layout.content().x() + CONTENT_PAD_X, layout.content().y() + BREADCRUMB_Y);
+    }
+
+    public List<Rect> tabStripBoxes(Font font, ShellLayout layout, NavPresenter presenter) {
+        requireInputs(font, layout, presenter);
+        List<NavNode> tabs = presenter.subTabs();
+        int[] widths = new int[tabs.size()];
+        for (int i = 0; i < tabs.size(); i++) {
+            widths[i] = font.width(I18n.get(tabs.get(i).titleKey()));
+        }
+        return TabStripModel.layout(widths,
+                layout.content().x() + CONTENT_PAD_X, layout.content().y() + TAB_STRIP_Y);
+    }
+
+    private void paintChrome(SurfacePainter painter, ShellLayout layout, boolean drawerOpen) {
+        Rect screen = new Rect(0, 0, layout.topBar().width(), layout.bottomBar().bottom());
+        painter.fill(screen, theme.color(ColorToken.SURFACE_BASE));
+        painter.fill(layout.topBar(), theme.color(ColorToken.SURFACE_CHROME));
+        painter.fill(layout.bottomBar(), theme.color(ColorToken.SURFACE_CHROME));
+
+        if (layout.hasDetailsPanel()) {
+            painter.fill(layout.details(), theme.color(ColorToken.SURFACE_CHROME));
+        }
+
+        int border = theme.color(ColorToken.BORDER_DEFAULT);
+        if (!layout.sidebar().isEmpty()) {
+            painter.fill(new Rect(layout.sidebar().right(), layout.sidebar().y(), 1, layout.sidebar().height()),
+                    border);
+        }
+        painter.fill(new Rect(layout.topBar().x(), layout.topBar().bottom() - 1, layout.topBar().width(), 1), border);
+        painter.fill(new Rect(layout.bottomBar().x(), layout.bottomBar().y(), layout.bottomBar().width(), 1), border);
+
+        Rect menu = layout.menuButton();
+        int brandX = menu.isEmpty() ? BRAND_X : menu.right() + BRAND_GAP;
+        painter.text(layout.topBar().x() + brandX, layout.topBar().y() + BRAND_Y, BRAND,
+                theme.color(ColorToken.TEXT_PRIMARY), false);
+
+        if (!menu.isEmpty()) {
+            paintMenuIcon(painter, menu, theme.color(drawerOpen ? ColorToken.ACCENT : ColorToken.TEXT_SECONDARY));
+        }
+    }
+
+    private static void paintMenuIcon(SurfacePainter painter, Rect button, int argb) {
+        int barHeight = Math.max(1, button.height() / 7);
+        int gap = Math.max(1, (button.height() - barHeight * 3) / 2);
+        int top = button.y() + Math.max(0, (button.height() - barHeight * 3 - gap * 2) / 2);
+        for (int bar = 0; bar < 3; bar++) {
+            painter.fill(new Rect(button.x(), top + bar * (barHeight + gap), button.width(), barHeight), argb);
+        }
+    }
+
+    private void paintSidebar(SurfacePainter painter, Rect sidebar, NavPresenter presenter,
+                              int scroll, int mouseX, int mouseY) {
+        Gradient background = theme.gradient(ColorToken.SURFACE_BASE, ColorToken.SURFACE_SIDEBAR_BOTTOM);
+        painter.gradient(sidebar, background.topArgb(), background.bottomArgb());
+
+        SidebarModel model = presenter.sidebar();
+        RouteId activeRoute = presenter.activeSidebarRoute();
+        RouteId hoveredRoute = sidebar.contains(mouseX, mouseY)
+                ? model.routeAt(mouseY - sidebar.y() + scroll)
+                : null;
+        String focusedId = focusedIn(presenter, NavPresenter.REGION_SIDEBAR);
+
+        for (int index = 0; index < model.entryCount(); index++) {
+            int top = sidebar.y() + model.offsetOf(index) - scroll;
+            int height = model.heightOf(index);
+            if (top + height <= sidebar.y() || top >= sidebar.bottom()) {
+                continue;
+            }
+
+            switch (model.entries().get(index)) {
+                case SidebarModel.Section(String labelKey) -> painter.text(sidebar.x() + SECTION_TEXT_X,
+                        top + (height - TEXT_HEIGHT) / 2, I18n.get(labelKey).toUpperCase(Locale.ROOT),
+                        theme.color(ColorToken.TEXT_FAINT), false);
+                case SidebarModel.Row(RouteId route, String titleKey) -> {
+                    Rect box = rowBox(sidebar, top, height);
+                    boolean active = route.equals(activeRoute);
+                    paintRowSurface(painter, box, active, route.equals(hoveredRoute),
+                            route.toString().equals(focusedId));
+                    painter.text(sidebar.x() + ROW_TEXT_X, top + (height - TEXT_HEIGHT) / 2, I18n.get(titleKey),
+                            theme.color(active ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY), false);
+                }
+            }
+        }
+    }
+
+    private void paintRowSurface(SurfacePainter painter, Rect box, boolean active, boolean hovered, boolean focused) {
+        if (active) {
+            paintRoundedGradient(painter, box, NAV_RADIUS,
+                    theme.color(ColorToken.SURFACE_NAV_ACTIVE), theme.color(ColorToken.SURFACE_SIDEBAR_BOTTOM));
+            paintRoundedOutline(painter, box, NAV_RADIUS, theme.color(ColorToken.BORDER_ACCENT));
+            paintLeadingEdge(painter, box, NAV_RADIUS, theme.color(ColorToken.ACCENT));
+        } else if (hovered) {
+            paintRoundedFill(painter, box, NAV_RADIUS, theme.color(ColorToken.SURFACE_CARD_HOVER));
+        }
+        if (focused) {
+            paintRoundedOutline(painter, box, NAV_RADIUS, theme.color(ColorToken.ACCENT));
+        }
+    }
+
+    private void paintContent(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
+        Rect content = layout.content();
+        if (content.isEmpty()) {
+            return;
+        }
+
+        paintBreadcrumbs(painter, font, layout, presenter);
+
+        painter.text(content.x() + CONTENT_PAD_X, content.y() + TITLE_Y, I18n.get(presenter.currentTitleKey()),
+                theme.color(ColorToken.TEXT_PRIMARY), false);
+
+        paintTabStrip(painter, font, layout, presenter);
+    }
+
+    private void paintBreadcrumbs(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
+        List<RouteId> trail = presenter.stack().trail();
+        List<Rect> boxes = breadcrumbBoxes(font, layout, presenter);
+        int separatorWidth = font.width(BREADCRUMB_SEPARATOR);
+        int faint = theme.color(ColorToken.TEXT_FAINT);
+
+        for (int i = 0; i < boxes.size(); i++) {
+            Rect box = boxes.get(i);
+            boolean last = i == boxes.size() - 1;
+            painter.text(box.x(), box.y(), label(presenter, trail.get(i)),
+                    theme.color(last ? ColorToken.TEXT_DEFAULT : ColorToken.TEXT_FAINT), false);
+            if (!last) {
+                int gap = boxes.get(i + 1).x() - box.right();
+                painter.text(box.right() + (gap - separatorWidth) / 2, box.y(), BREADCRUMB_SEPARATOR, faint, false);
+            }
+        }
+    }
+
+    private void paintTabStrip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
+        List<NavNode> tabs = presenter.subTabs();
+        if (tabs.isEmpty()) {
+            return;
+        }
+
+        List<Rect> boxes = tabStripBoxes(font, layout, presenter);
+        RouteId current = presenter.stack().current();
+        String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
+        int gradientTop = theme.color(ColorToken.ACCENT_BRIGHT);
+        int gradientBottom = theme.color(ColorToken.ACCENT_DEEP);
+
+        for (int i = 0; i < boxes.size(); i++) {
+            Rect box = boxes.get(i);
+            NavNode tab = tabs.get(i);
+            boolean active = tab.route().equals(current);
+
+            if (active) {
+                paintRoundedGradient(painter, box, PILL_RADIUS, gradientTop, gradientBottom);
+            }
+            if (tab.route().toString().equals(focusedId)) {
+                paintRoundedOutline(painter, box, PILL_RADIUS, theme.color(ColorToken.ACCENT));
+            }
+
+            String text = I18n.get(tab.titleKey());
+            painter.text(box.x() + (box.width() - font.width(text)) / 2, box.y() + (box.height() - TEXT_HEIGHT) / 2,
+                    text, theme.color(active ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY), false);
+        }
+    }
+
+    private static void paintRoundedGradient(SurfacePainter painter, Rect rect, int radius, int topArgb,
+                                             int bottomArgb) {
+        int height = rect.height();
+        for (Rect span : RoundedScanline.fillSpans(rect, radius)) {
+            float progress = height == 1 ? 0.0f : (float) (span.y() - rect.y()) / (height - 1);
+            painter.fill(span, lerpArgb(topArgb, bottomArgb, progress));
+        }
+    }
+
+    private static void paintRoundedFill(SurfacePainter painter, Rect rect, int radius, int argb) {
+        for (Rect span : RoundedScanline.fillSpans(rect, radius)) {
+            painter.fill(span, argb);
+        }
+    }
+
+    private static void paintRoundedOutline(SurfacePainter painter, Rect rect, int radius, int argb) {
+        for (Rect span : RoundedScanline.outlineSpans(rect, radius)) {
+            painter.fill(span, argb);
+        }
+    }
+
+    private static void paintLeadingEdge(SurfacePainter painter, Rect rect, int radius, int argb) {
+        for (Rect span : RoundedScanline.fillSpans(rect, radius)) {
+            painter.fill(new Rect(span.x(), span.y(), Math.min(ACCENT_BAR_WIDTH, span.width()), 1), argb);
+        }
+    }
+
+    private static Rect rowBox(Rect sidebar, int top, int height) {
+        return new Rect(sidebar.x() + ROW_INSET_X, top + ROW_INSET_Y,
+                Math.max(0, sidebar.width() - ROW_INSET_X * 2), Math.max(0, height - ROW_INSET_Y * 2));
+    }
+
+    private static String focusedIn(NavPresenter presenter, String regionId) {
+        return regionId.equals(presenter.focus().activeRegion()) ? presenter.focus().focused() : null;
+    }
+
+    private static String label(NavPresenter presenter, RouteId route) {
+        return I18n.get(presenter.titleKeyOf(route));
+    }
+
+    private static int lerpArgb(int from, int to, float progress) {
+        int alpha = lerpChannel(from >>> 24, to >>> 24, progress);
+        int red = lerpChannel((from >> 16) & 0xFF, (to >> 16) & 0xFF, progress);
+        int green = lerpChannel((from >> 8) & 0xFF, (to >> 8) & 0xFF, progress);
+        int blue = lerpChannel(from & 0xFF, to & 0xFF, progress);
+        return (alpha << 24) | (red << 16) | (green << 8) | blue;
+    }
+
+    private static int lerpChannel(int from, int to, float progress) {
+        return Math.round(from + (to - from) * progress);
+    }
+
+    private static void requireInputs(Font font, ShellLayout layout, NavPresenter presenter) {
+        if (font == null) {
+            throw new IllegalArgumentException("font must not be null");
+        }
+        if (layout == null) {
+            throw new IllegalArgumentException("layout must not be null");
+        }
+        if (presenter == null) {
+            throw new IllegalArgumentException("presenter must not be null");
+        }
+    }
+}

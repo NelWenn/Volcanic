@@ -9,6 +9,7 @@ public enum KeyAction {
     DECREASE,
     ACTIVATE,
     BACK,
+    CLOSE,
     HOME,
     END,
     SEARCH,

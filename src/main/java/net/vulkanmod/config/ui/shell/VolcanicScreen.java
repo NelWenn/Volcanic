@@ -3,19 +3,27 @@ package net.vulkanmod.config.ui.shell;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.vulkanmod.config.ui.core.ColorToken;
+import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.KeyAction;
 import net.vulkanmod.config.ui.core.Rect;
+import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.ShellLayout;
+import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
 import net.vulkanmod.config.ui.render.SurfacePainter;
 
+import java.util.List;
+
 public class VolcanicScreen extends Screen {
-    private static final int CARD_RADIUS = 5;
+    private static final int SIDEBAR_SCROLL_STEP = 25;
+    private static final int PRIMARY_BUTTON = 0;
 
     private final Screen parent;
-    private final Theme theme = Theme.volcanic();
+    private final NavPresenter presenter = new NavPresenter();
+    private final ShellRenderer renderer = new ShellRenderer(Theme.volcanic());
     private ShellLayout layout = ShellLayout.of(0, 0);
+    private int sidebarScroll;
+    private boolean drawerOpen;
 
     public VolcanicScreen(Component title, Screen parent) {
         super(title);
@@ -25,49 +33,94 @@ public class VolcanicScreen extends Screen {
     @Override
     protected void init() {
         this.layout = ShellLayout.of(this.width, this.height);
+        if (!layout.hasDrawer()) {
+            this.drawerOpen = false;
+        }
+        this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, navViewport().height());
     }
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
+        renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, mouseX, mouseY, drawerOpen);
+    }
 
-        painter.fill(new Rect(0, 0, this.width, this.height), theme.color(ColorToken.SURFACE_BASE));
-        painter.fill(layout.topBar(), theme.color(ColorToken.SURFACE_CHROME));
-        painter.fill(layout.bottomBar(), theme.color(ColorToken.SURFACE_CHROME));
-        painter.fill(layout.sidebar(), theme.color(ColorToken.SURFACE_BASE));
-
-        if (layout.hasDetailsPanel()) {
-            painter.fill(layout.details(), theme.color(ColorToken.SURFACE_CHROME));
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button != PRIMARY_BUTTON) {
+            return super.mouseClicked(mouseX, mouseY, button);
         }
 
-        painter.fill(new Rect(layout.sidebar().right(), layout.sidebar().y(), 1, layout.sidebar().height()),
-                theme.color(ColorToken.BORDER_DEFAULT));
-        painter.fill(new Rect(layout.topBar().x(), layout.topBar().bottom() - 1, layout.topBar().width(), 1),
-                theme.color(ColorToken.BORDER_DEFAULT));
-        painter.fill(new Rect(layout.bottomBar().x(), layout.bottomBar().y(), layout.bottomBar().width(), 1),
-                theme.color(ColorToken.BORDER_DEFAULT));
+        int x = (int) mouseX;
+        int y = (int) mouseY;
+        if (layout.menuButton().contains(x, y)) {
+            setDrawerOpen(!drawerOpen);
+            return true;
+        }
+        if (clickSidebar(x, y)) {
+            return true;
+        }
+        if (drawerOpen) {
+            setDrawerOpen(false);
+            return true;
+        }
+        if (clickTabStrip(x, y) || clickBreadcrumb(x, y)) {
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
 
-        painter.surface(layout.content().inset(12).withHeight(40), CARD_RADIUS,
-                theme.color(ColorToken.SURFACE_CARD), theme.color(ColorToken.BORDER_DEFAULT),
-                theme.color(ColorToken.ACCENT, 0.13f), 16);
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        Rect nav = layout.sidebarOrDrawer(drawerOpen);
+        if (!nav.contains((int) mouseX, (int) mouseY)) {
+            return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+        }
 
-        painter.text(layout.topBar().x() + 12, layout.topBar().y() + 12, "VOLCANIC",
-                theme.color(ColorToken.TEXT_PRIMARY), false);
-        painter.text(layout.content().x() + 20, layout.content().y() + 26,
-                layout.breakpoint().name() + "  " + this.width + " x " + this.height,
-                theme.color(ColorToken.TEXT_MUTED), false);
-
-        painter.flush();
+        int step = (int) Math.signum(scrollY) * SIDEBAR_SCROLL_STEP;
+        this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll - step, nav.height());
+        return true;
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         KeyAction action = UiKeys.actionFor(keyCode, modifiers);
-        if (action == KeyAction.BACK) {
-            this.onClose();
-            return true;
+        switch (action) {
+            case CLOSE -> {
+                if (drawerOpen) {
+                    setDrawerOpen(false);
+                } else {
+                    this.onClose();
+                }
+                return true;
+            }
+            case BACK -> {
+                if (drawerOpen) {
+                    setDrawerOpen(false);
+                    return true;
+                }
+                if (!presenter.stack().canGoBack()) {
+                    return super.keyPressed(keyCode, scanCode, modifiers);
+                }
+                presenter.back();
+                return true;
+            }
+            case NEXT, PREVIOUS, UP, DOWN -> {
+                presenter.focus().apply(action);
+                return true;
+            }
+            case ACTIVATE -> {
+                RouteId route = presenter.focusedRoute();
+                if (route == null) {
+                    return super.keyPressed(keyCode, scanCode, modifiers);
+                }
+                select(route, presenter.focus().activeRegion());
+                return true;
+            }
+            default -> {
+                return super.keyPressed(keyCode, scanCode, modifiers);
+            }
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -78,5 +131,62 @@ public class VolcanicScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    private boolean clickSidebar(int mouseX, int mouseY) {
+        Rect nav = layout.sidebarOrDrawer(drawerOpen);
+        if (!nav.contains(mouseX, mouseY)) {
+            return false;
+        }
+
+        RouteId route = presenter.sidebar().routeAt(mouseY - nav.y() + sidebarScroll);
+        if (route == null) {
+            return true;
+        }
+
+        select(route, NavPresenter.REGION_SIDEBAR);
+        setDrawerOpen(false);
+        return true;
+    }
+
+    private boolean clickTabStrip(int mouseX, int mouseY) {
+        List<Rect> boxes = renderer.tabStripBoxes(this.font, layout, presenter);
+        int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
+        if (index < 0) {
+            return false;
+        }
+
+        select(presenter.subTabs().get(index).route(), NavPresenter.REGION_CONTENT);
+        return true;
+    }
+
+    private boolean clickBreadcrumb(int mouseX, int mouseY) {
+        List<Rect> segments = renderer.breadcrumbBoxes(this.font, layout, presenter);
+        int index = BreadcrumbModel.indexAt(segments, mouseX, mouseY);
+        if (index < 0) {
+            return false;
+        }
+
+        presenter.navigate(presenter.stack().trail().get(index));
+        return true;
+    }
+
+    private void select(RouteId route, String regionId) {
+        presenter.navigate(route);
+        presenter.focus().focusRegion(regionId);
+        presenter.focus().ring(regionId).focus(route.toString());
+    }
+
+    private void setDrawerOpen(boolean open) {
+        if (!layout.hasDrawer()) {
+            this.drawerOpen = false;
+            return;
+        }
+        this.drawerOpen = open;
+        presenter.focus().focusRegion(open ? NavPresenter.REGION_SIDEBAR : NavPresenter.REGION_CONTENT);
+    }
+
+    private Rect navViewport() {
+        return layout.sidebarOrDrawer(true);
     }
 }

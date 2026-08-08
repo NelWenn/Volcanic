@@ -34,11 +34,53 @@ class ShellLayoutTest {
     }
 
     @Test
-    void compactLayoutCollapsesTheSidebarToARail() {
+    void compactLayoutDropsTheSidebarAndGivesTheWidthToContent() {
         ShellLayout layout = ShellLayout.of(480, 270);
         assertFalse(layout.hasDetailsPanel());
-        assertEquals(28, layout.sidebar().width());
-        assertEquals(480 - 28, layout.content().width());
+        assertTrue(layout.hasDrawer());
+        assertTrue(layout.sidebar().isEmpty());
+        assertEquals(480, layout.content().width());
+        assertEquals(0, layout.content().x());
+    }
+
+    @Test
+    void compactDrawerOverlaysTheContentAtFullSidebarWidth() {
+        ShellLayout layout = ShellLayout.of(480, 270);
+        Rect drawer = layout.drawer();
+        assertEquals(ShellLayout.SIDEBAR_WIDTH, drawer.width());
+        assertEquals(layout.content().x(), drawer.x());
+        assertEquals(layout.content().y(), drawer.y());
+        assertEquals(layout.content().height(), drawer.height());
+    }
+
+    @Test
+    void widerLayoutsHaveNoDrawerAndNoMenuButton() {
+        ShellLayout layout = ShellLayout.of(854, 480);
+        assertFalse(layout.hasDrawer());
+        assertTrue(layout.drawer().isEmpty());
+        assertTrue(layout.menuButton().isEmpty());
+        assertEquals(ShellLayout.SIDEBAR_WIDTH, layout.sidebar().width());
+    }
+
+    @Test
+    void menuButtonSitsInsideTheCompactTopBar() {
+        ShellLayout layout = ShellLayout.of(480, 270);
+        Rect button = layout.menuButton();
+        assertFalse(button.isEmpty());
+        assertTrue(button.y() >= layout.topBar().y());
+        assertTrue(button.bottom() <= layout.topBar().bottom());
+        assertTrue(button.right() <= layout.topBar().right());
+    }
+
+    @Test
+    void sidebarOrDrawerFollowsTheDrawerStateOnlyWhenCompact() {
+        ShellLayout compact = ShellLayout.of(480, 270);
+        assertTrue(compact.sidebarOrDrawer(false).isEmpty());
+        assertEquals(compact.drawer(), compact.sidebarOrDrawer(true));
+
+        ShellLayout medium = ShellLayout.of(700, 400);
+        assertEquals(medium.sidebar(), medium.sidebarOrDrawer(false));
+        assertEquals(medium.sidebar(), medium.sidebarOrDrawer(true));
     }
 
     @Test

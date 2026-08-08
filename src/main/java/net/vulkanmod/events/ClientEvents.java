@@ -10,6 +10,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.config.ui.shell.UiKeybinds;
 import net.vulkanmod.config.ui.shell.VolcanicScreen;
 import net.vulkanmod.gui.DebugOverlay;
 import net.vulkanmod.gui.HUD;
@@ -29,7 +30,7 @@ public class ClientEvents {
         for (HUD hud : HudHandler.getInstance().getHuds()) {
             event.register(hud.getToggleKeyMapping());
         }
-        event.register(HUD.optionsKeyMapping);
+        event.register(UiKeybinds.OPEN_OPTIONS);
     }
 
     @SubscribeEvent
@@ -40,7 +41,7 @@ public class ClientEvents {
             }
         }
 
-        while (HUD.optionsKeyMapping.consumeClick()) {
+        while (UiKeybinds.OPEN_OPTIONS.consumeClick()) {
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft.screen == null) {
                 minecraft.setScreen(new VolcanicScreen(
