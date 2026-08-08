@@ -6,6 +6,60 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TabStripModelTest {
 
+    private static List<Rect> sixTabs() {
+        return TabStripModel.layout(new int[]{38, 43, 52, 35, 41, 48}, 14, 48);
+    }
+
+    @Test
+    void aStripThatFitsIsNotScrolled() {
+        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 5, 14, 1000));
+    }
+
+    @Test
+    void scrollingBringsAnOverflowingTabFullyIntoView() {
+        List<Rect> boxes = sixTabs();
+        int offset = TabStripModel.scrollToReveal(boxes, 5, 14, 300);
+        assertTrue(offset > 0);
+        Rect revealed = TabStripModel.shifted(boxes, offset).get(5);
+        assertTrue(revealed.right() <= 300);
+        assertTrue(revealed.x() >= 14);
+    }
+
+    @Test
+    void scrollingBackToTheFirstTabReturnsToTheOrigin() {
+        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 0, 14, 300));
+    }
+
+    @Test
+    void scrollNeverExceedsWhatTheContentNeeds() {
+        List<Rect> boxes = sixTabs();
+        int offset = TabStripModel.scrollToReveal(boxes, 5, 14, 300);
+        int total = boxes.get(boxes.size() - 1).right() - 14;
+        assertEquals(total - (300 - 14), offset);
+    }
+
+    @Test
+    void shiftingKeepsHitTestingAndPaintingInAgreement() {
+        List<Rect> boxes = sixTabs();
+        List<Rect> shifted = TabStripModel.shifted(boxes, TabStripModel.scrollToReveal(boxes, 5, 14, 300));
+        Rect target = shifted.get(5);
+        assertEquals(5, TabStripModel.indexAt(shifted, target.x() + 1, target.y() + 1));
+    }
+
+    @Test
+    void scrollIsZeroForAnEmptyStripOrAnIndexOutOfRange() {
+        assertEquals(0, TabStripModel.scrollToReveal(List.of(), 0, 14, 300));
+        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), -1, 14, 300));
+        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 99, 14, 300));
+    }
+
+    @Test
+    void scrollRejectsAnInvertedViewportAndNullBoxes() {
+        assertThrows(IllegalArgumentException.class, () -> TabStripModel.scrollToReveal(sixTabs(), 0, 300, 14));
+        assertThrows(IllegalArgumentException.class, () -> TabStripModel.scrollToReveal(null, 0, 14, 300));
+        assertThrows(IllegalArgumentException.class, () -> TabStripModel.shifted(null, 5));
+    }
+
     @Test
     void boxesArePaddedAndSpaced() {
         List<Rect> boxes = TabStripModel.layout(new int[] { 30, 40 }, 10, 20);

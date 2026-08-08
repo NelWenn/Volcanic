@@ -75,7 +75,9 @@ public final class FocusModel {
             int index = Math.floorMod(start + direction * i, size);
             String candidate = regionOrder.get(index);
             FocusRing candidateRing = rings.get(candidate);
-            candidateRing.apply(direction > 0 ? KeyAction.NEXT : KeyAction.END);
+            if (candidateRing.focused() == null) {
+                candidateRing.apply(direction > 0 ? KeyAction.NEXT : KeyAction.END);
+            }
             if (candidateRing.focused() != null) {
                 activeRegion = candidate;
                 return true;

@@ -72,8 +72,16 @@ public final class ShellRenderer {
             paintNav(graphics, painter, nav, presenter, scroll, mouseX, mouseY);
         }
 
-        paintContent(painter, font, layout, presenter);
-        painter.flush();
+        Rect content = layout.content();
+        if (!content.isEmpty()) {
+            graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
+            try {
+                paintContent(painter, font, layout, presenter);
+                painter.flush();
+            } finally {
+                graphics.disableScissor();
+            }
+        }
 
         if (layout.hasDrawer() && !nav.isEmpty()) {
             painter.fill(layout.content(), theme.color(ColorToken.SURFACE_SUNKEN, SCRIM_ALPHA));
@@ -117,8 +125,28 @@ public final class ShellRenderer {
         for (int i = 0; i < tabs.size(); i++) {
             widths[i] = font.width(I18n.get(tabs.get(i).titleKey()));
         }
-        return TabStripModel.layout(widths,
-                layout.content().x() + CONTENT_PAD_X, layout.content().y() + TAB_STRIP_Y);
+
+        Rect content = layout.content();
+        int left = content.x() + CONTENT_PAD_X;
+        int right = Math.max(left, content.right() - CONTENT_PAD_X);
+        List<Rect> boxes = TabStripModel.layout(widths, left, content.y() + TAB_STRIP_Y);
+        return TabStripModel.shifted(boxes,
+                TabStripModel.scrollToReveal(boxes, revealIndex(presenter, tabs), left, right));
+    }
+
+    private static int revealIndex(NavPresenter presenter, List<NavNode> tabs) {
+        String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
+        RouteId current = presenter.stack().current();
+        int active = -1;
+        for (int i = 0; i < tabs.size(); i++) {
+            if (tabs.get(i).route().toString().equals(focusedId)) {
+                return i;
+            }
+            if (tabs.get(i).route().equals(current)) {
+                active = i;
+            }
+        }
+        return active;
     }
 
     private void paintChrome(SurfacePainter painter, ShellLayout layout, boolean drawerOpen) {

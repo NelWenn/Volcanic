@@ -48,6 +48,59 @@ class FocusModelTest {
     }
 
     @Test
+    void returningToARegionRestoresItsSelectionInsteadOfAdvancingIt() {
+        FocusModel model = twoRegions();
+        model.apply(KeyAction.NEXT);
+        model.apply(KeyAction.DOWN);
+        assertEquals("shaders", model.focused());
+
+        model.apply(KeyAction.NEXT);
+        assertEquals("content", model.activeRegion());
+
+        model.apply(KeyAction.NEXT);
+        assertEquals("sidebar", model.activeRegion());
+        assertEquals("shaders", model.focused());
+    }
+
+    @Test
+    void previousIntoAVisitedRegionDoesNotJumpToItsLastEntry() {
+        FocusModel model = twoRegions();
+        model.apply(KeyAction.NEXT);
+        assertEquals("video", model.focused());
+
+        model.apply(KeyAction.NEXT);
+        assertEquals("content", model.activeRegion());
+
+        model.apply(KeyAction.PREVIOUS);
+        assertEquals("sidebar", model.activeRegion());
+        assertEquals("video", model.focused());
+    }
+
+    @Test
+    void cyclingThroughEveryRegionLeavesEverySelectionUntouched() {
+        FocusModel model = new FocusModel();
+        model.addRegion("sidebar");
+        model.ring("sidebar").register("video", true);
+        model.ring("sidebar").register("shaders", true);
+        model.ring("sidebar").register("mods", true);
+        model.addRegion("content");
+        model.ring("content").register("card", true);
+
+        model.apply(KeyAction.NEXT);
+        model.apply(KeyAction.DOWN);
+        model.apply(KeyAction.NEXT);
+        String sidebarBefore = model.ring("sidebar").focused();
+        String contentBefore = model.ring("content").focused();
+
+        for (int step = 0; step < 4; step++) {
+            model.apply(KeyAction.NEXT);
+        }
+
+        assertEquals(sidebarBefore, model.ring("sidebar").focused());
+        assertEquals(contentBefore, model.ring("content").focused());
+    }
+
+    @Test
     void arrowsMoveWithinTheActiveRegionOnly() {
         FocusModel model = twoRegions();
         model.apply(KeyAction.NEXT);

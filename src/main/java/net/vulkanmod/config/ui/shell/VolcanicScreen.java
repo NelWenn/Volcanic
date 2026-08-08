@@ -36,6 +36,9 @@ public class VolcanicScreen extends Screen {
         if (!layout.hasDrawer()) {
             this.drawerOpen = false;
         }
+        if (!isNavVisible() && NavPresenter.REGION_SIDEBAR.equals(presenter.focus().activeRegion())) {
+            presenter.focus().focusRegion(NavPresenter.REGION_CONTENT);
+        }
         this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, navViewport().height());
     }
 
@@ -105,7 +108,7 @@ public class VolcanicScreen extends Screen {
                 presenter.back();
                 return true;
             }
-            case NEXT, PREVIOUS, UP, DOWN -> {
+            case NEXT, PREVIOUS, UP, DOWN, HOME, END -> {
                 presenter.focus().apply(action);
                 return true;
             }
@@ -188,5 +191,9 @@ public class VolcanicScreen extends Screen {
 
     private Rect navViewport() {
         return layout.sidebarOrDrawer(true);
+    }
+
+    private boolean isNavVisible() {
+        return !layout.sidebarOrDrawer(drawerOpen).isEmpty();
     }
 }
