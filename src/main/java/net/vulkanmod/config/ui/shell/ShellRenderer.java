@@ -10,12 +10,16 @@ import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.SettingMeta;
+import net.vulkanmod.config.ui.core.SettingRowLayout;
 import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.core.SidebarViewport;
 import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
 import net.vulkanmod.config.ui.render.SurfacePainter;
+import net.vulkanmod.config.ui.settings.SettingBinding;
+import net.vulkanmod.config.ui.settings.SettingsCatalog;
 
 import java.util.List;
 import java.util.Locale;
@@ -44,12 +48,15 @@ public final class ShellRenderer {
     private static final String BREADCRUMB_SEPARATOR = "›";
 
     private final Theme theme;
+    private final SettingRowRenderer rowRenderer;
+    private final SettingsCatalog catalog = new SettingsCatalog();
 
     public ShellRenderer(Theme theme) {
         if (theme == null) {
             throw new IllegalArgumentException("theme must not be null");
         }
         this.theme = theme;
+        this.rowRenderer = new SettingRowRenderer(theme);
     }
 
     public void render(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
@@ -77,7 +84,7 @@ public final class ShellRenderer {
         if (!content.isEmpty()) {
             graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
             try {
-                paintContent(painter, font, layout, presenter);
+                paintContent(painter, font, layout, presenter, mouseX, mouseY);
                 painter.flush();
             } finally {
                 graphics.disableScissor();
@@ -144,6 +151,16 @@ public final class ShellRenderer {
         List<Rect> boxes = TabStripModel.layout(widths, left, content.y() + TAB_STRIP_Y);
         return TabStripModel.shifted(boxes,
                 TabStripModel.scrollToReveal(boxes, revealIndex(presenter, tabs), left, right));
+    }
+
+    public List<Rect> settingRowBoxes(ShellLayout layout, NavPresenter presenter) {
+        if (layout == null) {
+            throw new IllegalArgumentException("layout must not be null");
+        }
+        if (presenter == null) {
+            throw new IllegalArgumentException("presenter must not be null");
+        }
+        return SettingRowLayout.rows(layout.content(), settingsOf(presenter).size(), 0);
     }
 
     private static int revealIndex(NavPresenter presenter, List<NavNode> tabs) {
@@ -245,7 +262,8 @@ public final class ShellRenderer {
         }
     }
 
-    private void paintContent(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
+    private void paintContent(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                              int mouseX, int mouseY) {
         Rect content = layout.content();
         if (content.isEmpty()) {
             return;
@@ -257,6 +275,25 @@ public final class ShellRenderer {
                 theme.color(ColorToken.TEXT_PRIMARY), false);
 
         paintTabStrip(painter, font, layout, presenter);
+        paintSettings(painter, font, layout, presenter, mouseX, mouseY);
+    }
+
+    private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                               int mouseX, int mouseY) {
+        List<SettingMeta> settings = settingsOf(presenter);
+        List<Rect> boxes = settingRowBoxes(layout, presenter);
+        for (int i = 0; i < boxes.size(); i++) {
+            Rect box = boxes.get(i);
+            SettingMeta meta = settings.get(i);
+            SettingBinding binding = catalog.binding(meta.id());
+            rowRenderer.render(painter, font, box, meta, binding.get(),
+                    box.contains(mouseX, mouseY) && catalog.enabled(meta.id()), false,
+                    binding.min(), binding.max());
+        }
+    }
+
+    private List<SettingMeta> settingsOf(NavPresenter presenter) {
+        return catalog.registry().forRoute(presenter.stack().current());
     }
 
     private void paintBreadcrumbs(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
@@ -316,7 +353,7 @@ public final class ShellRenderer {
         }
     }
 
-    private static void paintRoundedFill(SurfacePainter painter, Rect rect, int radius, int argb) {
+    static void paintRoundedFill(SurfacePainter painter, Rect rect, int radius, int argb) {
         for (Rect span : RoundedScanline.fillSpans(rect, radius)) {
             painter.fill(span, argb);
         }
