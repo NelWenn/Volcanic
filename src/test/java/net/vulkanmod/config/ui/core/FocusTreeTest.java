@@ -1,0 +1,128 @@
+package net.vulkanmod.config.ui.core;
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+
+class FocusTreeTest {
+
+    private static FocusTree threeEnabled() {
+        FocusTree tree = new FocusTree();
+        tree.register("a", true);
+        tree.register("b", true);
+        tree.register("c", true);
+        return tree;
+    }
+
+    @Test
+    void startsWithNothingFocused() {
+        assertNull(threeEnabled().focused());
+    }
+
+    @Test
+    void nextFocusesTheFirstEnabledEntry() {
+        FocusTree tree = threeEnabled();
+        assertTrue(tree.apply(KeyAction.NEXT));
+        assertEquals("a", tree.focused());
+    }
+
+    @Test
+    void nextAdvancesAndWraps() {
+        FocusTree tree = threeEnabled();
+        tree.focus("c");
+        assertTrue(tree.apply(KeyAction.NEXT));
+        assertEquals("a", tree.focused());
+    }
+
+    @Test
+    void previousRetreatsAndWraps() {
+        FocusTree tree = threeEnabled();
+        tree.focus("a");
+        assertTrue(tree.apply(KeyAction.PREVIOUS));
+        assertEquals("c", tree.focused());
+    }
+
+    @Test
+    void downAndUpBehaveLikeNextAndPrevious() {
+        FocusTree tree = threeEnabled();
+        tree.focus("a");
+        tree.apply(KeyAction.DOWN);
+        assertEquals("b", tree.focused());
+        tree.apply(KeyAction.UP);
+        assertEquals("a", tree.focused());
+    }
+
+    @Test
+    void disabledEntriesAreSkipped() {
+        FocusTree tree = threeEnabled();
+        tree.setEnabled("b", false);
+        tree.focus("a");
+        tree.apply(KeyAction.NEXT);
+        assertEquals("c", tree.focused());
+    }
+
+    @Test
+    void focusingADisabledEntryIsRefused() {
+        FocusTree tree = threeEnabled();
+        tree.setEnabled("b", false);
+        assertFalse(tree.focus("b"));
+        assertNull(tree.focused());
+    }
+
+    @Test
+    void focusingAnUnknownEntryIsRefused() {
+        assertFalse(threeEnabled().focus("zzz"));
+    }
+
+    @Test
+    void disablingTheFocusedEntryClearsFocus() {
+        FocusTree tree = threeEnabled();
+        tree.focus("b");
+        tree.setEnabled("b", false);
+        assertNull(tree.focused());
+    }
+
+    @Test
+    void homeAndEndJumpToTheEdges() {
+        FocusTree tree = threeEnabled();
+        tree.focus("b");
+        assertTrue(tree.apply(KeyAction.HOME));
+        assertEquals("a", tree.focused());
+        assertTrue(tree.apply(KeyAction.END));
+        assertEquals("c", tree.focused());
+    }
+
+    @Test
+    void navigationOnAnAllDisabledTreeDoesNothing() {
+        FocusTree tree = threeEnabled();
+        tree.setEnabled("a", false);
+        tree.setEnabled("b", false);
+        tree.setEnabled("c", false);
+        assertFalse(tree.apply(KeyAction.NEXT));
+        assertNull(tree.focused());
+    }
+
+    @Test
+    void nonNavigationActionsDoNotMoveFocus() {
+        FocusTree tree = threeEnabled();
+        tree.focus("b");
+        assertFalse(tree.apply(KeyAction.ACTIVATE));
+        assertFalse(tree.apply(KeyAction.INCREASE));
+        assertFalse(tree.apply(KeyAction.NONE));
+        assertEquals("b", tree.focused());
+    }
+
+    @Test
+    void reRegisteringTheSameIdIsRejected() {
+        FocusTree tree = threeEnabled();
+        assertThrows(IllegalArgumentException.class, () -> tree.register("a", true));
+    }
+
+    @Test
+    void clearResetsFocusAndMembership() {
+        FocusTree tree = threeEnabled();
+        tree.focus("a");
+        tree.clear();
+        assertEquals(0, tree.size());
+        assertNull(tree.focused());
+    }
+}
