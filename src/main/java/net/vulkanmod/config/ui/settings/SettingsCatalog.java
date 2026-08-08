@@ -16,7 +16,6 @@ import net.vulkanmod.config.PerformancePresetApplier;
 import net.vulkanmod.config.Platform;
 import net.vulkanmod.config.RenderScale;
 import net.vulkanmod.config.VsrPreset;
-import net.vulkanmod.config.option.Options;
 import net.vulkanmod.render.chunk.build.TaskDispatcher;
 import net.vulkanmod.render.chunk.build.light.LightMode;
 import net.vulkanmod.render.vsr.Vsr;
@@ -310,7 +309,7 @@ public final class SettingsCatalog {
                     WindowMode mode = windowModeFor(label(value));
                     Minecraft.getInstance().options.fullscreen().set(mode == WindowMode.EXCLUSIVE_FULLSCREEN);
                     Initializer.CONFIG.windowedFullscreen = mode == WindowMode.WINDOWED_FULLSCREEN;
-                    Options.fullscreenDirty = true;
+                    VideoModeManager.fullscreenDirty = true;
                 },
                 () -> Arrays.stream(WindowMode.values()).map(WindowMode::getComponentName).toList())
                 .withDefault(() -> WindowMode.getComponentName(WindowMode.WINDOWED)));
@@ -991,7 +990,7 @@ public final class SettingsCatalog {
     private static void applyVideoMode() {
         VideoModeManager.applySelectedVideoMode();
         if (Minecraft.getInstance().options.fullscreen().get()) {
-            Options.fullscreenDirty = true;
+            VideoModeManager.fullscreenDirty = true;
         }
     }
 

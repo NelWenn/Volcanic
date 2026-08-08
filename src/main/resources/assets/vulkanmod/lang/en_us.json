@@ -1,23 +1,4 @@
 {
-  "vulkanmod.options.unknown": "Unknown",
-
-  "vulkanmod.options.pages.video": "Video",
-  "vulkanmod.options.pages.graphics": "Graphics",
-  "vulkanmod.options.pages.optimizations": "Optimizations",
-  "vulkanmod.options.pages.other": "Other",
-
-  "vulkanmod.options.buttons.apply": "Apply",
-  "vulkanmod.options.buttons.undo": "Undo",
-  "vulkanmod.options.buttons.kofi": "Support me",
-  "vulkanmod.options.buttons.update_available": "Update available!",
-
-  "vulkanmod.options.searchFieldPlaceholder": "Search Graphics Settings",
-
-  "vulkanmod.options.performanceImpact": "Performance impact: %s",
-  "vulkanmod.options.performanceImpact.low": "Low",
-  "vulkanmod.options.performanceImpact.medium": "Medium",
-  "vulkanmod.options.performanceImpact.high": "High",
-
   "vulkanmod.options.windowMode": "Window Mode",
   "vulkanmod.options.windowMode.windowed": "Windowed",
   "vulkanmod.options.windowMode.windowedFullscreen": "Windowed Fullscreen",
@@ -67,7 +48,6 @@
   "vulkanmod.options.uniqueOpaqueLayer": "Unique opaque layer",
   "vulkanmod.options.uniqueOpaqueLayer.tooltip": "Use a unique render layer for opaque terrain to improve performance.",
 
-  "vulkanmod.options.windowedFullscreen": "Windowed Fullscreen",
   "vulkanmod.options.particleCulling": "Particle Culling",
   "vulkanmod.options.particleCulling.quality": "Quality",
   "vulkanmod.options.particleCulling.balanced": "Balanced",
@@ -84,8 +64,6 @@
   "vulkanmod.options.customItemTextures.tooltip": "Applies OptiFine-style custom item texture rules from the loaded resource packs, for named items and armour trims.",
   "vulkanmod.options.renderScale": "Internal Resolution",
   "vulkanmod.options.renderScale.tooltip": "The resolution the world is rendered at, as a percentage of the window. Lower means more frames and a softer image.",
-
-  "vulkanmod.options.category.vsr": "Volcanic Resolution Scaling",
 
   "vulkanmod.options.vsrPreset": "Resolution Scaling",
   "vulkanmod.options.vsrPreset.off": "Off",
@@ -105,20 +83,14 @@
   "vulkanmod.options.vsrSharpness": "Sharpening",
   "vulkanmod.options.vsrSharpness.tooltip": "Contrast adaptive sharpening applied after reconstruction. It only affects edges, never flat areas, and never overshoots into halos. Set it to 0% to disable it.",
 
-  "vulkanmod.options.pages.shaders": "Shaders",
   "vulkanmod.options.shadersEnabled": "Enable Shaders",
   "vulkanmod.options.shadersEnabled.tooltip": "Enable Volcanic's native Vulkan post-processing effects.",
   "vulkanmod.options.selectedShader": "Shader",
   "vulkanmod.options.shader.off": "Off",
   "vulkanmod.options.shader.radiance": "Camille Radiance - dev-v0.1",
-  "vulkanmod.options.category.shadows": "Shadows",
-  "vulkanmod.options.category.vegetation": "Vegetation",
-  "vulkanmod.options.category.antialiasing": "Anti-aliasing",
   "vulkanmod.options.antialiasing": "Anti-aliasing",
-  "vulkanmod.options.category.atmosphere": "Atmosphere",
   "vulkanmod.options.horizonFog": "Horizon Fog",
   "vulkanmod.options.horizonFog.tooltip": "Smoothly fades distant terrain into the sky right at the render distance edge to hide chunk borders. Lower values pull the fog closer to the edge and make it thinner; Off disables it entirely.",
-  "vulkanmod.options.category.shaderPack": "Shader Pack",
   "vulkanmod.options.shaderSettings": "Shader Settings",
   "vulkanmod.options.shadowsEnabled": "Sun Shadows",
   "vulkanmod.options.entityShadows": "Entity Shadows",

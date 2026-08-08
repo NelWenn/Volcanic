@@ -15,6 +15,8 @@ public abstract class VideoModeManager {
 
     public static VideoModeSet.VideoMode selectedVideoMode;
 
+    public static boolean fullscreenDirty = false;
+
     public static void init() {
         long monitor = glfwGetPrimaryMonitor();
         osVideoMode = getCurrentVideoMode(monitor);

@@ -6,7 +6,6 @@ import net.vulkanmod.Initializer;
 import net.vulkanmod.config.Config;
 import net.vulkanmod.config.Platform;
 import net.vulkanmod.config.video.VideoModeManager;
-import net.vulkanmod.config.option.Options;
 import net.vulkanmod.config.video.VideoModeSet;
 import net.vulkanmod.compat.EarlyWindowCompat;
 import net.vulkanmod.vulkan.Renderer;
@@ -155,15 +154,15 @@ public abstract class WindowMixin {
     @Overwrite
     public void toggleFullScreen() {
         this.fullscreen = !this.fullscreen;
-        Options.fullscreenDirty = true;
+        VideoModeManager.fullscreenDirty = true;
     }
 
     @Overwrite
     public void updateDisplay() {
         RenderSystem.flipFrame(this.window);
 
-        if (Options.fullscreenDirty) {
-            Options.fullscreenDirty = false;
+        if (VideoModeManager.fullscreenDirty) {
+            VideoModeManager.fullscreenDirty = false;
             this.updateFullscreen(this.vsync);
         }
     }
