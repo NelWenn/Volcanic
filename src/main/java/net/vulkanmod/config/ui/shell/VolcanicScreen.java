@@ -6,6 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
+import net.vulkanmod.config.ui.core.ProfileChipRow;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingId;
@@ -80,7 +81,8 @@ public class VolcanicScreen extends Screen {
             setDrawerOpen(false);
             return true;
         }
-        if (clickApplyBar(x, y) || clickTabStrip(x, y) || clickBreadcrumb(x, y) || clickSettingRow(x, y)) {
+        if (clickApplyBar(x, y) || clickTabStrip(x, y) || clickBreadcrumb(x, y)
+                || clickProfileChip(x, y) || clickSettingRow(x, y)) {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -233,10 +235,24 @@ public class VolcanicScreen extends Screen {
         return true;
     }
 
+    private boolean clickProfileChip(int mouseX, int mouseY) {
+        List<Rect> boxes = renderer.profileChipBoxes(this.font, layout, presenter, contentScroll);
+        int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
+        if (index < 0) {
+            return false;
+        }
+
+        ProfileChipRow.Chip chip = presenter.profileChips().get(index);
+        if (chip.selectable()) {
+            presenter.applyProfile(chip.key());
+        }
+        return true;
+    }
+
     private boolean clickSettingRow(int mouseX, int mouseY) {
         List<Rect> boxes = renderer.settingRowBoxes(layout, presenter, contentScroll);
         int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
-        if (index < 0) {
+        if (index < 0 || index >= presenter.settings().size()) {
             return false;
         }
 

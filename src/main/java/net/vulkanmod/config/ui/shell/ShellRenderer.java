@@ -10,6 +10,7 @@ import net.vulkanmod.config.ui.core.ColorToken;
 import net.vulkanmod.config.ui.core.Gradient;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.OverviewModel;
+import net.vulkanmod.config.ui.core.ProfileChipRow;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;
 import net.vulkanmod.config.ui.core.RouteId;
@@ -59,6 +60,7 @@ public final class ShellRenderer {
     private static final String BRAND = "VOLCANIC";
     private static final String BREADCRUMB_SEPARATOR = "›";
     private static final RouteId OVERVIEW = RouteId.parse("overview");
+    private static final int PROFILE_ROW = 0;
 
     private final Theme theme;
     private final SettingRowRenderer rowRenderer;
@@ -188,6 +190,23 @@ public final class ShellRenderer {
             throw new IllegalArgumentException("row must not be null");
         }
         return SliderGeometry.track(SettingRowLayout.cardBox(row), CARD_PAD_X, SLIDER_TRACK_WIDTH);
+    }
+
+    public List<Rect> profileChipBoxes(Font font, ShellLayout layout, NavPresenter presenter, int scroll) {
+        requireInputs(font, layout, presenter);
+        if (!presenter.isOverview()) {
+            return List.of();
+        }
+        List<Rect> rows = settingRowBoxes(layout, presenter, scroll);
+        if (rows.size() <= PROFILE_ROW) {
+            return List.of();
+        }
+        List<ProfileChipRow.Chip> chips = presenter.profileChips();
+        int[] widths = new int[chips.size()];
+        for (int i = 0; i < chips.size(); i++) {
+            widths[i] = font.width(I18n.get(chips.get(i).key()));
+        }
+        return ProfileChipRow.boxes(rows.get(PROFILE_ROW), widths);
     }
 
     public ScrollIndicator contentScrollIndicator(ShellLayout layout, NavPresenter presenter, int scroll) {
@@ -365,7 +384,7 @@ public final class ShellRenderer {
 
         paintTabStrip(painter, font, layout, presenter);
         if (OVERVIEW.equals(presenter.stack().current())) {
-            paintOverview(painter, font, layout, presenter, contentScroll);
+            paintOverview(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
         } else {
             paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged);
         }
@@ -373,13 +392,18 @@ public final class ShellRenderer {
     }
 
     private void paintOverview(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                               int contentScroll) {
+                               int contentScroll, int mouseX, int mouseY) {
         List<OverviewModel.Row> rows = presenter.catalog().overview().rows();
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
         int labelArgb = theme.color(ColorToken.TEXT_DEFAULT);
         int valueArgb = theme.color(ColorToken.TEXT_SECONDARY);
 
+        paintProfileChips(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
+
         for (int i = 0; i < boxes.size(); i++) {
+            if (i == PROFILE_ROW) {
+                continue;
+            }
             Rect card = SettingRowLayout.cardBox(boxes.get(i));
             if (card.isEmpty()) {
                 continue;
@@ -393,6 +417,33 @@ public final class ShellRenderer {
             String value = rows.get(i).value();
             painter.text(card.x() + CARD_PAD_X, top, I18n.get(rows.get(i).labelKey()), labelArgb, false);
             painter.text(card.right() - CARD_PAD_X - font.width(value), top, value, valueArgb, false);
+        }
+    }
+
+    private void paintProfileChips(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                                   int contentScroll, int mouseX, int mouseY) {
+        List<Rect> boxes = profileChipBoxes(font, layout, presenter, contentScroll);
+        List<ProfileChipRow.Chip> chips = presenter.profileChips();
+        int gradientTop = theme.color(ColorToken.ACCENT_BRIGHT);
+        int gradientBottom = theme.color(ColorToken.ACCENT_DEEP);
+
+        for (int i = 0; i < boxes.size(); i++) {
+            Rect box = boxes.get(i);
+            ProfileChipRow.Chip chip = chips.get(i);
+            if (chip.active()) {
+                paintRoundedGradient(painter, box, PILL_RADIUS, gradientTop, gradientBottom);
+            } else if (chip.selectable() && box.contains(mouseX, mouseY)) {
+                paintRoundedFill(painter, box, PILL_RADIUS, theme.color(ColorToken.SURFACE_CARD_HOVER));
+            }
+            if (chip.selectable() && !chip.active()) {
+                paintRoundedOutline(painter, box, PILL_RADIUS, theme.color(ColorToken.BORDER_SUBTLE));
+            }
+
+            String text = I18n.get(chip.key());
+            ColorToken token = chip.active() ? ColorToken.TEXT_PRIMARY
+                    : chip.selectable() ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_FAINT;
+            painter.text(box.x() + (box.width() - font.width(text)) / 2,
+                    box.y() + (box.height() - TEXT_HEIGHT) / 2, text, theme.color(token), false);
         }
     }
 

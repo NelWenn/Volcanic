@@ -203,6 +203,57 @@ public final class SettingsCatalog {
                 .add("vulkanmod.overview.gpu_frame_time", measuredGpuFrameTime());
     }
 
+    public Map<String, Map<SettingId, Object>> profileValues() {
+        Map<String, Map<SettingId, Object>> profiles = new LinkedHashMap<>();
+        for (PerformancePreset preset : derivableProfiles()) {
+            profiles.put(preset.translationKey, presetValues(preset));
+        }
+        return profiles;
+    }
+
+    public Map<SettingId, Object> currentProfileValues() {
+        Map<SettingId, Object> values = new LinkedHashMap<>();
+        for (Map<SettingId, Object> governed : profileValues().values()) {
+            for (SettingId id : governed.keySet()) {
+                if (!values.containsKey(id)) {
+                    values.put(id, binding(id).get());
+                }
+            }
+        }
+        return values;
+    }
+
+    private static Map<SettingId, Object> presetValues(PerformancePreset preset) {
+        Map<SettingId, Object> values = new LinkedHashMap<>();
+        values.put(SettingsDefinitions.INDIRECT_DRAW,
+                preset.indirectDraw && DeviceManager.supportsFastIndirectDraw());
+        values.put(SettingsDefinitions.UNIQUE_OPAQUE_LAYER, preset.uniqueOpaqueLayer);
+        values.put(SettingsDefinitions.ADAPTIVE_CHUNK_UPLOADS, preset.adaptiveChunkUploads);
+        values.put(SettingsDefinitions.CHUNK_UPLOADS_PER_FRAME,
+                TaskDispatcher.clampMaxUploadsPerFrame(preset.chunkUploadsPerFrame));
+        values.put(SettingsDefinitions.CULLING_MODE, cullingModeKey(preset.advCulling));
+        values.put(SettingsDefinitions.CULLING_BLOCK_ENTITIES, preset.blockEntityCulling);
+        values.put(SettingsDefinitions.CULLING_PARTICLES, particleCullingKey(preset.particleCulling));
+        values.put(SettingsDefinitions.RENDER_DISTANCE, preset.renderDistance);
+        values.put(SettingsDefinitions.SIMULATION_DISTANCE, preset.simulationDistance);
+        values.put(SettingsDefinitions.GRAPHICS_MODE,
+                GraphicsModeCompatibility.coerce(preset.graphicsStatus).getKey());
+        values.put(SettingsDefinitions.MIPMAP_LEVELS, String.valueOf(preset.mipmapLevels));
+        values.put(SettingsDefinitions.AMBIENT_OCCLUSION, ambientOcclusionKey(preset.ambientOcclusion));
+        values.put(SettingsDefinitions.BIOME_BLEND, preset.biomeBlendRadius);
+        values.put(SettingsDefinitions.CLOUDS, preset.cloudStatus.getKey());
+        values.put(SettingsDefinitions.PARTICLES, preset.particleStatus.getKey());
+        values.put(SettingsDefinitions.ENTITY_SHADOWS, preset.entityShadows);
+        values.put(SettingsDefinitions.ENTITY_DISTANCE, preset.entityDistancePercent);
+        return values;
+    }
+
+    private static List<PerformancePreset> derivableProfiles() {
+        return performanceProfiles().stream()
+                .filter(preset -> preset != PerformancePreset.CUSTOM)
+                .toList();
+    }
+
     private Optional<String> whenEnabled(SettingId id) {
         return enabled(id) ? Optional.of(choiceText(id)) : Optional.empty();
     }
@@ -765,8 +816,8 @@ public final class SettingsCatalog {
     }
 
     private static List<PerformancePreset> performanceProfiles() {
-        return List.of(PerformancePreset.POTATO, PerformancePreset.BALANCED,
-                PerformancePreset.QUALITY, PerformancePreset.CUSTOM);
+        return List.of(PerformancePreset.PERFORMANCE, PerformancePreset.BALANCED,
+                PerformancePreset.QUALITY, PerformancePreset.ULTRA, PerformancePreset.CUSTOM);
     }
 
     private static PerformancePreset performanceProfileFor(String key) {

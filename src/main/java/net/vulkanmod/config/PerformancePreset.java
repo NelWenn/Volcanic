@@ -7,10 +7,91 @@ import net.vulkanmod.render.chunk.build.light.LightMode;
 
 public enum PerformancePreset {
 
-    CUSTOM(0, "vulkanmod.options.performancePreset.custom", false, true, 8, 2, true, true, true, 2, true, 10, 6, GraphicsStatus.FAST, ParticleStatus.DECREASED, CloudStatus.OFF, false, 75, 1, LightMode.SMOOTH, 1),
-    POTATO(1, "vulkanmod.options.performancePreset.potato", true, true, 3, 1, true, true, true, 3, true, 5, 5, GraphicsStatus.FAST, ParticleStatus.MINIMAL, CloudStatus.OFF, false, 50, 0, LightMode.FLAT, 0),
-    BALANCED(2, "vulkanmod.options.performancePreset.balanced", true, true, 5, 2, true, true, true, 2, true, 8, 6, GraphicsStatus.FAST, ParticleStatus.DECREASED, CloudStatus.OFF, false, 75, 1, LightMode.SMOOTH, 2),
-    QUALITY(3, "vulkanmod.options.performancePreset.quality", true, true, 16, 2, true, true, true, 1, true, 16, 16, GraphicsStatus.FANCY, ParticleStatus.ALL, CloudStatus.FANCY, true, 100, 5, LightMode.SMOOTH, 4);
+    CUSTOM(0, "vulkanmod.options.performancePreset.custom"),
+
+    PERFORMANCE(new Builder(1, "vulkanmod.options.performancePreset.performance")
+            .indirectDraw(true)
+            .adaptiveChunkUploads(true)
+            .chunkUploadsPerFrame(3)
+            .advCulling(1)
+            .entityCulling(true)
+            .blockEntityCulling(true)
+            .leavesCulling(true)
+            .particleCulling(3)
+            .uniqueOpaqueLayer(true)
+            .renderDistance(5)
+            .simulationDistance(5)
+            .graphicsStatus(GraphicsStatus.FAST)
+            .particleStatus(ParticleStatus.MINIMAL)
+            .cloudStatus(CloudStatus.OFF)
+            .entityShadows(false)
+            .entityDistancePercent(50)
+            .biomeBlendRadius(0)
+            .ambientOcclusion(LightMode.FLAT)
+            .mipmapLevels(0)),
+
+    BALANCED(new Builder(2, "vulkanmod.options.performancePreset.balanced")
+            .indirectDraw(true)
+            .adaptiveChunkUploads(true)
+            .chunkUploadsPerFrame(5)
+            .advCulling(2)
+            .entityCulling(true)
+            .blockEntityCulling(true)
+            .leavesCulling(true)
+            .particleCulling(2)
+            .uniqueOpaqueLayer(true)
+            .renderDistance(8)
+            .simulationDistance(6)
+            .graphicsStatus(GraphicsStatus.FAST)
+            .particleStatus(ParticleStatus.DECREASED)
+            .cloudStatus(CloudStatus.OFF)
+            .entityShadows(false)
+            .entityDistancePercent(75)
+            .biomeBlendRadius(1)
+            .ambientOcclusion(LightMode.SMOOTH)
+            .mipmapLevels(2)),
+
+    QUALITY(new Builder(3, "vulkanmod.options.performancePreset.quality")
+            .indirectDraw(true)
+            .adaptiveChunkUploads(true)
+            .chunkUploadsPerFrame(16)
+            .advCulling(2)
+            .entityCulling(true)
+            .blockEntityCulling(true)
+            .leavesCulling(true)
+            .particleCulling(1)
+            .uniqueOpaqueLayer(true)
+            .renderDistance(16)
+            .simulationDistance(16)
+            .graphicsStatus(GraphicsStatus.FANCY)
+            .particleStatus(ParticleStatus.ALL)
+            .cloudStatus(CloudStatus.FANCY)
+            .entityShadows(true)
+            .entityDistancePercent(100)
+            .biomeBlendRadius(5)
+            .ambientOcclusion(LightMode.SMOOTH)
+            .mipmapLevels(4)),
+
+    ULTRA(new Builder(4, "vulkanmod.options.performancePreset.ultra")
+            .indirectDraw(true)
+            .adaptiveChunkUploads(true)
+            .chunkUploadsPerFrame(16)
+            .advCulling(2)
+            .entityCulling(true)
+            .blockEntityCulling(true)
+            .leavesCulling(true)
+            .particleCulling(1)
+            .uniqueOpaqueLayer(true)
+            .renderDistance(32)
+            .simulationDistance(32)
+            .graphicsStatus(GraphicsStatus.FANCY)
+            .particleStatus(ParticleStatus.ALL)
+            .cloudStatus(CloudStatus.FANCY)
+            .entityShadows(true)
+            .entityDistancePercent(500)
+            .biomeBlendRadius(7)
+            .ambientOcclusion(LightMode.SMOOTH)
+            .mipmapLevels(4));
 
     public final int id;
     public final String translationKey;
@@ -34,34 +115,59 @@ public enum PerformancePreset {
     public final int ambientOcclusion;
     public final int mipmapLevels;
 
-    PerformancePreset(int id, String translationKey, boolean indirectDraw, boolean adaptiveChunkUploads,
-                      int chunkUploadsPerFrame, int advCulling,
-                      boolean entityCulling, boolean blockEntityCulling, boolean leavesCulling, int particleCulling,
-                      boolean uniqueOpaqueLayer, int renderDistance, int simulationDistance,
-                      GraphicsStatus graphicsStatus, ParticleStatus particleStatus, CloudStatus cloudStatus,
-                      boolean entityShadows, int entityDistancePercent, int biomeBlendRadius, int ambientOcclusion,
-                      int mipmapLevels) {
+    PerformancePreset(int id, String translationKey) {
         this.id = id;
         this.translationKey = translationKey;
-        this.indirectDraw = indirectDraw;
-        this.adaptiveChunkUploads = adaptiveChunkUploads;
-        this.chunkUploadsPerFrame = chunkUploadsPerFrame;
-        this.advCulling = advCulling;
-        this.entityCulling = entityCulling;
-        this.blockEntityCulling = blockEntityCulling;
-        this.leavesCulling = leavesCulling;
-        this.particleCulling = particleCulling;
-        this.uniqueOpaqueLayer = uniqueOpaqueLayer;
-        this.renderDistance = renderDistance;
-        this.simulationDistance = simulationDistance;
-        this.graphicsStatus = graphicsStatus;
-        this.particleStatus = particleStatus;
-        this.cloudStatus = cloudStatus;
-        this.entityShadows = entityShadows;
-        this.entityDistancePercent = entityDistancePercent;
-        this.biomeBlendRadius = biomeBlendRadius;
-        this.ambientOcclusion = ambientOcclusion;
-        this.mipmapLevels = mipmapLevels;
+        this.indirectDraw = false;
+        this.adaptiveChunkUploads = false;
+        this.chunkUploadsPerFrame = 0;
+        this.advCulling = 0;
+        this.entityCulling = false;
+        this.blockEntityCulling = false;
+        this.leavesCulling = false;
+        this.particleCulling = 0;
+        this.uniqueOpaqueLayer = false;
+        this.renderDistance = 0;
+        this.simulationDistance = 0;
+        this.graphicsStatus = null;
+        this.particleStatus = null;
+        this.cloudStatus = null;
+        this.entityShadows = false;
+        this.entityDistancePercent = 0;
+        this.biomeBlendRadius = 0;
+        this.ambientOcclusion = 0;
+        this.mipmapLevels = 0;
+    }
+
+    PerformancePreset(Builder builder) {
+        this.id = builder.id;
+        this.translationKey = builder.translationKey;
+        this.indirectDraw = builder.indirectDraw;
+        this.adaptiveChunkUploads = builder.adaptiveChunkUploads;
+        this.chunkUploadsPerFrame = builder.chunkUploadsPerFrame;
+        this.advCulling = builder.advCulling;
+        this.entityCulling = builder.entityCulling;
+        this.blockEntityCulling = builder.blockEntityCulling;
+        this.leavesCulling = builder.leavesCulling;
+        this.particleCulling = builder.particleCulling;
+        this.uniqueOpaqueLayer = builder.uniqueOpaqueLayer;
+        this.renderDistance = builder.renderDistance;
+        this.simulationDistance = builder.simulationDistance;
+        this.graphicsStatus = require(builder.graphicsStatus, "graphicsStatus", builder.translationKey);
+        this.particleStatus = require(builder.particleStatus, "particleStatus", builder.translationKey);
+        this.cloudStatus = require(builder.cloudStatus, "cloudStatus", builder.translationKey);
+        this.entityShadows = builder.entityShadows;
+        this.entityDistancePercent = builder.entityDistancePercent;
+        this.biomeBlendRadius = builder.biomeBlendRadius;
+        this.ambientOcclusion = builder.ambientOcclusion;
+        this.mipmapLevels = builder.mipmapLevels;
+    }
+
+    private static <T> T require(T value, String field, String translationKey) {
+        if (value == null) {
+            throw new IllegalArgumentException(translationKey + " is missing " + field);
+        }
+        return value;
     }
 
     public static PerformancePreset byId(int id) {
@@ -72,5 +178,129 @@ public enum PerformancePreset {
         }
 
         return CUSTOM;
+    }
+
+    static final class Builder {
+        private final int id;
+        private final String translationKey;
+        private boolean indirectDraw;
+        private boolean adaptiveChunkUploads;
+        private int chunkUploadsPerFrame;
+        private int advCulling;
+        private boolean entityCulling;
+        private boolean blockEntityCulling;
+        private boolean leavesCulling;
+        private int particleCulling;
+        private boolean uniqueOpaqueLayer;
+        private int renderDistance;
+        private int simulationDistance;
+        private GraphicsStatus graphicsStatus;
+        private ParticleStatus particleStatus;
+        private CloudStatus cloudStatus;
+        private boolean entityShadows;
+        private int entityDistancePercent;
+        private int biomeBlendRadius;
+        private int ambientOcclusion;
+        private int mipmapLevels;
+
+        Builder(int id, String translationKey) {
+            this.id = id;
+            this.translationKey = translationKey;
+        }
+
+        Builder indirectDraw(boolean value) {
+            this.indirectDraw = value;
+            return this;
+        }
+
+        Builder adaptiveChunkUploads(boolean value) {
+            this.adaptiveChunkUploads = value;
+            return this;
+        }
+
+        Builder chunkUploadsPerFrame(int value) {
+            this.chunkUploadsPerFrame = value;
+            return this;
+        }
+
+        Builder advCulling(int value) {
+            this.advCulling = value;
+            return this;
+        }
+
+        Builder entityCulling(boolean value) {
+            this.entityCulling = value;
+            return this;
+        }
+
+        Builder blockEntityCulling(boolean value) {
+            this.blockEntityCulling = value;
+            return this;
+        }
+
+        Builder leavesCulling(boolean value) {
+            this.leavesCulling = value;
+            return this;
+        }
+
+        Builder particleCulling(int value) {
+            this.particleCulling = value;
+            return this;
+        }
+
+        Builder uniqueOpaqueLayer(boolean value) {
+            this.uniqueOpaqueLayer = value;
+            return this;
+        }
+
+        Builder renderDistance(int value) {
+            this.renderDistance = value;
+            return this;
+        }
+
+        Builder simulationDistance(int value) {
+            this.simulationDistance = value;
+            return this;
+        }
+
+        Builder graphicsStatus(GraphicsStatus value) {
+            this.graphicsStatus = value;
+            return this;
+        }
+
+        Builder particleStatus(ParticleStatus value) {
+            this.particleStatus = value;
+            return this;
+        }
+
+        Builder cloudStatus(CloudStatus value) {
+            this.cloudStatus = value;
+            return this;
+        }
+
+        Builder entityShadows(boolean value) {
+            this.entityShadows = value;
+            return this;
+        }
+
+        Builder entityDistancePercent(int value) {
+            this.entityDistancePercent = value;
+            return this;
+        }
+
+        Builder biomeBlendRadius(int value) {
+            this.biomeBlendRadius = value;
+            return this;
+        }
+
+        Builder ambientOcclusion(int value) {
+            this.ambientOcclusion = value;
+            return this;
+        }
+
+        Builder mipmapLevels(int value) {
+            this.mipmapLevels = value;
+            return this;
+        }
     }
 }

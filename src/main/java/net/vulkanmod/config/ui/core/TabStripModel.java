@@ -4,9 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class TabStripModel {
+    public static final int HEIGHT = 17;
+
     private static final int PADDING = 9;
     private static final int GAP = 5;
-    private static final int HEIGHT = 17;
 
     private TabStripModel() {
     }

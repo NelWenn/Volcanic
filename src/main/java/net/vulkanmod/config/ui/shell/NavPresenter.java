@@ -1,6 +1,7 @@
 package net.vulkanmod.config.ui.shell;
 
 import net.vulkanmod.Initializer;
+import net.vulkanmod.config.PerformancePreset;
 import net.vulkanmod.config.ui.core.DeferredValues;
 import net.vulkanmod.config.ui.core.FocusModel;
 import net.vulkanmod.config.ui.core.FocusRing;
@@ -8,13 +9,18 @@ import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.NavStack;
 import net.vulkanmod.config.ui.core.NavTree;
 import net.vulkanmod.config.ui.core.PendingChanges;
+import net.vulkanmod.config.ui.core.ProfileChipRow;
+import net.vulkanmod.config.ui.core.ProfileMatcher;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.settings.SettingBinding;
 import net.vulkanmod.config.ui.settings.SettingsCatalog;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class NavPresenter {
     public static final String REGION_SIDEBAR = "sidebar";
@@ -27,6 +33,7 @@ public final class NavPresenter {
     private final SettingsCatalog catalog = new SettingsCatalog();
     private final PendingChanges pending = new PendingChanges();
     private final DeferredValues deferred = new DeferredValues();
+    private List<ProfileChipRow.Chip> profileChips;
 
     public NavPresenter() {
         this.tree = buildTree();
@@ -120,6 +127,7 @@ public final class NavPresenter {
             return false;
         }
 
+        this.profileChips = null;
         SettingBinding binding = catalog.binding(meta.id());
         if (meta.scope().immediate()) {
             binding.set(value);
@@ -144,6 +152,7 @@ public final class NavPresenter {
     }
 
     public void apply() {
+        this.profileChips = null;
         deferred.drainTo((id, value) -> {
             catalog.binding(id).set(value);
             pending.unmark(id);
@@ -152,8 +161,58 @@ public final class NavPresenter {
     }
 
     public void discard() {
+        this.profileChips = null;
         deferred.clear();
         pending.clear();
+    }
+
+    public List<ProfileChipRow.Chip> profileChips() {
+        if (profileChips == null) {
+            Map<String, Map<SettingId, Object>> profiles = changeableProfiles();
+            this.profileChips = ProfileChipRow.chips(List.copyOf(profiles.keySet()),
+                    PerformancePreset.CUSTOM.translationKey,
+                    ProfileMatcher.match(profiles, changeableValues()));
+        }
+        return profileChips;
+    }
+
+    public boolean applyProfile(String profileKey) {
+        if (profileKey == null) {
+            throw new IllegalArgumentException("profileKey must not be null");
+        }
+        Map<SettingId, Object> values = catalog.profileValues().get(profileKey);
+        if (values == null) {
+            return false;
+        }
+        boolean changed = false;
+        for (Map.Entry<SettingId, Object> entry : values.entrySet()) {
+            changed |= set(catalog.registry().get(entry.getKey()), entry.getValue());
+        }
+        return changed;
+    }
+
+    private Map<String, Map<SettingId, Object>> changeableProfiles() {
+        Map<String, Map<SettingId, Object>> profiles = new LinkedHashMap<>();
+        catalog.profileValues().forEach((key, values) -> {
+            Map<SettingId, Object> governed = new LinkedHashMap<>();
+            values.forEach((id, value) -> {
+                if (catalog.enabled(id)) {
+                    governed.put(id, value);
+                }
+            });
+            profiles.put(key, governed);
+        });
+        return profiles;
+    }
+
+    private Map<SettingId, Object> changeableValues() {
+        Map<SettingId, Object> values = new LinkedHashMap<>();
+        catalog.currentProfileValues().forEach((id, value) -> {
+            if (catalog.enabled(id)) {
+                values.put(id, deferred.valueOr(id, value));
+            }
+        });
+        return values;
     }
 
     public boolean resettable(SettingMeta meta) {

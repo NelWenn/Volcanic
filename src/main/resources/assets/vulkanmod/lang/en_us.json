@@ -25,9 +25,10 @@
   "vulkanmod.options.performancePreset": "Performance Preset",
   "vulkanmod.options.performancePreset.tooltip": "Applies a group of Minecraft and VulkanMod settings for the selected performance target.",
   "vulkanmod.options.performancePreset.custom": "Custom",
-  "vulkanmod.options.performancePreset.potato": "Potato",
+  "vulkanmod.options.performancePreset.performance": "Performance",
   "vulkanmod.options.performancePreset.balanced": "Balanced",
   "vulkanmod.options.performancePreset.quality": "Quality",
+  "vulkanmod.options.performancePreset.ultra": "Ultra",
 
   "vulkanmod.options.advCulling": "Advanced Chunk Culling",
   "vulkanmod.options.advCulling.aggressive": "Aggressive",
