@@ -426,6 +426,8 @@ public class Renderer {
 
     private final it.unimi.dsi.fastutil.ints.IntOpenHashSet loggedSkipSizes = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
 
+    private static boolean loggedDetachedClear = false;
+
     public boolean beginRendering(RenderPass renderPass, Framebuffer framebuffer) {
         if (skipRendering || !recordingCmds)
             return false;
@@ -693,9 +695,24 @@ public class Renderer {
     }
 
     public static void clearAttachments(int v) {
-        Framebuffer framebuffer = Renderer.getInstance().boundFramebuffer;
-        if (framebuffer == null)
-            return;
+        Renderer renderer = Renderer.getInstance();
+        Framebuffer framebuffer = renderer.boundFramebuffer;
+
+        if (framebuffer == null) {
+            if (skipRendering || !isRecording())
+                return;
+
+            if (!loggedDetachedClear) {
+                loggedDetachedClear = true;
+                Initializer.LOGGER.warn("Clear requested with no active render pass; retargeting the main render target (mask {})", v);
+            }
+
+            renderer.mainPass.rebindMainTarget();
+            framebuffer = renderer.boundFramebuffer;
+
+            if (framebuffer == null)
+                return;
+        }
 
         clearAttachments(v, framebuffer.getWidth(), framebuffer.getHeight());
     }
