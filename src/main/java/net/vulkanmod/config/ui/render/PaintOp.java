@@ -6,16 +6,10 @@ public sealed interface PaintOp {
 
     enum Layer {
         SURFACE,
-        BORDER,
-        GLOW,
         TEXT
     }
 
     record Fill(Rect rect, int argb) implements PaintOp {
-    }
-
-    record RoundedSurface(Rect rect, int radius, int fillArgb, int borderArgb,
-                          int glowArgb, int glowRadius) implements PaintOp {
     }
 
     record Gradient(Rect rect, int topArgb, int bottomArgb) implements PaintOp {

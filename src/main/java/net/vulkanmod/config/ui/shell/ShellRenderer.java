@@ -59,7 +59,8 @@ public final class ShellRenderer {
     }
 
     public void render(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
-                       NavPresenter presenter, int scroll, int mouseX, int mouseY, boolean drawerOpen) {
+                       NavPresenter presenter, int scroll, int contentScroll, int mouseX, int mouseY,
+                       boolean drawerOpen) {
         if (graphics == null) {
             throw new IllegalArgumentException("graphics must not be null");
         }
@@ -69,6 +70,9 @@ public final class ShellRenderer {
         requireInputs(font, layout, presenter);
         if (scroll < 0) {
             throw new IllegalArgumentException("scroll must not be negative: " + scroll);
+        }
+        if (contentScroll < 0) {
+            throw new IllegalArgumentException("contentScroll must not be negative: " + contentScroll);
         }
 
         paintChrome(painter, layout, drawerOpen);
@@ -83,7 +87,7 @@ public final class ShellRenderer {
         if (!content.isEmpty()) {
             graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
             try {
-                paintContent(painter, font, layout, presenter, mouseX, mouseY);
+                paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
                 painter.flush();
             } finally {
                 graphics.disableScissor();
@@ -152,14 +156,14 @@ public final class ShellRenderer {
                 TabStripModel.scrollToReveal(boxes, revealIndex(presenter, tabs), left, right));
     }
 
-    public List<Rect> settingRowBoxes(ShellLayout layout, NavPresenter presenter) {
+    public List<Rect> settingRowBoxes(ShellLayout layout, NavPresenter presenter, int scroll) {
         if (layout == null) {
             throw new IllegalArgumentException("layout must not be null");
         }
         if (presenter == null) {
             throw new IllegalArgumentException("presenter must not be null");
         }
-        return SettingRowLayout.rows(layout.content(), presenter.settings().size(), 0);
+        return SettingRowLayout.rows(layout.content(), presenter.settings().size(), scroll, layout.breakpoint());
     }
 
     private static int revealIndex(NavPresenter presenter, List<NavNode> tabs) {
@@ -262,7 +266,7 @@ public final class ShellRenderer {
     }
 
     private void paintContent(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                              int mouseX, int mouseY) {
+                              int contentScroll, int mouseX, int mouseY) {
         Rect content = layout.content();
         if (content.isEmpty()) {
             return;
@@ -274,13 +278,13 @@ public final class ShellRenderer {
                 theme.color(ColorToken.TEXT_PRIMARY), false);
 
         paintTabStrip(painter, font, layout, presenter);
-        paintSettings(painter, font, layout, presenter, mouseX, mouseY);
+        paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
     }
 
     private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                               int mouseX, int mouseY) {
+                               int contentScroll, int mouseX, int mouseY) {
         List<SettingMeta> settings = presenter.settings();
-        List<Rect> boxes = settingRowBoxes(layout, presenter);
+        List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
         SettingsCatalog catalog = presenter.catalog();
         for (int i = 0; i < boxes.size(); i++) {
             Rect box = boxes.get(i);

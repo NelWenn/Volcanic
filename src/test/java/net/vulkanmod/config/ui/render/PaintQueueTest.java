@@ -16,14 +16,17 @@ class PaintQueueTest {
         PaintQueue queue = new PaintQueue();
         queue.record(PaintOp.Layer.TEXT, new PaintOp.Text(0, 0, "late", 0xFFFFFFFF, false));
         queue.record(PaintOp.Layer.SURFACE, new PaintOp.Fill(A, 0xFF000000));
-        queue.record(PaintOp.Layer.BORDER, new PaintOp.Fill(B, 0xFF111111));
 
         List<PaintOp> drained = queue.drain();
-        assertEquals(3, drained.size());
+        assertEquals(2, drained.size());
         assertInstanceOf(PaintOp.Fill.class, drained.get(0));
         assertEquals(A, ((PaintOp.Fill) drained.get(0)).rect());
-        assertEquals(B, ((PaintOp.Fill) drained.get(1)).rect());
-        assertInstanceOf(PaintOp.Text.class, drained.get(2));
+        assertInstanceOf(PaintOp.Text.class, drained.get(1));
+    }
+
+    @Test
+    void surfaceAndTextAreTheOnlyLayers() {
+        assertArrayEquals(new PaintOp.Layer[]{PaintOp.Layer.SURFACE, PaintOp.Layer.TEXT}, PaintOp.Layer.values());
     }
 
     @Test
@@ -35,19 +38,6 @@ class PaintQueueTest {
         List<PaintOp> drained = queue.drain();
         assertEquals(0xFF000001, ((PaintOp.Fill) drained.get(0)).argb());
         assertEquals(0xFF000002, ((PaintOp.Fill) drained.get(1)).argb());
-    }
-
-    @Test
-    void glowSitsBetweenBorderAndText() {
-        PaintQueue queue = new PaintQueue();
-        queue.record(PaintOp.Layer.TEXT, new PaintOp.Text(0, 0, "t", 0xFFFFFFFF, false));
-        queue.record(PaintOp.Layer.GLOW, new PaintOp.Fill(A, 0xFF222222));
-        queue.record(PaintOp.Layer.BORDER, new PaintOp.Fill(B, 0xFF333333));
-
-        List<PaintOp> drained = queue.drain();
-        assertEquals(0xFF333333, ((PaintOp.Fill) drained.get(0)).argb());
-        assertEquals(0xFF222222, ((PaintOp.Fill) drained.get(1)).argb());
-        assertInstanceOf(PaintOp.Text.class, drained.get(2));
     }
 
     @Test

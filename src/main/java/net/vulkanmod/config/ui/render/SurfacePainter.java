@@ -10,16 +10,11 @@ public interface SurfacePainter {
 
     void gradient(Rect rect, int topArgb, int bottomArgb);
 
-    void surface(Rect nonOverlappingRect, int radius, int fillArgb, int borderArgb,
-                 int bestEffortGlowArgb, int bestEffortGlowRadius);
-
     void text(int x, int y, String value, int argb, boolean shadow);
 
     void flush();
 
     static SurfacePainter create(GuiGraphics graphics, Font font) {
-        return GuiSurfacePipeline.isAvailable()
-                ? new ShaderSurfacePainter(graphics, font)
-                : new FillSurfacePainter(graphics, font);
+        return new FillSurfacePainter(graphics, font);
     }
 }

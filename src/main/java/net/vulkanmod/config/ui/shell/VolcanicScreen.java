@@ -19,6 +19,7 @@ import java.util.List;
 
 public class VolcanicScreen extends Screen {
     private static final int SIDEBAR_SCROLL_STEP = 25;
+    private static final int CONTENT_SCROLL_STEP = 16;
     private static final int PRIMARY_BUTTON = 0;
 
     private final Screen parent;
@@ -26,6 +27,8 @@ public class VolcanicScreen extends Screen {
     private final ShellRenderer renderer = new ShellRenderer(Theme.volcanic());
     private ShellLayout layout = ShellLayout.of(0, 0);
     private int sidebarScroll;
+    private int contentScroll;
+    private RouteId scrolledRoute;
     private boolean drawerOpen;
 
     public VolcanicScreen(Component title, Screen parent) {
@@ -48,8 +51,10 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        syncContentScroll();
         SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
-        renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, mouseX, mouseY, drawerOpen);
+        renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, contentScroll,
+                mouseX, mouseY, drawerOpen);
     }
 
     @Override
@@ -79,14 +84,23 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        Rect nav = layout.sidebarOrDrawer(drawerOpen);
-        int step = (int) Math.signum(scrollY) * SIDEBAR_SCROLL_STEP;
-        if (step == 0 || !nav.contains((int) mouseX, (int) mouseY)) {
+        int direction = (int) Math.signum(scrollY);
+        if (direction == 0) {
             return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
         }
 
-        this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll - step, nav.height());
-        return true;
+        Rect nav = layout.sidebarOrDrawer(drawerOpen);
+        if (nav.contains((int) mouseX, (int) mouseY)) {
+            this.sidebarScroll = presenter.sidebar()
+                    .clampScroll(this.sidebarScroll - direction * SIDEBAR_SCROLL_STEP, nav.height());
+            return true;
+        }
+        if (!drawerOpen && layout.content().contains((int) mouseX, (int) mouseY)) {
+            this.contentScroll = SettingRowLayout.clampScroll(this.contentScroll - direction * CONTENT_SCROLL_STEP,
+                    layout.content(), presenter.settings().size(), layout.breakpoint());
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -168,7 +182,7 @@ public class VolcanicScreen extends Screen {
     }
 
     private boolean clickSettingRow(int mouseX, int mouseY) {
-        List<Rect> boxes = renderer.settingRowBoxes(layout, presenter);
+        List<Rect> boxes = renderer.settingRowBoxes(layout, presenter, contentScroll);
         int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
         if (index < 0) {
             return false;
@@ -213,6 +227,16 @@ public class VolcanicScreen extends Screen {
             FocusHandoff.enter(presenter.focus(), NavPresenter.REGION_CONTENT,
                     presenter.stack().current().toString());
         }
+    }
+
+    private void syncContentScroll() {
+        RouteId current = presenter.stack().current();
+        if (!current.equals(scrolledRoute)) {
+            this.scrolledRoute = current;
+            this.contentScroll = 0;
+        }
+        this.contentScroll = SettingRowLayout.clampScroll(this.contentScroll, layout.content(),
+                presenter.settings().size(), layout.breakpoint());
     }
 
     private Rect navViewport() {

@@ -13,7 +13,6 @@ import net.vulkanmod.config.Config;
 import net.vulkanmod.config.Platform;
 import net.vulkanmod.config.UpdateChecker;
 import net.vulkanmod.config.gui.VOptionScreen;
-import net.vulkanmod.config.ui.render.GuiSurfacePipeline;
 import net.vulkanmod.config.video.VideoModeManager;
 import net.vulkanmod.compat.CompatBootstrap;
 import net.vulkanmod.compat.CompatReport;
@@ -52,7 +51,6 @@ public class Initializer {
 		VERSION = modContainer.getModInfo().getVersion().toString();
 		modEventBus.addListener(this::onInitializeClient);
 		modEventBus.addListener(CitModelRegistrar::onRegisterAdditional);
-		modEventBus.addListener(GuiSurfacePipeline::register);
 		modEventBus.addListener((ModelEvent.RegisterGeometryLoaders event) ->
 				event.register(ResourceLocation.fromNamespaceAndPath("fusion", "model"),
 						FusionModelLoader.INSTANCE));

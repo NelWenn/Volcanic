@@ -10,9 +10,8 @@ import net.vulkanmod.config.ui.core.Theme;
 import net.vulkanmod.config.ui.render.SurfacePainter;
 
 public final class SettingRowRenderer {
-    private static final int CARD_RADIUS = 6;
     private static final int ARROW_GAP = 6;
-    private static final int RESET_GAP = 8;
+    private static final int GLYPH_INSET = 4;
 
     private static final int PAD_X = 12;
     private static final int TEXT_HEIGHT = 9;
@@ -27,7 +26,6 @@ public final class SettingRowRenderer {
 
     private static final String ARROW_LEFT = "\u2039";
     private static final String ARROW_RIGHT = "\u203A";
-    private static final String RESET_GLYPH = "\u27F2";
 
     private final Theme theme;
 
@@ -59,29 +57,53 @@ public final class SettingRowRenderer {
             return;
         }
 
-        ShellRenderer.paintRoundedFill(painter, box, CARD_RADIUS, cardArgb(hovered));
-        ShellRenderer.paintRoundedOutline(painter, box, CARD_RADIUS, borderArgb(hovered));
-
-        painter.text(box.x() + PAD_X, textTop(box), I18n.get(meta.titleKey()),
-                theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT), false);
-
-        Rect reset = resettable ? SettingRowLayout.resetBox(box) : Rect.EMPTY;
-        int right = box.right() - PAD_X;
-        if (!reset.isEmpty()) {
-            paintReset(painter, font, reset, resetHovered);
-            right = reset.x() - RESET_GAP;
+        Rect card = SettingRowLayout.cardBox(box);
+        if (card.isEmpty()) {
+            return;
         }
 
+        ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS, cardArgb(hovered));
+        ShellRenderer.paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS, borderArgb(hovered));
+
+        painter.text(card.x() + PAD_X, textTop(card), I18n.get(meta.titleKey()),
+                theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT), false);
+
+        if (resettable) {
+            paintReset(painter, SettingRowLayout.resetBox(box), resetHovered);
+        }
+
+        int right = card.right() - PAD_X;
         switch (meta.type()) {
-            case BOOL -> paintPill(painter, box, right, booleanValue(meta, value));
-            case INT -> paintTrack(painter, font, box, right, intValue(meta, value), min, max);
-            case ENUM -> paintCycler(painter, font, box, right, I18n.get(value.toString()), hovered);
+            case BOOL -> paintPill(painter, card, right, booleanValue(meta, value));
+            case INT -> paintTrack(painter, font, card, right, intValue(meta, value), min, max);
+            case ENUM -> paintCycler(painter, font, card, right, I18n.get(value.toString()), hovered);
         }
     }
 
-    private void paintReset(SurfacePainter painter, Font font, Rect box, boolean hovered) {
-        painter.text(box.x() + (box.width() - font.width(RESET_GLYPH)) / 2, box.y(), RESET_GLYPH,
-                theme.color(hovered ? ColorToken.ACCENT : ColorToken.TEXT_MUTED), false);
+    private void paintReset(SurfacePainter painter, Rect box, boolean hovered) {
+        if (box.isEmpty()) {
+            return;
+        }
+        ShellRenderer.paintRoundedFill(painter, box, SettingRowLayout.RESET_RADIUS,
+                theme.color(hovered ? ColorToken.SURFACE_NAV_ACTIVE : ColorToken.SURFACE_CARD));
+        ShellRenderer.paintRoundedOutline(painter, box, SettingRowLayout.RESET_RADIUS,
+                theme.color(hovered ? ColorToken.ACCENT : ColorToken.BORDER_STRONG));
+        paintUndoArrow(painter, box.inset(GLYPH_INSET),
+                theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY));
+    }
+
+    private static void paintUndoArrow(SurfacePainter painter, Rect glyph, int argb) {
+        if (glyph.isEmpty()) {
+            return;
+        }
+        int thickness = Math.max(1, glyph.height() / 3);
+        int head = Math.min(Math.max(2, glyph.width() / 2), glyph.width() - 1);
+        int top = glyph.y() + (glyph.height() - thickness) / 2;
+
+        painter.fill(new Rect(glyph.x() + head, top, glyph.width() - head, thickness), argb);
+        for (int step = 0; step < head; step++) {
+            painter.fill(new Rect(glyph.x() + step, top - step, 1, thickness + step * 2), argb);
+        }
     }
 
     private void paintPill(SurfacePainter painter, Rect box, int right, boolean on) {
