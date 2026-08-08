@@ -1,0 +1,25 @@
+package net.vulkanmod.config.ui.core;
+
+public enum ColorToken {
+    SURFACE_BASE,
+    SURFACE_CHROME,
+    SURFACE_CARD,
+    SURFACE_CARD_HOVER,
+    SURFACE_SUNKEN,
+    SURFACE_NAV_ACTIVE,
+    BORDER_SUBTLE,
+    BORDER_DEFAULT,
+    BORDER_STRONG,
+    BORDER_ACCENT,
+    TEXT_PRIMARY,
+    TEXT_DEFAULT,
+    TEXT_SECONDARY,
+    TEXT_MUTED,
+    TEXT_FAINT,
+    ACCENT,
+    ACCENT_DEEP,
+    ACCENT_BRIGHT,
+    SUCCESS,
+    SUCCESS_BG,
+    WARNING
+}
