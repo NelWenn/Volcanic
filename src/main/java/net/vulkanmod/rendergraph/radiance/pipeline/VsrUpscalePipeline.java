@@ -22,6 +22,7 @@ public final class VsrUpscalePipeline implements PipelineDefinition {
         Vector4f VsrOutputInfo;
         Vector4f VsrUvBounds;
         Vector4f VsrParams;
+        Vector4f VsrJitter;
     }
 
     @Sampler(binding = 1) int Sampler0;

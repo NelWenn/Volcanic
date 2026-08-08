@@ -32,8 +32,7 @@ public final class VtuJitter {
         targetWidth = width;
         targetHeight = height;
 
-        boolean wanted = Initializer.CONFIG.vtuJitter
-                || net.vulkanmod.render.vsr.Vsr.clampBackend(Initializer.CONFIG.vsrBackend) == net.vulkanmod.render.vsr.Vsr.VTU;
+        boolean wanted = net.vulkanmod.render.vsr.Vsr.clampBackend(Initializer.CONFIG.vsrBackend) == net.vulkanmod.render.vsr.Vsr.VTU;
 
         if (!wanted || width <= 0 || height <= 0) {
             phase = 0;
@@ -45,9 +44,8 @@ public final class VtuJitter {
         phaseCount = resolvePhaseCount(width);
         phase = (phase + 1) % phaseCount;
 
-        float scale = Initializer.CONFIG.vtuJitterScale;
-        pixelX = (halton(phase + 1, 2) - 0.5f) * scale;
-        pixelY = (halton(phase + 1, 3) - 0.5f) * scale;
+        pixelX = halton(phase + 1, 2) - 0.5f;
+        pixelY = halton(phase + 1, 3) - 0.5f;
 
         worldProjection.translateLocal(2.0f * pixelX / width, -2.0f * pixelY / height, 0.0f);
     }
