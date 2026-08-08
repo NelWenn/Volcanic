@@ -133,6 +133,9 @@ public final class ShellRenderer {
     public List<Rect> breadcrumbBoxes(Font font, ShellLayout layout, NavPresenter presenter) {
         requireInputs(font, layout, presenter);
         List<RouteId> trail = presenter.stack().trail();
+        if (trail.size() < 2) {
+            return List.of();
+        }
         int[] widths = new int[trail.size()];
         for (int i = 0; i < trail.size(); i++) {
             widths[i] = font.width(label(presenter, trail.get(i)));
