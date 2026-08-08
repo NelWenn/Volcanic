@@ -32,7 +32,3 @@ bin/
 # fabric
 
 run/
-
-# local agent worktrees
-.worktrees/
-*.spv
