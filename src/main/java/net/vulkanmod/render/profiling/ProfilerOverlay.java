@@ -5,8 +5,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.vulkanmod.config.gui.render.GuiRenderer;
+import net.vulkanmod.config.ui.core.Rect;
+import net.vulkanmod.config.ui.render.SurfacePainter;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.build.task.ChunkTask;
 import net.vulkanmod.render.chunk.build.thread.BuilderResources;
@@ -53,8 +53,7 @@ public class ProfilerOverlay {
     }
 
     public void render(GuiGraphics guiGraphics) {
-        GuiRenderer.guiGraphics = guiGraphics;
-        GuiRenderer.pose = guiGraphics.pose();
+        SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
 
         List<String> infoList = this.buildInfo();
 
@@ -72,10 +71,11 @@ public class ProfilerOverlay {
             if (!Strings.isNullOrEmpty(line)) {
                 int textWidth = this.font.width(line);
                 int yPosition = xOffset + lineHeight * i;
-                GuiRenderer.fill(
-                        1, yPosition - 1,
-                        xOffset + textWidth + 1, yPosition + lineHeight - 1,
-                        0, backgroundColor);
+                int x0 = 1;
+                int y0 = yPosition - 1;
+                int x1 = xOffset + textWidth + 1;
+                int y1 = yPosition + lineHeight - 1;
+                painter.fill(new Rect(x0, y0, x1 - x0, y1 - y0), backgroundColor);
             }
         }
 
@@ -85,12 +85,11 @@ public class ProfilerOverlay {
             String line = infoList.get(i);
             if (!Strings.isNullOrEmpty(line)) {
                 int yPosition = xOffset + lineHeight * i;
-                GuiRenderer.drawString(
-                        this.font, Component.literal(line),
-                        xOffset, yPosition,
-                        textColor, false);
+                painter.text(xOffset, yPosition, line, textColor, false);
             }
         }
+
+        painter.flush();
     }
 
     private List<String> buildInfo() {
