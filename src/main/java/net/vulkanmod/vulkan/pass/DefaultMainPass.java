@@ -88,6 +88,8 @@ public class DefaultMainPass implements MainPass {
     private int scaledColorAttachmentGlId = -1;
     private int scaledDepthAttachmentGlId = -1;
     private boolean renderScaleResolvedThisFrame;
+    private boolean mainTargetResolvedThisFrame;
+    private boolean scaledFramebufferPendingDispose;
     private static int targetSwitches;
 
     public final FrameGraphImpl frameGraph;
@@ -171,13 +173,25 @@ public class DefaultMainPass implements MainPass {
     }
 
     private void ensureMainFramebuffer() {
+        if (this.mainTargetResolvedThisFrame) {
+            return;
+        }
+
+        resolveMainFramebuffer();
+    }
+
+    private void resolveMainFramebuffer() {
+        this.mainTargetResolvedThisFrame = true;
+
         int scale = RenderScale.clamp(Initializer.CONFIG.renderScale);
 
         if (!shouldUseScaledFramebuffer(scale)) {
-            disposeScaledFramebuffer();
             setMainFramebuffer(this.swapChain);
+            this.scaledFramebufferPendingDispose = true;
             return;
         }
+
+        this.scaledFramebufferPendingDispose = false;
 
         int scaledWidth = RenderScale.scaleDimension(this.swapChain.getWidth(), scale);
         int scaledHeight = RenderScale.scaleDimension(this.swapChain.getHeight(), scale);
@@ -210,7 +224,6 @@ public class DefaultMainPass implements MainPass {
 
         boolean base = this.swapChain.getWidth() > 0
                 && this.swapChain.getHeight() > 0
-                && !this.renderScaleResolvedThisFrame
                 && minecraft.level != null;
 
         if (postShaderActive())
@@ -307,10 +320,16 @@ public class DefaultMainPass implements MainPass {
     @Override
     public void begin(VkCommandBuffer commandBuffer, MemoryStack stack) {
         this.renderScaleResolvedThisFrame = false;
+        this.mainTargetResolvedThisFrame = false;
         this.scaledDepthClears = 0;
         this.liveDepthIsForeground = false;
 
-        ensureMainFramebuffer();
+        if (this.scaledFramebufferPendingDispose) {
+            disposeScaledFramebuffer();
+            this.scaledFramebufferPendingDispose = false;
+        }
+
+        resolveMainFramebuffer();
 
         frameGraph.get().execute(
                 Phase.FRAME_START, commandBuffer, stack, name -> null, () -> {});
