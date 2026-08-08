@@ -261,6 +261,8 @@ public final class ShellRenderer {
                 }
             }
         }
+
+        paintScrollIndicator(painter, ScrollIndicator.of(sidebar, model.totalHeight(), scroll));
     }
 
     private void paintRowSurface(SurfacePainter painter, Rect box, boolean active, boolean hovered, boolean focused) {
@@ -296,7 +298,10 @@ public final class ShellRenderer {
 
     private void paintScrollIndicator(SurfacePainter painter, ShellLayout layout, NavPresenter presenter,
                                       int contentScroll) {
-        ScrollIndicator indicator = contentScrollIndicator(layout, presenter, contentScroll);
+        paintScrollIndicator(painter, contentScrollIndicator(layout, presenter, contentScroll));
+    }
+
+    private void paintScrollIndicator(SurfacePainter painter, ScrollIndicator indicator) {
         if (!indicator.visible()) {
             return;
         }
