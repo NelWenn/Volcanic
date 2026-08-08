@@ -18,6 +18,9 @@ public sealed interface PaintOp {
                           int glowArgb, int glowRadius) implements PaintOp {
     }
 
+    record Gradient(Rect rect, int topArgb, int bottomArgb) implements PaintOp {
+    }
+
     record Text(int x, int y, String value, int argb, boolean shadow) implements PaintOp {
     }
 }

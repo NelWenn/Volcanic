@@ -74,4 +74,19 @@ class PaintQueueTest {
         queue.record(PaintOp.Layer.SURFACE, new PaintOp.Fill(new Rect(0, 0, 0, 10), 0xFF000000));
         assertEquals(0, queue.size());
     }
+
+    @Test
+    void gradientsRecordOnTheGivenLayer() {
+        PaintQueue queue = new PaintQueue();
+        queue.record(PaintOp.Layer.SURFACE, new PaintOp.Gradient(A, 0xFF000001, 0xFF000002));
+        assertEquals(1, queue.size());
+        assertInstanceOf(PaintOp.Gradient.class, queue.drain().get(0));
+    }
+
+    @Test
+    void skipsEmptyGradients() {
+        PaintQueue queue = new PaintQueue();
+        queue.record(PaintOp.Layer.SURFACE, new PaintOp.Gradient(new Rect(0, 0, 0, 10), 1, 2));
+        assertEquals(0, queue.size());
+    }
 }

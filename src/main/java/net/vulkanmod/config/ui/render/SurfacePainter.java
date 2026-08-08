@@ -8,6 +8,8 @@ public interface SurfacePainter {
 
     void fill(Rect rect, int argb);
 
+    void gradient(Rect rect, int topArgb, int bottomArgb);
+
     void surface(Rect nonOverlappingRect, int radius, int fillArgb, int borderArgb,
                  int bestEffortGlowArgb, int bestEffortGlowRadius);
 

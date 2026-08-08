@@ -44,4 +44,17 @@ class ThemeTest {
         assertEquals(0xFF, theme.color(ColorToken.ACCENT, 4.0f) >>> 24);
         assertEquals(0x00, theme.color(ColorToken.ACCENT, -1.0f) >>> 24);
     }
+
+    @Test
+    void gradientCombinesTwoTokens() {
+        Theme theme = Theme.volcanic();
+        Gradient gradient = theme.gradient(ColorToken.SURFACE_BASE, ColorToken.SURFACE_SIDEBAR_BOTTOM);
+        assertEquals(theme.color(ColorToken.SURFACE_BASE), gradient.topArgb());
+        assertEquals(theme.color(ColorToken.SURFACE_SIDEBAR_BOTTOM), gradient.bottomArgb());
+    }
+
+    @Test
+    void sidebarGradientBottomMatchesTheDesignSystem() {
+        assertEquals(0xFF150E0C, Theme.volcanic().color(ColorToken.SURFACE_SIDEBAR_BOTTOM));
+    }
 }

@@ -50,6 +50,7 @@ public final class PaintQueue {
         return switch (op) {
             case PaintOp.Fill(Rect rect, int ignoredArgb) -> rect.isEmpty();
             case PaintOp.RoundedSurface surface -> surface.rect().isEmpty();
+            case PaintOp.Gradient(Rect rect, int ignoredTop, int ignoredBottom) -> rect.isEmpty();
             case PaintOp.Text text -> text.value() == null || text.value().isEmpty();
         };
     }

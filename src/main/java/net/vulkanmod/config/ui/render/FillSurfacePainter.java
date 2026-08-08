@@ -22,6 +22,11 @@ public final class FillSurfacePainter implements SurfacePainter {
     }
 
     @Override
+    public void gradient(Rect rect, int topArgb, int bottomArgb) {
+        queue.record(PaintOp.Layer.SURFACE, new PaintOp.Gradient(rect, topArgb, bottomArgb));
+    }
+
+    @Override
     public void surface(Rect rect, int radius, int fillArgb, int borderArgb, int glowArgb, int glowRadius) {
         queue.record(PaintOp.Layer.SURFACE,
                 new PaintOp.RoundedSurface(rect, radius, fillArgb, borderArgb, glowArgb, glowRadius));
@@ -44,6 +49,8 @@ public final class FillSurfacePainter implements SurfacePainter {
         switch (op) {
             case PaintOp.Fill(Rect rect, int argb) -> emitRect(rect, argb);
             case PaintOp.RoundedSurface surface -> emitRoundedSurface(surface);
+            case PaintOp.Gradient(Rect rect, int topArgb, int bottomArgb) ->
+                    graphics.fillGradient(rect.x(), rect.y(), rect.right(), rect.bottom(), topArgb, bottomArgb);
             case PaintOp.Text(int x, int y, String value, int argb, boolean shadow) ->
                     graphics.drawString(font, value, x, y, argb, shadow);
         }

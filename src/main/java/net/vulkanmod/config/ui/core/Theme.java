@@ -30,6 +30,10 @@ public final class Theme {
         return (alphaBits << 24) | (color(token) & 0xFFFFFF);
     }
 
+    public Gradient gradient(ColorToken top, ColorToken bottom) {
+        return new Gradient(color(top), color(bottom));
+    }
+
     private static Theme buildVolcanic() {
         Map<ColorToken, Integer> colors = new EnumMap<>(ColorToken.class);
         colors.put(ColorToken.SURFACE_BASE, 0xFF0E0A09);
@@ -38,6 +42,7 @@ public final class Theme {
         colors.put(ColorToken.SURFACE_CARD_HOVER, 0xFF1C1412);
         colors.put(ColorToken.SURFACE_SUNKEN, 0xFF0B0807);
         colors.put(ColorToken.SURFACE_NAV_ACTIVE, 0xFF221512);
+        colors.put(ColorToken.SURFACE_SIDEBAR_BOTTOM, 0xFF150E0C);
         colors.put(ColorToken.BORDER_SUBTLE, 0xFF1E1413);
         colors.put(ColorToken.BORDER_DEFAULT, 0xFF2A1D1A);
         colors.put(ColorToken.BORDER_STRONG, 0xFF3A231D);
