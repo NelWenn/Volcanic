@@ -4,7 +4,7 @@ public record ScrollIndicator(Rect track, Rect thumb) {
     public static final ScrollIndicator NONE = new ScrollIndicator(Rect.EMPTY, Rect.EMPTY);
 
     private static final int WIDTH = 3;
-    private static final int MARGIN = 1;
+    private static final int MARGIN = 0;
     private static final int MIN_THUMB = 8;
     private static final int MAX_THUMB_DIVISOR = 3;
 
@@ -29,7 +29,7 @@ public record ScrollIndicator(Rect track, Rect thumb) {
         }
 
         int height = viewport.height();
-        if (viewport.isEmpty() || viewport.width() < WIDTH + MARGIN || contentHeight <= height) {
+        if (viewport.isEmpty() || viewport.width() <= WIDTH + MARGIN || contentHeight <= height) {
             return NONE;
         }
 
