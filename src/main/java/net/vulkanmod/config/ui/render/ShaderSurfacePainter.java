@@ -103,6 +103,10 @@ public final class ShaderSurfacePainter implements SurfacePainter {
         float previousB = currentShaderColor[2];
         float previousA = currentShaderColor[3];
         boolean previousBlendEnabled = PipelineState.blendInfo.enabled;
+        int previousSrcRgbFactor = PipelineState.blendInfo.srcRgbFactor;
+        int previousDstRgbFactor = PipelineState.blendInfo.dstRgbFactor;
+        int previousSrcAlphaFactor = PipelineState.blendInfo.srcAlphaFactor;
+        int previousDstAlphaFactor = PipelineState.blendInfo.dstAlphaFactor;
 
         try {
             RenderSystem.enableBlend();
@@ -134,10 +138,13 @@ public final class ShaderSurfacePainter implements SurfacePainter {
         } finally {
             if (previousBlendEnabled) {
                 RenderSystem.enableBlend();
-                RenderSystem.defaultBlendFunc();
             } else {
                 RenderSystem.disableBlend();
             }
+            PipelineState.blendInfo.srcRgbFactor = previousSrcRgbFactor;
+            PipelineState.blendInfo.dstRgbFactor = previousDstRgbFactor;
+            PipelineState.blendInfo.srcAlphaFactor = previousSrcAlphaFactor;
+            PipelineState.blendInfo.dstAlphaFactor = previousDstAlphaFactor;
             RenderSystem.setShaderColor(previousR, previousG, previousB, previousA);
             RenderSystem.enableDepthTest();
             RenderSystem.depthMask(true);
