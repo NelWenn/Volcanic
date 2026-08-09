@@ -35,7 +35,7 @@ neoForge {
             systemProperty 'vulkanmod.compat.externalLod.debugDraw', System.getProperty('vulkanmod.compat.externalLod.debugDraw', 'false')
             jvmArguments.add('-ea')
             jvmArguments.add('-XX:+UseZGC')
-            jvmArguments.add('-XX:SoftMaxHeapSize=1536m')
+            jvmArguments.add('-Xmx8G')
             jvmArguments.add('-Dorg.lwjgl.system.stackSize=128')
             if (System.getProperty("os.name").toLowerCase().contains("mac")) {
                 // GLFW on macOS must run on the first thread
