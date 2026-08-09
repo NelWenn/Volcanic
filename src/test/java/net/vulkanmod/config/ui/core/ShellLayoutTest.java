@@ -210,7 +210,11 @@ class ShellLayoutTest {
 
             assertEquals(ShellLayout.LOGO_W, logo.width(), "width " + width);
             assertEquals(ShellLayout.LOGO_H, logo.height());
-            assertEquals(layout.topBar().y() + (layout.topBar().height() - ShellLayout.LOGO_H) / 2, logo.y());
+            assertEquals(layout.topBar().y()
+                            + (layout.topBar().height() - ShellLayout.LOGO_H) / 2 - ShellLayout.LOGO_LIFT,
+                    logo.y(), "the logo carries its optical lift");
+            assertTrue(logo.y() >= layout.topBar().y() && logo.bottom() <= layout.topBar().bottom(),
+                    "the lift must never push the logo out of the bar");
             if (!title.isEmpty()) {
                 assertEquals(ShellLayout.TITLE_W, title.width());
                 assertEquals(ShellLayout.TITLE_H, title.height());

@@ -6,10 +6,11 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
     public static final int BOTTOM_BAR_HEIGHT = 34;
     public static final int SIDEBAR_WIDTH = 132;
     public static final int SIDEBAR_TOP_PAD = 8;
-    public static final int LOGO_W = 17;
-    public static final int LOGO_H = 16;
-    public static final int TITLE_W = 58;
-    public static final int TITLE_H = 11;
+    public static final int LOGO_W = 25;
+    public static final int LOGO_H = 22;
+    public static final int LOGO_LIFT = 2;
+    public static final int TITLE_W = 84;
+    public static final int TITLE_H = 16;
     public static final int BRAND_GAP_INNER = 5;
     public static final int FAV_ICON = 15;
     public static final int FAV_PAD = 4;
@@ -102,7 +103,8 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
         if (topBar.height() < LOGO_H) {
             return Rect.EMPTY;
         }
-        return new Rect(topBar.x() + brandX(), topBar.y() + (topBar.height() - LOGO_H) / 2, LOGO_W, LOGO_H);
+        int centred = topBar.y() + (topBar.height() - LOGO_H) / 2;
+        return new Rect(topBar.x() + brandX(), Math.max(topBar.y(), centred - LOGO_LIFT), LOGO_W, LOGO_H);
     }
 
     public Rect brandTitle() {
