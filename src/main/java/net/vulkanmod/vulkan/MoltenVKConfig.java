@@ -36,15 +36,25 @@ public final class MoltenVKConfig {
         AGGRESSIVE_CONFIG.put("MVK_CONFIG_USE_MTLHEAP", "1");
     }
 
-    private static boolean aggressiveEnabled() {
+    private static final boolean AGGRESSIVE_OVERRIDDEN = detectAggressiveOverride();
+
+    private static boolean detectAggressiveOverride() {
         if (Boolean.getBoolean("vulkanmod.mvk.aggressive")) return true;
-        if (Initializer.CONFIG != null && Initializer.CONFIG.moltenvkAggressive) return true;
         try {
             java.nio.file.Path dir = net.neoforged.fml.loading.FMLPaths.GAMEDIR.get();
             return java.nio.file.Files.exists(dir.resolve("moltenvk-aggressive"));
         } catch (Throwable t) {
             return false;
         }
+    }
+
+    public static boolean aggressiveOverridden() {
+        return AGGRESSIVE_OVERRIDDEN;
+    }
+
+    public static boolean aggressiveEnabled() {
+        if (aggressiveOverridden()) return true;
+        return Initializer.CONFIG != null && Initializer.CONFIG.moltenvkAggressive;
     }
 
     // Perf diagnostics toggle: -Dvulkanmod.perf=true or a moltenvk-diag marker file. Gates FrameTimer.

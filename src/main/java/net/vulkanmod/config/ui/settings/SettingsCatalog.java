@@ -7,6 +7,8 @@ import net.minecraft.client.ParticleStatus;
 import net.minecraft.client.PrioritizeChunkUpdates;
 import net.minecraft.client.resources.language.I18n;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.vulkan.MoltenVKConfig;
+import net.vulkanmod.compat.opengl.GlDrawOptions;
 import net.vulkanmod.api.LodCulling;
 import net.vulkanmod.compat.capabilities.ExternalRenderPathOptions;
 import net.vulkanmod.compat.external.ExternalRenderPathSupport;
@@ -239,16 +241,48 @@ public final class SettingsCatalog {
             return !Initializer.CONFIG.adaptiveChunkUploads;
         }
         if (SettingsDefinitions.MOLTENVK_AGGRESSIVE.equals(id)) {
-            return Platform.isMacOS();
+            return Platform.isMacOS() && !overriddenByLaunchFlag(id);
         }
         if (SettingsDefinitions.EXTERNAL_LOD_DRAW.equals(id)) {
-            return configuredExternalLodMode() != ExternalRenderPathSupport.Mode.OFF;
+            return configuredExternalLodMode() != ExternalRenderPathSupport.Mode.OFF
+                    && !overriddenByLaunchFlag(id);
         }
-        return true;
+        return !overriddenByLaunchFlag(id);
+    }
+
+    static boolean overriddenByLaunchFlag(SettingId id) {
+        if (SettingsDefinitions.MOLTENVK_AGGRESSIVE.equals(id)) {
+            return MoltenVKConfig.aggressiveOverridden();
+        }
+        if (SettingsDefinitions.EXTERNAL_LOD.equals(id)) {
+            return ExternalRenderPathOptions.externalLodOverridden();
+        }
+        if (SettingsDefinitions.EXTERNAL_LOD_DRAW.equals(id)) {
+            return ExternalRenderPathOptions.externalLodDrawOverridden();
+        }
+        if (SettingsDefinitions.GL_LEGACY_BRIDGE.equals(id)) {
+            return GlDrawOptions.legacyBridgeOverridden();
+        }
+        if (SettingsDefinitions.GL_FBO_VIEWPORT.equals(id)) {
+            return GlDrawOptions.fboViewportOverridden();
+        }
+        return false;
     }
 
     public Optional<String> disabledReason(SettingId id) {
-        return enabled(id) ? Optional.empty() : SettingsDefinitions.disabledReasonKey(id);
+        if (enabled(id)) {
+            return Optional.empty();
+        }
+        Optional<String> declared = SettingsDefinitions.disabledReasonKey(id);
+        if (declared.isPresent()) {
+            return declared;
+        }
+        if (SettingsDefinitions.MOLTENVK_AGGRESSIVE.equals(id) && !Platform.isMacOS()) {
+            return Optional.of(SettingsDefinitions.REASON_MACOS_ONLY);
+        }
+        return overriddenByLaunchFlag(id)
+                ? Optional.of(SettingsDefinitions.REASON_LAUNCH_FLAG)
+                : Optional.empty();
     }
 
     public OverviewModel overview() {
@@ -740,7 +774,7 @@ public final class SettingsCatalog {
 
     private void bindAdvancedSynchronization() {
         bindings.put(SettingsDefinitions.MOLTENVK_AGGRESSIVE, SettingBinding.of(
-                () -> Initializer.CONFIG.moltenvkAggressive,
+                MoltenVKConfig::aggressiveEnabled,
                 value -> Initializer.CONFIG.moltenvkAggressive = boolValue(value))
                 .withDefault(() -> Boolean.FALSE));
     }
@@ -753,17 +787,17 @@ public final class SettingsCatalog {
                 .withDefault(() -> externalLodKey(ExternalRenderPathSupport.Mode.OFF)));
 
         bindings.put(SettingsDefinitions.EXTERNAL_LOD_DRAW, SettingBinding.of(
-                () -> Initializer.CONFIG.externalLodDraw,
+                ExternalRenderPathOptions::externalLodDrawEnabled,
                 value -> Initializer.CONFIG.externalLodDraw = boolValue(value))
                 .withDefault(() -> Boolean.TRUE));
 
         bindings.put(SettingsDefinitions.GL_LEGACY_BRIDGE, SettingBinding.of(
-                () -> Initializer.CONFIG.glLegacyBridge,
+                GlDrawOptions::shouldPreserveLegacyBridge,
                 value -> Initializer.CONFIG.glLegacyBridge = boolValue(value))
                 .withDefault(() -> Boolean.TRUE));
 
         bindings.put(SettingsDefinitions.GL_FBO_VIEWPORT, SettingBinding.of(
-                () -> Initializer.CONFIG.glFboViewport,
+                GlDrawOptions::fboViewportUsesFboConvention,
                 value -> Initializer.CONFIG.glFboViewport = boolValue(value))
                 .withDefault(() -> Boolean.TRUE));
     }

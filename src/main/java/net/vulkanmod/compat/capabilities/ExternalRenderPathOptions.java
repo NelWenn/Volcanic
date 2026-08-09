@@ -33,6 +33,14 @@ public final class ExternalRenderPathOptions {
         return config == null || config.externalLodDraw;
     }
 
+    public static boolean externalLodOverridden() {
+        return System.getProperty(EXTERNAL_LOD) != null;
+    }
+
+    public static boolean externalLodDrawOverridden() {
+        return System.getProperty(EXTERNAL_LOD_DRAW) != null;
+    }
+
     public static boolean externalLodDebugDrawEnabled() {
         return Boolean.parseBoolean(System.getProperty(EXTERNAL_LOD_DEBUG_DRAW, "false"));
     }

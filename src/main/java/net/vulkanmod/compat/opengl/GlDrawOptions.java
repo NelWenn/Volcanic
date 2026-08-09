@@ -25,6 +25,14 @@ public final class GlDrawOptions {
         return resolve(FBO_VIEWPORT_PROPERTY, config == null || config.glFboViewport);
     }
 
+    public static boolean legacyBridgeOverridden() {
+        return System.getProperty(PRESERVE_LEGACY_PROPERTY) != null;
+    }
+
+    public static boolean fboViewportOverridden() {
+        return System.getProperty(FBO_VIEWPORT_PROPERTY) != null;
+    }
+
     private static boolean resolve(String property, boolean configured) {
         String value = System.getProperty(property);
         return value == null ? configured : Boolean.parseBoolean(value);

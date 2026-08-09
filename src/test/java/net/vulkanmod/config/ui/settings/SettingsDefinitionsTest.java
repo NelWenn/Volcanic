@@ -80,6 +80,17 @@ class SettingsDefinitionsTest {
         }
     }
 
+    @Test
+    void everyDeclaredReasonConstantResolvesInTheLanguageFile() throws IOException {
+        List<String> lang = Files.readAllLines(LANG);
+        for (String key : List.of(SettingsDefinitions.REASON_EXCLUSIVE_FULLSCREEN,
+                SettingsDefinitions.REASON_CORE_SHADER_PACK,
+                SettingsDefinitions.REASON_LAUNCH_FLAG,
+                SettingsDefinitions.REASON_MACOS_ONLY)) {
+            assertTrue(declares(lang, key), "missing language key " + key);
+        }
+    }
+
     private static boolean declares(List<String> lang, String key) {
         return lang.stream().anyMatch(line -> line.trim().startsWith("\"" + key + "\":"));
     }

@@ -2,6 +2,7 @@ package net.vulkanmod.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import net.vulkanmod.Initializer;
 import net.vulkanmod.config.video.VideoModeManager;
 import net.vulkanmod.config.video.VideoModeSet;
 
@@ -10,6 +11,7 @@ import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 
 public class Config {
@@ -79,6 +81,14 @@ public class Config {
     public float windStrength = 1.0f;
 
     public void write() {
+        if (CONFIG_PATH == null) {
+            if (!warnedNotSaving) {
+                warnedNotSaving = true;
+                Initializer.LOGGER.warn("Not saving: the config on disk could not be used, so it is"
+                        + " being left alone. Settings apply for this session only.");
+            }
+            return;
+        }
 
         Path parent = CONFIG_PATH.getParent();
         if(parent != null && !Files.exists(parent)) {
@@ -98,6 +108,7 @@ public class Config {
     }
 
     private static Path CONFIG_PATH;
+    private static boolean warnedNotSaving;
 
 
     public static Config migrate(Config config) {
@@ -111,21 +122,54 @@ public class Config {
             .create();
 
     public static Config load(Path path) {
-        Config config;
         Config.CONFIG_PATH = path;
 
-        if (Files.exists(path)) {
-            try (FileReader fileReader = new FileReader(path.toFile())) {
-                config = migrate(GSON.fromJson(fileReader, Config.class));
-            }
-            catch (IOException exception) {
-                throw new RuntimeException(exception.getMessage());
-            }
-        }
-        else {
-            config = null;
+        if (!Files.exists(path)) {
+            return null;
         }
 
-        return config;
+        Config config;
+        try (FileReader fileReader = new FileReader(path.toFile())) {
+            config = GSON.fromJson(fileReader, Config.class);
+        }
+        catch (IOException | RuntimeException exception) {
+            return setAside(path, "could not be read (" + exception + ")");
+        }
+
+        if (config == null) {
+            Initializer.LOGGER.warn("Config {} is empty, starting from defaults", path);
+            return null;
+        }
+        if (config.configVersion > ConfigVersion.CURRENT) {
+            Initializer.LOGGER.error("Config {} was written by a newer build (version {} > {})."
+                            + " Running on defaults, and leaving that file untouched, so nothing will"
+                            + " be saved this session.",
+                    path, config.configVersion, ConfigVersion.CURRENT);
+            Config.CONFIG_PATH = null;
+            return null;
+        }
+
+        try {
+            return migrate(config);
+        }
+        catch (RuntimeException exception) {
+            return setAside(path, "could not be migrated (" + exception + ")");
+        }
+    }
+
+    private static Config setAside(Path path, String reason) {
+        Path backup = path.resolveSibling(path.getFileName() + ".bak");
+        try {
+            Files.move(path, backup, StandardCopyOption.REPLACE_EXISTING);
+            Initializer.LOGGER.warn("Config {} {}; kept it at {} and starting from defaults",
+                    path, reason, backup);
+        }
+        catch (IOException failed) {
+            Initializer.LOGGER.error("Config {} {}, and setting it aside failed ({}), so it will be"
+                            + " left alone and nothing will be saved this session",
+                    path, reason, failed.toString());
+            Config.CONFIG_PATH = null;
+        }
+        return null;
     }
 }

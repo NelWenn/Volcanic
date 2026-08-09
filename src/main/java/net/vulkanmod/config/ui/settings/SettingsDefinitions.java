@@ -14,6 +14,8 @@ import java.util.Optional;
 public final class SettingsDefinitions {
     public static final String REASON_EXCLUSIVE_FULLSCREEN = "vulkanmod.ui.disabled.exclusive_fullscreen";
     public static final String REASON_CORE_SHADER_PACK = "vulkanmod.ui.disabled.core_shader_pack";
+    public static final String REASON_LAUNCH_FLAG = "vulkanmod.ui.disabled.launch_flag";
+    public static final String REASON_MACOS_ONLY = "vulkanmod.ui.disabled.macos_only";
 
     public static final RouteId SHADERS_CURRENT = RouteId.parse("shaders.current");
     public static final SettingId SHADERS_ENABLED = SettingId.parse("vulkanmod:shaders.enabled");

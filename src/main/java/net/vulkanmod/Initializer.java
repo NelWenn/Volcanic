@@ -41,6 +41,7 @@ public class Initializer {
 			Path configPath = Path.of("config", "vulkanmod_settings.json");
 			CONFIG = loadConfig(configPath);
 		} catch (Exception e) {
+			LOGGER.error("Volcanic failed to start from its saved state, running on defaults", e);
 			CONFIG = new Config();
 		} finally {
 			// set MoltenVK config before its dylib loads
