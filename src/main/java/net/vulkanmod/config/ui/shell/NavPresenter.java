@@ -51,7 +51,7 @@ public final class NavPresenter {
     private final PendingChanges pending = new PendingChanges();
     private final DeferredValues deferred = new DeferredValues();
     private final List<String> screenOnlyModIds;
-    private final List<PluginPage> pluginPages;
+    private List<PluginPage> pluginPages;
     private List<ProfileChipRow.Chip> profileChips;
     private List<PresetCardModel.Card> presetCards;
     private Favorites favorites;
@@ -61,11 +61,7 @@ public final class NavPresenter {
         this.screenOnlyModIds = screenOnlyModIds(modIds);
         this.pluginPages = discoverPluginPages();
         this.tree = buildTree(modIds, screenOnlyModIds, pluginPages);
-        for (PluginPage page : pluginPages) {
-            if (!page.enabled()) {
-                greyedRows.add(PluginSettings.routeOf(page.id()));
-            }
-        }
+        markGreyedPlugins();
         this.stack = new NavStack(tree, destinationOf(tree, tree.defaultRoute()));
         this.sidebar = new SidebarModel(tree, collapsed);
         this.focus = new FocusModel();
@@ -112,6 +108,30 @@ public final class NavPresenter {
         return pluginPages;
     }
 
+    public void togglePlugin(String pluginId) {
+        net.vulkanmod.api.MenuPlugin plugin =
+                net.vulkanmod.config.ui.settings.MenuPlugins.byId(pluginId);
+        if (plugin == null
+                || !net.vulkanmod.config.ui.settings.MenuPlugins.toggleableOf(plugin)) {
+            return;
+        }
+        net.vulkanmod.config.ui.settings.MenuPlugins.setEnabled(plugin,
+                !net.vulkanmod.config.ui.settings.MenuPlugins.enabledOf(plugin));
+        this.pluginPages = discoverPluginPages();
+        markGreyedPlugins();
+    }
+
+    private void markGreyedPlugins() {
+        for (PluginPage page : pluginPages) {
+            RouteId route = PluginSettings.routeOf(page.id());
+            if (page.enabled()) {
+                greyedRows.remove(route);
+            } else {
+                greyedRows.add(route);
+            }
+        }
+    }
+
     private static List<PluginPage> discoverPluginPages() {
         List<PluginPage> pages = new ArrayList<>();
         for (net.vulkanmod.api.MenuPlugin plugin
@@ -119,7 +139,8 @@ public final class NavPresenter {
             pages.add(new PluginPage(plugin.id(),
                     net.vulkanmod.config.ui.settings.MenuPlugins.displayNameOf(plugin),
                     net.vulkanmod.config.ui.settings.MenuPlugins.groupsOf(plugin),
-                    net.vulkanmod.config.ui.settings.MenuPlugins.enabledOf(plugin)));
+                    net.vulkanmod.config.ui.settings.MenuPlugins.enabledOf(plugin),
+                    net.vulkanmod.config.ui.settings.MenuPlugins.toggleableOf(plugin)));
         }
         return List.copyOf(pages);
     }
@@ -601,7 +622,8 @@ public final class NavPresenter {
         ring.register(FAVORITES_FOCUS, true);
     }
 
-    public record PluginPage(String id, String name, List<String> groups, boolean enabled) {
+    public record PluginPage(String id, String name, List<String> groups, boolean enabled,
+                             boolean toggleable) {
     }
 
     static NavTree buildTree(List<String> modIds, List<String> screenOnlyModIds) {
@@ -645,13 +667,7 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("shaders.settings"), "vulkanmod.ui.page.shaders.settings", null, false))
                 .add(new NavNode(RouteId.parse("mods"), "vulkanmod.ui.page.mods", "vulkanmod.ui.section.content", true))
                 .add(new NavNode(RouteId.parse("favorites"), "vulkanmod.ui.page.favorites", null, false))
-                .add(new NavNode(RouteId.parse("plugins"), "vulkanmod.ui.page.plugins", null, true))
-                .add(new NavNode(RouteId.parse("advanced"), "vulkanmod.ui.page.advanced", "vulkanmod.ui.section.system", true))
-                .add(new NavNode(RouteId.parse("advanced.renderer"), "vulkanmod.ui.page.advanced.renderer", null, false))
-                .add(new NavNode(RouteId.parse("advanced.synchronization"), "vulkanmod.ui.page.advanced.synchronization", null, false))
-                .add(new NavNode(RouteId.parse("advanced.compatibility"), "vulkanmod.ui.page.advanced.compatibility", null, false))
-                .add(new NavNode(RouteId.parse("experimental"), "vulkanmod.ui.page.experimental", null, true))
-                .add(new NavNode(RouteId.parse("developer"), "vulkanmod.ui.page.developer", null, true));
+                .add(new NavNode(RouteId.parse("plugins"), "vulkanmod.ui.page.plugins", null, true));
 
         for (PluginPage plugin : pluginPages) {
             builder.add(new NavNode(PluginSettings.routeOf(plugin.id()), plugin.name(), null, true));
@@ -660,6 +676,14 @@ public final class NavPresenter {
                         "vulkanmod.ui.plugin.group." + group, null, false));
             }
         }
+
+        builder.add(new NavNode(RouteId.parse("advanced"), "vulkanmod.ui.page.advanced", "vulkanmod.ui.section.system", true))
+                .add(new NavNode(RouteId.parse("advanced.renderer"), "vulkanmod.ui.page.advanced.renderer", null, false))
+                .add(new NavNode(RouteId.parse("advanced.synchronization"), "vulkanmod.ui.page.advanced.synchronization", null, false))
+                .add(new NavNode(RouteId.parse("advanced.compatibility"), "vulkanmod.ui.page.advanced.compatibility", null, false))
+                .add(new NavNode(RouteId.parse("experimental"), "vulkanmod.ui.page.experimental", null, true))
+                .add(new NavNode(RouteId.parse("developer"), "vulkanmod.ui.page.developer", null, true));
+
         for (String modId : modIds) {
             builder.add(new NavNode(ModSettings.routeOf(modId), modName(modId), null, false));
         }

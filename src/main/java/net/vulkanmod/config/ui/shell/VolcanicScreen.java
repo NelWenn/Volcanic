@@ -7,6 +7,8 @@ import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
 import net.vulkanmod.config.ui.core.ProfileChipRow;
+import net.vulkanmod.config.ui.core.PluginPageLayout;
+import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
 import net.vulkanmod.config.ui.core.PresetCardModel;
 import net.vulkanmod.config.ui.core.Rect;
@@ -103,6 +105,7 @@ public class VolcanicScreen extends Screen {
                         pinned, dragged);
             }
         });
+        renderer.paintBrand(guiGraphics, layout);
         if (search != null) {
             search.render(guiGraphics, mouseX, mouseY, partialTick);
         }
@@ -163,7 +166,8 @@ public class VolcanicScreen extends Screen {
             return true;
         }
         if (!presenter.isOverview() && (clickTabStrip(x, y) || clickBreadcrumb(x, y))
-                || clickPresetCard(x, y) || clickModScreen(x, y) || clickSettingRow(x, y)) {
+                || clickPresetCard(x, y) || clickPluginRow(x, y) || clickModScreen(x, y)
+                || clickSettingRow(x, y)) {
             return true;
         }
         this.pinned = null;
@@ -364,6 +368,28 @@ public class VolcanicScreen extends Screen {
         return false;
     }
 
+    private boolean clickPluginRow(int mouseX, int mouseY) {
+        if (!PluginSettings.ROOT.equals(presenter.stack().current())) {
+            return false;
+        }
+        List<NavPresenter.PluginPage> plugins = presenter.pluginPages();
+        List<Rect> boxes = renderer.pluginRowBoxes(layout, presenter, contentScroll);
+        for (int index = 0; index < boxes.size() && index < plugins.size(); index++) {
+            Rect row = boxes.get(index);
+            if (!row.contains(mouseX, mouseY)) {
+                continue;
+            }
+            NavPresenter.PluginPage plugin = plugins.get(index);
+            if (PluginPageLayout.slots(row, plugin.toggleable()).toggle().contains(mouseX, mouseY)) {
+                presenter.togglePlugin(plugin.id());
+            } else {
+                select(PluginSettings.routeOf(plugin.id()), NavPresenter.REGION_CONTENT);
+            }
+            return true;
+        }
+        return false;
+    }
+
     private boolean clickSidebar(int mouseX, int mouseY) {
         Rect nav = layout.sidebarOrDrawer(drawerOpen);
         if (!nav.contains(mouseX, mouseY)) {
@@ -424,6 +450,10 @@ public class VolcanicScreen extends Screen {
             return page.centred() || content.isEmpty()
                     ? 0
                     : Math.max(0, page.height() + reserve - content.height());
+        }
+        if (PluginSettings.ROOT.equals(presenter.stack().current())) {
+            return PluginPageLayout.maxScroll(content, presenter.pluginPages().size(),
+                    presenter.catalog().modIds().size(), layout.breakpoint()) + reserve;
         }
         return SettingRowLayout.maxScroll(content, presenter.contentRowCount(), layout.breakpoint()) + reserve;
     }

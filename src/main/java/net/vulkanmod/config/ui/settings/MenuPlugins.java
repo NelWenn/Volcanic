@@ -86,6 +86,35 @@ public final class MenuPlugins {
         }
     }
 
+    public static boolean toggleableOf(MenuPlugin plugin) {
+        try {
+            return plugin.toggleable();
+        } catch (Throwable failure) {
+            Initializer.LOGGER.warn("Plugin {} failed on toggleable(): {}",
+                    safeId(plugin), failure.toString());
+            return false;
+        }
+    }
+
+    public static void setEnabled(MenuPlugin plugin, boolean enabled) {
+        try {
+            plugin.setEnabled(enabled);
+            plugin.onApply();
+        } catch (Throwable failure) {
+            Initializer.LOGGER.warn("Plugin {} refused to change state: {}",
+                    safeId(plugin), failure.toString());
+        }
+    }
+
+    public static MenuPlugin byId(String id) {
+        for (MenuPlugin plugin : discover()) {
+            if (id != null && id.equals(safeId(plugin))) {
+                return plugin;
+            }
+        }
+        return null;
+    }
+
     public static List<String> groupsOf(MenuPlugin plugin) {
         Set<String> groups = new LinkedHashSet<>();
         for (MenuSetting setting : settingsOf(plugin)) {

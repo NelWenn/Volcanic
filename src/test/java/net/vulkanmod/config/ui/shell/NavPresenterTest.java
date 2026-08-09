@@ -435,7 +435,7 @@ class NavPresenterTest {
     void aPluginPageIsASidebarRowAndItsGroupsAreSubTabs() {
         NavTree tree = NavPresenter.buildTree(List.of(), List.of(),
                 List.of(new NavPresenter.PluginPage("caldera", "Caldera",
-                        List.of("terrain", "quality"), true)));
+                        List.of("terrain", "quality"), true, false)));
 
         assertNotNull(tree.find(RouteId.parse("plugins.caldera")));
         assertTrue(tree.find(RouteId.parse("plugins.caldera")).sidebarVisible(),
@@ -454,7 +454,7 @@ class NavPresenterTest {
     @Test
     void clickingPluginsOpensTheManagementPageAndNotTheFirstPlugin() {
         NavTree tree = NavPresenter.buildTree(List.of(), List.of(),
-                List.of(new NavPresenter.PluginPage("caldera", "Caldera", List.of("terrain"), true)));
+                List.of(new NavPresenter.PluginPage("caldera", "Caldera", List.of("terrain"), true, false)));
         NavPresenter presenter = new NavPresenter();
 
         assertTrue(presenter.navigate(RouteId.parse("plugins")));
@@ -474,7 +474,7 @@ class NavPresenterTest {
     @Test
     void aDisabledPluginStaysInTheTreeSoItsPageKeepsOpening() {
         NavTree tree = NavPresenter.buildTree(List.of(), List.of(),
-                List.of(new NavPresenter.PluginPage("off", "Switched Off", List.of(), false)));
+                List.of(new NavPresenter.PluginPage("off", "Switched Off", List.of(), false, false)));
 
         assertNotNull(tree.find(RouteId.parse("plugins.off")),
                 "disabled means greyed, never removed");

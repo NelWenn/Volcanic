@@ -55,6 +55,18 @@ public interface MenuPlugin {
         return true;
     }
 
+    /**
+     * Un plugin qui peut être coupé depuis le menu renvoie {@code true} et implémente
+     * {@link #setEnabled(boolean)}. Par défaut le menu n'affiche aucun interrupteur : un plugin
+     * qu'on ne peut pas éteindre ne doit pas faire semblant.
+     */
+    default boolean toggleable() {
+        return false;
+    }
+
+    default void setEnabled(boolean enabled) {
+    }
+
     default List<MenuSetting> settings() {
         return List.of();
     }
