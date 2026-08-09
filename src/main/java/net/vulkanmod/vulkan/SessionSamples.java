@@ -18,6 +18,23 @@ public final class SessionSamples {
         return SAMPLES;
     }
 
+    public static int contextFingerprint() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null) {
+            return 0;
+        }
+        return Objects.hash(
+                minecraft.level == null ? null : minecraft.level.dimension().location(),
+                Vulkan.getSwapChain() == null ? 0 : Vulkan.getSwapChain().getWidth(),
+                Vulkan.getSwapChain() == null ? 0 : Vulkan.getSwapChain().getHeight(),
+                Initializer.CONFIG == null ? null : Initializer.CONFIG.selectedShader,
+                net.neoforged.fml.ModList.get().size());
+    }
+
+    public static boolean describesCurrent() {
+        return SAMPLES.count() > 0 && SAMPLES.fingerprint() == fingerprint();
+    }
+
     public static void onFrameEnd() {
         long now = System.nanoTime();
         long previous = lastNanos;

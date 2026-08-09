@@ -87,6 +87,7 @@ public final class SettingsCatalog {
     private final SettingRegistry registry = new SettingRegistry();
     private final Map<SettingId, SettingBinding> bindings = new LinkedHashMap<>();
     private final List<String> modIds = new ArrayList<>();
+    private final List<String> pluginIds = new ArrayList<>();
 
     public SettingsCatalog() {
         bindDisplayGeneral();
@@ -131,6 +132,7 @@ public final class SettingsCatalog {
         registerAll(SettingsDefinitions.advancedCompatibility());
         registerAll(SettingsDefinitions.shadersCurrent());
 
+        registerPlugins();
         registerMods();
     }
 
@@ -143,11 +145,36 @@ public final class SettingsCatalog {
         }
     }
 
+    private void registerPlugins() {
+        for (net.vulkanmod.api.MenuPlugin plugin : MenuPlugins.discover()) {
+            try {
+                PluginSettings.Converted converted =
+                        PluginSettings.convert(plugin.id(), MenuPlugins.settingsOf(plugin));
+                for (SettingMeta meta : converted.metas()) {
+                    if (registry.contains(meta.id())) {
+                        throw new IllegalArgumentException("duplicate setting id " + meta.id());
+                    }
+                }
+                converted.metas().forEach(registry::register);
+                bindings.putAll(converted.bindings());
+                pluginIds.add(plugin.id());
+            } catch (RuntimeException failure) {
+                Initializer.LOGGER.warn("Left plugin {} out of the menu: {}",
+                        MenuPlugins.displayNameOf(plugin), failure.toString());
+            }
+        }
+    }
+
+    public List<String> pluginIds() {
+        return List.copyOf(pluginIds);
+    }
+
     private void registerMods() {
-        Set<String> optedIn = new LinkedHashSet<>();
+        Set<String> optedIn = new LinkedHashSet<>(pluginIds);
         for (ModSettings mod : read(ModOptIn::readAll)) {
-            optedIn.add(mod.modId());
-            registerGuarded(mod);
+            if (optedIn.add(mod.modId())) {
+                registerGuarded(mod);
+            }
         }
         for (ModSettings mod : read(ModConfigReader::readAll)) {
             if (!optedIn.contains(mod.modId())) {

@@ -7,6 +7,8 @@ import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
 import net.vulkanmod.config.ui.core.ProfileChipRow;
+import net.vulkanmod.config.ui.core.PresetCardLayout;
+import net.vulkanmod.config.ui.core.PresetCardModel;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SearchIndex;
@@ -16,6 +18,7 @@ import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingType;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
 import net.vulkanmod.config.ui.core.ShellLayout;
+import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.core.SliderGeometry;
 import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
@@ -86,6 +89,7 @@ public class VolcanicScreen extends Screen {
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         syncContentScroll();
+        this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, navViewport().height());
         SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
         long deltaMs = frameDeltaMs();
         guiGraphics.drawManaged(() -> {
@@ -136,8 +140,16 @@ public class VolcanicScreen extends Screen {
         if (searchFocused()) {
             return clickSearchResult(x, y);
         }
+        if (renderer.favoritesButton(this.font, layout).contains(x, y)) {
+            presenter.openFavorites();
+            return true;
+        }
         if (layout.menuButton().contains(x, y)) {
             setDrawerOpen(!drawerOpen);
+            return true;
+        }
+        if (applyBarVisible() && layout.bottomBar().contains(x, y)) {
+            clickApplyBar(x, y);
             return true;
         }
         if (clickSidebar(x, y)) {
@@ -150,8 +162,8 @@ public class VolcanicScreen extends Screen {
         if (renderer.lastCard().contains(x, y)) {
             return true;
         }
-        if (clickApplyBar(x, y) || clickTabStrip(x, y) || clickBreadcrumb(x, y)
-                || clickProfileChip(x, y) || clickModScreen(x, y) || clickSettingRow(x, y)) {
+        if (!presenter.isOverview() && (clickTabStrip(x, y) || clickBreadcrumb(x, y))
+                || clickPresetCard(x, y) || clickModScreen(x, y) || clickSettingRow(x, y)) {
             return true;
         }
         this.pinned = null;
@@ -193,8 +205,8 @@ public class VolcanicScreen extends Screen {
             return true;
         }
         if (!drawerOpen && layout.content().contains((int) mouseX, (int) mouseY)) {
-            this.contentScroll = SettingRowLayout.clampScroll(this.contentScroll - direction * CONTENT_SCROLL_STEP,
-                    layout.content(), presenter.contentRowCount(), layout.breakpoint());
+            this.contentScroll = Math.min(Math.max(0, this.contentScroll - direction * CONTENT_SCROLL_STEP),
+                    maxContentScroll());
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -249,6 +261,10 @@ public class VolcanicScreen extends Screen {
                 }
                 if (presenter.modScreenFocused()) {
                     openModScreen();
+                    return true;
+                }
+                if (presenter.favoritesFocused()) {
+                    presenter.openFavorites();
                     return true;
                 }
                 SettingMeta focused = presenter.focusedSetting();
@@ -354,13 +370,21 @@ public class VolcanicScreen extends Screen {
             return false;
         }
 
-        RouteId route = renderer.sidebarRouteAt(nav, presenter.sidebar(), sidebarScroll, mouseX, mouseY);
-        if (route == null) {
+        int index = renderer.sidebarEntryAt(nav, presenter.sidebar(), sidebarScroll, mouseX, mouseY);
+        SidebarModel.Entry entry = presenter.sidebar().entryAt(index);
+        if (entry == null) {
             return true;
         }
-
-        select(route, NavPresenter.REGION_SIDEBAR);
-        setDrawerOpen(false);
+        switch (entry) {
+            case SidebarModel.Section(String labelKey, boolean collapsed) -> {
+                presenter.toggleSection(labelKey);
+                this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, nav.height());
+            }
+            case SidebarModel.Row(RouteId route, String titleKey, int depth) -> {
+                select(route, NavPresenter.REGION_SIDEBAR);
+                setDrawerOpen(false);
+            }
+        }
         return true;
     }
 
@@ -387,18 +411,40 @@ public class VolcanicScreen extends Screen {
         return true;
     }
 
-    private boolean clickProfileChip(int mouseX, int mouseY) {
-        List<Rect> boxes = renderer.profileChipBoxes(this.font, layout, presenter, contentScroll);
-        int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
-        if (index < 0) {
+    private boolean applyBarVisible() {
+        return !presenter.pending().isEmpty();
+    }
+
+    private int maxContentScroll() {
+        Rect content = layout.content();
+        int reserve = presenter.pending().isEmpty() ? 0 : layout.overlayReserve();
+        if (presenter.isOverview()) {
+            PresetCardLayout.Page page = PresetCardLayout.page(content, presenter.presetCards().size(),
+                    0, layout.breakpoint());
+            return page.centred() || content.isEmpty()
+                    ? 0
+                    : Math.max(0, page.height() + reserve - content.height());
+        }
+        return SettingRowLayout.maxScroll(content, presenter.contentRowCount(), layout.breakpoint()) + reserve;
+    }
+
+    private boolean clickPresetCard(int mouseX, int mouseY) {
+        if (!presenter.stack().current().equals(RouteId.parse("overview"))) {
             return false;
         }
-
-        ProfileChipRow.Chip chip = presenter.profileChips().get(index);
-        if (chip.selectable()) {
-            presenter.applyProfile(chip.key());
+        List<PresetCardModel.Card> cards = presenter.presetCards();
+        List<Rect> boxes = renderer.presetCardBoxes(layout, presenter, contentScroll);
+        for (int index = 0; index < cards.size() && index < boxes.size(); index++) {
+            if (!boxes.get(index).contains(mouseX, mouseY)) {
+                continue;
+            }
+            if (!cards.get(index).selectable()) {
+                return true;
+            }
+            presenter.applyProfile(cards.get(index).key());
+            return true;
         }
-        return true;
+        return false;
     }
 
     private boolean clickModScreen(int mouseX, int mouseY) {

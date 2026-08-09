@@ -75,6 +75,7 @@ public final class PaintQueue {
             case PaintOp.Fill(Rect rect, int ignoredArgb) -> rect.isEmpty();
             case PaintOp.Gradient(Rect rect, int ignoredTop, int ignoredBottom) -> rect.isEmpty();
             case PaintOp.Text text -> text.value() == null || text.value().isEmpty();
+            case PaintOp.SmallText text -> text.value() == null || text.value().isEmpty();
         };
     }
 }

@@ -22,35 +22,42 @@ public final class UiState {
     private UiState() {
     }
 
-    public static Favorites load(Path path) {
+    public record State(Favorites favorites, List<String> collapsed) {
+    }
+
+    public static State load(Path path) {
         if (path == null) {
             throw new IllegalArgumentException("path must not be null");
         }
         Favorites favorites = new Favorites();
         if (!Files.isRegularFile(path)) {
-            return favorites;
+            return new State(favorites, null);
         }
         try (Reader reader = Files.newBufferedReader(path)) {
             Stored stored = GSON.fromJson(reader, Stored.class);
-            if (stored != null && stored.favorites != null) {
+            if (stored == null) {
+                return new State(favorites, null);
+            }
+            if (stored.favorites != null) {
                 favorites.replaceAll(parseAll(stored.favorites));
             }
+            return new State(favorites, stored.collapsed);
         } catch (IOException | RuntimeException failure) {
             Initializer.LOGGER.warn("Ignoring unreadable UI state at {}: {}", path, failure.toString());
-            return new Favorites();
+            return new State(new Favorites(), null);
         }
-        return favorites;
     }
 
-    public static void save(Path path, Favorites favorites) {
+    public static void save(Path path, Favorites favorites, java.util.Set<String> collapsed) {
         if (path == null) {
             throw new IllegalArgumentException("path must not be null");
         }
-        if (favorites == null) {
-            throw new IllegalArgumentException("favorites must not be null");
+        if (favorites == null || collapsed == null) {
+            throw new IllegalArgumentException("favorites and collapsed must not be null");
         }
         Stored stored = new Stored();
         stored.favorites = favorites.ids().stream().map(SettingId::toString).toList();
+        stored.collapsed = List.copyOf(collapsed);
         try {
             Path parent = path.getParent();
             if (parent != null) {
@@ -80,5 +87,6 @@ public final class UiState {
     private static final class Stored {
         int uiVersion = UI_VERSION;
         List<String> favorites = List.of();
+        List<String> collapsed = null;
     }
 }

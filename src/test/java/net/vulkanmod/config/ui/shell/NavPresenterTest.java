@@ -151,13 +151,15 @@ class NavPresenterTest {
         presenter.navigate(RouteId.parse("rendering"));
         assertEquals(6, presenter.subTabs().size());
         assertEquals(4, presenter.settings().size());
-        assertEquals(10, presenter.focus().ring(NavPresenter.REGION_CONTENT).size());
+        assertEquals(11, presenter.focus().ring(NavPresenter.REGION_CONTENT).size(),
+                "six tabs, four settings, plus the favourites button");
 
         assertTrue(presenter.back());
 
         assertEquals(RouteId.parse("overview"), presenter.stack().current());
         assertEquals(0, presenter.subTabs().size());
-        assertEquals(0, presenter.focus().ring(NavPresenter.REGION_CONTENT).size());
+        assertEquals(1, presenter.focus().ring(NavPresenter.REGION_CONTENT).size(),
+                "the favourites button is always reachable by keyboard");
     }
 
     @Test
@@ -271,13 +273,13 @@ class NavPresenterTest {
         FocusRing ring = presenter.focus().ring(NavPresenter.REGION_CONTENT);
         assertEquals(3, presenter.subTabs().size());
         assertEquals(5, presenter.settings().size());
-        assertEquals(8, ring.size());
+        assertEquals(9, ring.size(), "three tabs, five rows, plus the favourites button");
         for (SettingMeta meta : presenter.settings()) {
             assertTrue(ring.focus(meta.id().toString()), "row not focusable: " + meta.id());
         }
 
         presenter.navigate(RouteId.parse("display.advanced"));
-        assertEquals(4, ring.size());
+        assertEquals(5, ring.size(), "three tabs, one row, plus the favourites button");
     }
 
     @Test
@@ -364,7 +366,9 @@ class NavPresenterTest {
     private static void assertSidebarRowsAreExactlyTheTopLevelRoutes(NavTree tree) {
         List<RouteId> topLevel = new ArrayList<>();
         for (NavNode node : tree.children(RouteId.root())) {
-            topLevel.add(node.route());
+            if (!node.route().equals(NavPresenter.FAVORITES)) {
+                topLevel.add(node.route());
+            }
         }
         List<RouteId> rows = new ArrayList<>();
         for (NavNode node : tree.sidebarRows()) {
@@ -401,5 +405,78 @@ class NavPresenterTest {
         }
         assertFalse(entries.isEmpty(), "no entries parsed from " + LANG.toAbsolutePath());
         return entries;
+    }
+
+    @Test
+    void favouritesLeavesTheSidebarWithoutLeavingTheTree() {
+        NavTree tree = new NavPresenter().tree();
+
+        boolean listed = tree.sidebarRows().stream()
+                .anyMatch(node -> node.route().equals(NavPresenter.FAVORITES));
+        assertFalse(listed, "favourites moved to the header button");
+
+        assertNotNull(tree.find(NavPresenter.FAVORITES),
+                "it must stay in the tree or NavStack.navigate would refuse the route");
+    }
+
+    @Test
+    void theFavouritesButtonIsReachableByKeyboardFromEveryPage() {
+        NavPresenter presenter = new NavPresenter();
+        for (RouteId route : List.of(RouteId.parse("rendering"), RouteId.parse("quality"),
+                RouteId.parse("display"))) {
+            presenter.navigate(route);
+            assertTrue(presenter.focus().ring(NavPresenter.REGION_CONTENT)
+                            .focus(NavPresenter.FAVORITES_FOCUS),
+                    "missing from " + route);
+        }
+    }
+
+    @Test
+    void aPluginPageIsASidebarRowAndItsGroupsAreSubTabs() {
+        NavTree tree = NavPresenter.buildTree(List.of(), List.of(),
+                List.of(new NavPresenter.PluginPage("caldera", "Caldera",
+                        List.of("terrain", "quality"), true)));
+
+        assertNotNull(tree.find(RouteId.parse("plugins.caldera")));
+        assertTrue(tree.find(RouteId.parse("plugins.caldera")).sidebarVisible(),
+                "a plugin is a sidebar row, so it is reachable in one click");
+        assertFalse(tree.find(RouteId.parse("plugins.caldera.terrain")).sidebarVisible(),
+                "its groups are sub-tabs, not sidebar rows");
+
+        boolean listed = tree.sidebarRows().stream()
+                .anyMatch(node -> node.route().equals(RouteId.parse("plugins.caldera")));
+        assertTrue(listed);
+        boolean groupListed = tree.sidebarRows().stream()
+                .anyMatch(node -> node.route().equals(RouteId.parse("plugins.caldera.terrain")));
+        assertFalse(groupListed, "depth three never becomes a row");
+    }
+
+    @Test
+    void clickingPluginsOpensTheManagementPageAndNotTheFirstPlugin() {
+        NavTree tree = NavPresenter.buildTree(List.of(), List.of(),
+                List.of(new NavPresenter.PluginPage("caldera", "Caldera", List.of("terrain"), true)));
+        NavPresenter presenter = new NavPresenter();
+
+        assertTrue(presenter.navigate(RouteId.parse("plugins")));
+        assertEquals(RouteId.parse("plugins"), presenter.stack().current(),
+                "descending would make the management page unreachable");
+    }
+
+    @Test
+    void aPluginGroupClimbsToItsPluginAndAModPageStillClimbsToMods() {
+        NavPresenter presenter = new NavPresenter();
+
+        presenter.navigate(RouteId.parse("rendering.culling"));
+        assertEquals(RouteId.parse("rendering"), presenter.activeSidebarRoute(),
+                "an ordinary sub-page still climbs to its category");
+    }
+
+    @Test
+    void aDisabledPluginStaysInTheTreeSoItsPageKeepsOpening() {
+        NavTree tree = NavPresenter.buildTree(List.of(), List.of(),
+                List.of(new NavPresenter.PluginPage("off", "Switched Off", List.of(), false)));
+
+        assertNotNull(tree.find(RouteId.parse("plugins.off")),
+                "disabled means greyed, never removed");
     }
 }

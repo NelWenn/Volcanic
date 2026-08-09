@@ -4,5 +4,6 @@ public enum SettingSource {
     VOLCANIC,
     MINECRAFT,
     SHADERS,
-    MODS
+    MODS,
+    PLUGINS
 }

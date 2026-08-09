@@ -12,6 +12,10 @@ public interface SurfacePainter {
 
     void text(int x, int y, String value, int argb, boolean shadow);
 
+    void smallText(int x, int y, String value, int argb);
+
+    float smallScale();
+
     void flush();
 
     static SurfacePainter create(GuiGraphics graphics, Font font) {

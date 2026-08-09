@@ -30,6 +30,10 @@ public final class FrameTimer {
         return INSTANCE != null ? INSTANCE.smoothWallMs : -1.0;
     }
 
+    public static double cpuBusyMs() {
+        return INSTANCE != null ? INSTANCE.smoothCpuBusyMs : -1.0;
+    }
+
     public static void init(int framesNum) {
         if (INSTANCE != null) return;
         try {
@@ -77,6 +81,7 @@ public final class FrameTimer {
     private boolean logging = false;
     private double smoothGpuMs = -1.0;
     private double smoothWallMs = -1.0;
+    private double smoothCpuBusyMs = -1.0;
     private long lastGcMillis = -1; // cumulative JVM GC time, delta'd per window
 
     private FrameTimer(int framesNum) {
@@ -141,7 +146,9 @@ public final class FrameTimer {
         double cpuMs = (System.nanoTime() - frameStartNanos) / 1.0e6;
         accCpuMs += cpuMs;
         if (threadCpuStartNanos >= 0) {
-            accCpuBusyMs += (THREAD_MX.getCurrentThreadCpuTime() - threadCpuStartNanos) / 1.0e6;
+            double busyMs = (THREAD_MX.getCurrentThreadCpuTime() - threadCpuStartNanos) / 1.0e6;
+            accCpuBusyMs += busyMs;
+            smoothCpuBusyMs = smoothCpuBusyMs < 0 ? busyMs : smoothCpuBusyMs * 0.9 + busyMs * 0.1;
         }
         samples++;
         pendingWall = false;

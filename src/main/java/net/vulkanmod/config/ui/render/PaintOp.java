@@ -17,4 +17,7 @@ public sealed interface PaintOp {
 
     record Text(int x, int y, String value, int argb, boolean shadow) implements PaintOp {
     }
+
+    record SmallText(int x, int y, String value, int argb, float scale) implements PaintOp {
+    }
 }

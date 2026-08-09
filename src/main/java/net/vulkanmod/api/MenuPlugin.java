@@ -1,0 +1,64 @@
+package net.vulkanmod.api;
+
+import java.util.List;
+
+/**
+ * PROVISOIRE — à supprimer quand la pipeline de Revo saura déclarer ses paramètres.
+ *
+ * <p>Pourquoi cette interface existe. Le SPI actuel, {@code net.vulkanmod.render.plugin
+ * .RenderPipelinePlugin}, expose quatre méthodes : {@code id()}, {@code name()},
+ * {@code createPipelineManager()} et {@code createFrameGraph()}. Il ne permet ni de déclarer
+ * des paramètres, ni de dire si le plugin est un shader. Le menu sait déjà tout afficher —
+ * cartes, onglets, curseurs, favoris, recherche — il lui manque uniquement la source.
+ *
+ * <p>REVO, CE QU'IL FAUT FAIRE DE TON CÔTÉ, et cette interface disparaît :
+ *
+ * <ol>
+ *   <li><b>Ajoute un discriminant sur {@code RenderPipelinePlugin}.</b> Un {@code kind()},
+ *       une interface marqueur, la forme t'appartient. Le menu doit pouvoir répondre à
+ *       « est-ce un shader ? » sans deviner :
+ *       <ul>
+ *         <li>shader → il apparaît dans la liste des shaders, ses paramètres vont sous
+ *             {@code shaders.settings}</li>
+ *         <li>pas un shader → il a sa propre page dans la catégorie Plugins (cas de Caldera,
+ *             qui est un plugin sans shader ni frame graph)</li>
+ *       </ul>
+ *   </li>
+ *   <li><b>Ajoute la déclaration de paramètres sur {@code RenderPipelinePlugin}</b>, pas sur un
+ *       type propre aux shaders. Tout plugin doit pouvoir en exposer ; être un shader est un cas
+ *       particulier, pas la règle. La forme de {@link MenuSetting} ci-dessous est une proposition,
+ *       pas une contrainte — remplace-la par ce qui t'arrange, on adaptera le menu.</li>
+ *   <li><b>Si tu passes par des annotations, mets-les en {@code RetentionPolicy.RUNTIME}.</b>
+ *       En {@code CLASS}, qui est le défaut, la réflexion ne voit rien et l'échec est totalement
+ *       silencieux — on a déjà perdu du temps là-dessus.</li>
+ *   <li><b>N'encode pas de chemin d'interface dans l'identifiant.</b> Un {@code group} logique
+ *       suffit, le menu fait la correspondance vers une page ou un onglet. Si l'id porte le
+ *       placement, déplacer un paramètre casse les favoris enregistrés et les liens de recherche.</li>
+ * </ol>
+ *
+ * <p>OÙ C'EST BRANCHÉ CÔTÉ MENU, pour que tu saches quoi remplacer :
+ * {@code net.vulkanmod.config.ui.settings.MenuPlugins} charge les implémentations par
+ * {@link java.util.ServiceLoader} et les convertit en réglages du menu. Le jour où tu livres,
+ * cette classe lit ton SPI à la place et ce fichier est supprimé, sans rien changer d'autre.
+ *
+ * <p>Un plugin qui ne déclare rien reste valable : il obtient une page qui affiche son nom et son
+ * état, et rien d'autre. C'est volontaire — le menu ne doit jamais dépendre de ce qu'un tiers a
+ * pensé à remplir.
+ */
+public interface MenuPlugin {
+
+    String id();
+
+    String displayName();
+
+    default boolean enabled() {
+        return true;
+    }
+
+    default List<MenuSetting> settings() {
+        return List.of();
+    }
+
+    default void onApply() {
+    }
+}

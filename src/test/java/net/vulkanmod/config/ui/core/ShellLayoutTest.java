@@ -28,9 +28,9 @@ class ShellLayoutTest {
     void wideLayoutHasThreeColumns() {
         ShellLayout layout = ShellLayout.of(854, 480);
         assertTrue(layout.hasDetailsPanel());
-        assertEquals(150, layout.sidebar().width());
+        assertEquals(ShellLayout.SIDEBAR_WIDTH, layout.sidebar().width());
         assertEquals(196, layout.details().width());
-        assertEquals(854 - 150 - 196, layout.content().width());
+        assertEquals(854 - ShellLayout.SIDEBAR_WIDTH - ShellLayout.DETAILS_WIDTH, layout.content().width());
     }
 
     @Test
@@ -38,8 +38,8 @@ class ShellLayoutTest {
         ShellLayout layout = ShellLayout.of(640, 360);
         assertFalse(layout.hasDetailsPanel());
         assertTrue(layout.details().isEmpty());
-        assertEquals(150, layout.sidebar().width());
-        assertEquals(640 - 150, layout.content().width());
+        assertEquals(ShellLayout.SIDEBAR_WIDTH, layout.sidebar().width());
+        assertEquals(640 - ShellLayout.SIDEBAR_WIDTH, layout.content().width());
     }
 
     @Test
@@ -58,8 +58,9 @@ class ShellLayoutTest {
         Rect drawer = layout.drawer();
         assertEquals(ShellLayout.SIDEBAR_WIDTH, drawer.width());
         assertEquals(layout.content().x(), drawer.x());
-        assertEquals(layout.content().y(), drawer.y());
-        assertEquals(layout.content().height(), drawer.height());
+        assertEquals(layout.content().y() + ShellLayout.SIDEBAR_TOP_PAD, drawer.y(),
+                "the drawer gets the same top margin as the sidebar it replaces");
+        assertEquals(layout.content().bottom(), drawer.bottom());
     }
 
     @Test
@@ -93,13 +94,25 @@ class ShellLayoutTest {
     }
 
     @Test
-    void barsSpanTheFullWidthAndReserveTheirHeight() {
+    void theTopBarReservesItsHeightAndTheApplyBarOverlays() {
         ShellLayout layout = ShellLayout.of(854, 480);
         assertEquals(new Rect(0, 0, 854, 32), layout.topBar());
         assertEquals(new Rect(0, 480 - 34, 854, 34), layout.bottomBar());
-        assertEquals(32, layout.sidebar().y());
-        assertEquals(480 - 32 - 34, layout.sidebar().height());
-        assertEquals(layout.sidebar().height(), layout.content().height());
+        assertEquals(32 + ShellLayout.SIDEBAR_TOP_PAD, layout.sidebar().y());
+        assertEquals(480 - 32 - ShellLayout.SIDEBAR_TOP_PAD, layout.sidebar().height(),
+                "the body runs to the bottom so an absent apply bar costs nothing");
+        assertEquals(layout.content().bottom(), layout.sidebar().bottom(),
+                "the pad is taken off the top, never off the bottom");
+        assertEquals(layout.content().bottom(), layout.bottomBar().bottom());
+        assertEquals(34, layout.overlayReserve());
+    }
+
+    @Test
+    void theApplyBarOverlapsTheBodyRatherThanShorteningIt() {
+        ShellLayout layout = ShellLayout.of(854, 480);
+        assertTrue(layout.bottomBar().y() < layout.content().bottom(),
+                "the bar sits over the content, so showing it must not move anything");
+        assertTrue(layout.bottomBar().y() > layout.content().y());
     }
 
     @Test
@@ -186,5 +199,73 @@ class ShellLayoutTest {
         assertFalse(layout.content().isEmpty() && layout.content().width() < 0);
         assertTrue(layout.content().width() >= 0);
         assertTrue(layout.content().height() >= 0);
+    }
+
+    @Test
+    void theBrandImagesSitAtTheirRealSizeAndClearTheSearchField() {
+        for (int width : new int[] {854, 640, 520, 480}) {
+            ShellLayout layout = ShellLayout.of(width, 480);
+            Rect logo = layout.brandLogo();
+            Rect title = layout.brandTitle();
+
+            assertEquals(ShellLayout.LOGO_W, logo.width(), "width " + width);
+            assertEquals(ShellLayout.LOGO_H, logo.height());
+            assertEquals(layout.topBar().y() + (layout.topBar().height() - ShellLayout.LOGO_H) / 2, logo.y());
+            if (!title.isEmpty()) {
+                assertEquals(ShellLayout.TITLE_W, title.width());
+                assertEquals(ShellLayout.TITLE_H, title.height());
+                assertTrue(title.x() >= logo.right(), "the wordmark never sits on the logo");
+                if (!layout.searchField().isEmpty()) {
+                    assertTrue(title.right() <= layout.searchField().x(),
+                            "width " + width + ": the wordmark collided with the search field");
+                }
+            }
+        }
+    }
+
+    @Test
+    void aCollapsedTopBarDrawsNoBrand() {
+        ShellLayout layout = ShellLayout.of(854, 10);
+        assertTrue(layout.brandLogo().isEmpty());
+        assertTrue(layout.brandTitle().isEmpty());
+    }
+
+    @Test
+    void theFavouritesButtonNeverOverlapsTheBrandOrTheSearchField() {
+        for (int width : new int[] {854, 700, 640, 520, 480, 400, 320}) {
+            ShellLayout layout = ShellLayout.of(width, 480);
+            Rect button = layout.favoritesButton(40);
+            if (button.isEmpty()) {
+                continue;
+            }
+            assertTrue(button.x() >= layout.brandTitle().right(), "width " + width + ": over the wordmark");
+            assertTrue(button.x() >= layout.brandLogo().right(), "width " + width + ": over the logo");
+            if (!layout.searchField().isEmpty()) {
+                assertTrue(button.right() <= layout.searchField().x(),
+                        "width " + width + ": over the search field");
+            }
+            assertTrue(button.right() <= layout.topBar().right());
+        }
+    }
+
+    @Test
+    void theFavouritesButtonAnchorsToTheBarWhenTheSearchFieldIsGone() {
+        ShellLayout narrow = ShellLayout.of(200, 480);
+        assertTrue(narrow.searchField().isEmpty(), "this width must have no search field");
+        assertFalse(narrow.favoritesButton(40).isEmpty(),
+                "with no search field the button is the only way to the favourites page");
+    }
+
+    @Test
+    void theFavouritesButtonIsIconOnlyAtCompact() {
+        ShellLayout compact = ShellLayout.of(480, 480);
+        assertEquals(Breakpoint.COMPACT, compact.breakpoint());
+        assertEquals(ShellLayout.FAV_PAD * 2 + ShellLayout.FAV_ICON,
+                compact.favoritesButton(200).width(), "the label is dropped, not squeezed");
+    }
+
+    @Test
+    void theFavouritesButtonRejectsANegativeLabel() {
+        assertThrows(IllegalArgumentException.class, () -> ShellLayout.of(854, 480).favoritesButton(-1));
     }
 }

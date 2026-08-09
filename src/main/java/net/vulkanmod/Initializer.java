@@ -32,6 +32,7 @@ public class Initializer {
 
 	private static String VERSION = "0.4.9-dev";
 	public static Config CONFIG;
+	public static boolean firstRun;
 
 	static {
 
@@ -63,6 +64,12 @@ public class Initializer {
 
 	private void onInitializeClient(FMLClientSetupEvent event) {
 		LOGGER.info("== Volcanic ==");
+		if (firstRun) {
+			net.vulkanmod.config.PerformancePresetApplier.apply(
+					net.vulkanmod.config.PerformancePreset.QUALITY, CONFIG, net.minecraft.client.Minecraft.getInstance());
+			CONFIG.write();
+			LOGGER.info("First run: started on the Quality preset");
+		}
 		UpdateChecker.checkForUpdates();
 		CompatBootstrap.init();
 		if (RuntimeOptions.diagnosticsEnabled()) {
@@ -76,7 +83,9 @@ public class Initializer {
 
 		if(config == null) {
 			config = new Config();
+			config.performancePreset = net.vulkanmod.config.PerformancePreset.QUALITY.id;
 			config.write();
+			firstRun = true;
 		}
 
 		return config;

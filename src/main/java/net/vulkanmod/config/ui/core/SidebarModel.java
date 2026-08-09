@@ -1,16 +1,19 @@
 package net.vulkanmod.config.ui.core;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class SidebarModel {
     private static final int ROW_HEIGHT = 25;
     private static final int SECTION_HEIGHT = 16;
+    public static final String SECTION_SYSTEM = "vulkanmod.ui.section.system";
 
     public sealed interface Entry permits Section, Row {
     }
 
-    public record Section(String labelKey) implements Entry {
+    public record Section(String labelKey, boolean collapsed) implements Entry {
         public Section {
             if (labelKey == null || labelKey.isBlank()) {
                 throw new IllegalArgumentException("labelKey must not be blank");
@@ -18,7 +21,7 @@ public final class SidebarModel {
         }
     }
 
-    public record Row(RouteId route, String titleKey) implements Entry {
+    public record Row(RouteId route, String titleKey, int depth) implements Entry {
         public Row {
             if (route == null) {
                 throw new IllegalArgumentException("route must not be null");
@@ -33,21 +36,40 @@ public final class SidebarModel {
     private final ListModel listModel;
 
     public SidebarModel(NavTree tree) {
+        this(tree, Set.of());
+    }
+
+    public SidebarModel(NavTree tree, Set<String> collapsed) {
         if (tree == null) {
             throw new IllegalArgumentException("tree must not be null");
         }
+        if (collapsed == null) {
+            throw new IllegalArgumentException("collapsed must not be null");
+        }
         List<Entry> built = new ArrayList<>();
         ListModel model = new ListModel(0);
+        String section = null;
         for (NavNode node : tree.sidebarRows()) {
             if (node.sectionKey() != null) {
-                built.add(new Section(node.sectionKey()));
+                section = node.sectionKey();
+                built.add(new Section(section, collapsed.contains(section)));
                 model.add(SECTION_HEIGHT);
             }
-            built.add(new Row(node.route(), node.titleKey()));
+            if (section != null && collapsed.contains(section)) {
+                continue;
+            }
+            built.add(new Row(node.route(), node.titleKey(), node.route().depth()));
             model.add(ROW_HEIGHT);
         }
         this.entries = List.copyOf(built);
         this.listModel = model;
+    }
+
+    public static Set<String> collapsedOrDefault(List<String> stored) {
+        if (stored == null) {
+            return Set.of(SECTION_SYSTEM);
+        }
+        return Set.copyOf(new LinkedHashSet<>(stored));
     }
 
     public List<Entry> entries() {
@@ -86,32 +108,11 @@ public final class SidebarModel {
         return listModel.lastVisible(scroll, viewportHeight);
     }
 
-    public RouteId routeAt(int contentY) {
-        int index = listModel.indexAt(contentY);
-        if (index < 0) {
-            return null;
-        }
-        return switch (entries.get(index)) {
-            case Row(RouteId route, String titleKey) -> route;
-            case Section(String labelKey) -> null;
-        };
+    public int entryIndexAt(int contentY) {
+        return listModel.indexAt(contentY);
     }
 
-    public int indexOfRoute(RouteId route) {
-        if (route == null) {
-            throw new IllegalArgumentException("route must not be null");
-        }
-        for (int i = 0; i < entries.size(); i++) {
-            switch (entries.get(i)) {
-                case Row(RouteId candidate, String titleKey) -> {
-                    if (candidate.equals(route)) {
-                        return i;
-                    }
-                }
-                case Section(String labelKey) -> {
-                }
-            }
-        }
-        return -1;
+    public Entry entryAt(int index) {
+        return index < 0 || index >= entries.size() ? null : entries.get(index);
     }
 }

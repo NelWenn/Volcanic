@@ -17,7 +17,7 @@ public final class NavTree {
         List<NavNode> rows = new ArrayList<>();
         for (NavNode node : nodes.values()) {
             childrenByParent.computeIfAbsent(node.route().parent(), key -> new ArrayList<>()).add(node);
-            if (node.route().depth() == 1 && node.sidebarVisible()) {
+            if (node.route().depth() <= 2 && node.sidebarVisible()) {
                 rows.add(node);
             }
         }

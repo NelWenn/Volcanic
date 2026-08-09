@@ -12,6 +12,7 @@ import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.NavStack;
 import net.vulkanmod.config.ui.core.NavTree;
 import net.vulkanmod.config.ui.core.PendingChanges;
+import net.vulkanmod.config.ui.core.PresetCardModel;
 import net.vulkanmod.config.ui.core.ProfileChipRow;
 import net.vulkanmod.config.ui.core.ProfileMatcher;
 import net.vulkanmod.config.ui.core.RouteId;
@@ -22,6 +23,7 @@ import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.mods.ModScreens;
 import net.vulkanmod.config.ui.mods.ModSettings;
 import net.vulkanmod.config.ui.settings.SettingBinding;
+import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.settings.SettingsCatalog;
 import net.vulkanmod.config.ui.settings.UiState;
 
@@ -35,24 +37,37 @@ public final class NavPresenter {
     public static final String REGION_SIDEBAR = "sidebar";
     public static final String REGION_CONTENT = "content";
     public static final String MOD_SCREEN_FOCUS = "mods:screen";
+    public static final String FAVORITES_FOCUS = "favorites:button";
+    public static final RouteId FAVORITES = RouteId.parse("favorites");
 
     private final NavTree tree;
     private final NavStack stack;
-    private final SidebarModel sidebar;
+    private SidebarModel sidebar;
+    private final java.util.Set<String> collapsed = new java.util.LinkedHashSet<>();
+    private boolean collapsedLoaded;
+    private final java.util.Set<RouteId> greyedRows = new java.util.LinkedHashSet<>();
     private final FocusModel focus;
     private final SettingsCatalog catalog = new SettingsCatalog();
     private final PendingChanges pending = new PendingChanges();
     private final DeferredValues deferred = new DeferredValues();
     private final List<String> screenOnlyModIds;
+    private final List<PluginPage> pluginPages;
     private List<ProfileChipRow.Chip> profileChips;
+    private List<PresetCardModel.Card> presetCards;
     private Favorites favorites;
 
     public NavPresenter() {
         List<String> modIds = catalog.modIds();
         this.screenOnlyModIds = screenOnlyModIds(modIds);
-        this.tree = buildTree(modIds, screenOnlyModIds);
+        this.pluginPages = discoverPluginPages();
+        this.tree = buildTree(modIds, screenOnlyModIds, pluginPages);
+        for (PluginPage page : pluginPages) {
+            if (!page.enabled()) {
+                greyedRows.add(PluginSettings.routeOf(page.id()));
+            }
+        }
         this.stack = new NavStack(tree, destinationOf(tree, tree.defaultRoute()));
-        this.sidebar = new SidebarModel(tree);
+        this.sidebar = new SidebarModel(tree, collapsed);
         this.focus = new FocusModel();
         this.focus.addRegion(REGION_SIDEBAR);
         this.focus.addRegion(REGION_CONTENT);
@@ -72,7 +87,70 @@ public final class NavPresenter {
     }
 
     public SidebarModel sidebar() {
+        ensureCollapsedLoaded();
         return sidebar;
+    }
+
+    private void ensureCollapsedLoaded() {
+        if (collapsedLoaded) {
+            return;
+        }
+        this.collapsedLoaded = true;
+        collapsed.addAll(SidebarModel.collapsedOrDefault(UiState.load(UiState.PATH).collapsed()));
+        rebuildSidebar();
+    }
+
+    private void rebuildSidebar() {
+        this.sidebar = new SidebarModel(tree, collapsed);
+        FocusRing ring = focus.ring(REGION_SIDEBAR);
+        for (NavNode row : tree.sidebarRows()) {
+            ring.setEnabled(row.route().toString(), visibleInSidebar(row));
+        }
+    }
+
+    public List<PluginPage> pluginPages() {
+        return pluginPages;
+    }
+
+    private static List<PluginPage> discoverPluginPages() {
+        List<PluginPage> pages = new ArrayList<>();
+        for (net.vulkanmod.api.MenuPlugin plugin
+                : net.vulkanmod.config.ui.settings.MenuPlugins.discover()) {
+            pages.add(new PluginPage(plugin.id(),
+                    net.vulkanmod.config.ui.settings.MenuPlugins.displayNameOf(plugin),
+                    net.vulkanmod.config.ui.settings.MenuPlugins.groupsOf(plugin),
+                    net.vulkanmod.config.ui.settings.MenuPlugins.enabledOf(plugin)));
+        }
+        return List.copyOf(pages);
+    }
+
+    public boolean rowGreyed(RouteId route) {
+        return greyedRows.contains(route);
+    }
+
+    public void toggleSection(String sectionKey) {
+        if (sectionKey == null || sectionKey.isBlank()) {
+            throw new IllegalArgumentException("sectionKey must not be blank");
+        }
+        ensureCollapsedLoaded();
+        if (!collapsed.remove(sectionKey)) {
+            collapsed.add(sectionKey);
+        }
+        rebuildSidebar();
+        UiState.save(UiState.PATH, favorites(), collapsed);
+    }
+
+    private boolean visibleInSidebar(NavNode row) {
+        String section = null;
+        for (NavNode node : tree.sidebarRows()) {
+            if (node.sectionKey() != null) {
+                section = node.sectionKey();
+            }
+            if (node.route().equals(row.route())) {
+                return section == null || !collapsed.contains(section);
+            }
+        }
+        return true;
     }
 
     public FocusModel focus() {
@@ -100,7 +178,7 @@ public final class NavPresenter {
 
     public void toggleFavorite(SettingId id) {
         favorites().toggle(id);
-        UiState.save(UiState.PATH, favorites());
+        UiState.save(UiState.PATH, favorites(), collapsed);
         if (!FAVORITES_ROUTE.equals(stack.current())) {
             return;
         }
@@ -113,7 +191,7 @@ public final class NavPresenter {
 
     private Favorites favorites() {
         if (favorites == null) {
-            this.favorites = UiState.load(UiState.PATH);
+            this.favorites = UiState.load(UiState.PATH).favorites();
         }
         return favorites;
     }
@@ -183,6 +261,7 @@ public final class NavPresenter {
         }
 
         this.profileChips = null;
+        this.presetCards = null;
         SettingBinding binding = catalog.binding(meta.id());
         if (deferred.set(meta.id(), value, binding.get())) {
             pending.mark(meta.id(), meta.scope());
@@ -198,6 +277,16 @@ public final class NavPresenter {
 
     public Optional<String> modScreen() {
         return modScreenOf(stack.current(), screenOnlyModIds);
+    }
+
+    public boolean favoritesFocused() {
+        return REGION_CONTENT.equals(focus.activeRegion()) && FAVORITES_FOCUS.equals(focus.focused());
+    }
+
+    public boolean openFavorites() {
+        boolean moved = navigate(FAVORITES);
+        FocusHandoff.enter(focus, REGION_CONTENT, FAVORITES_FOCUS);
+        return moved;
     }
 
     public boolean modScreenFocused() {
@@ -234,17 +323,31 @@ public final class NavPresenter {
         return OVERVIEW_ROUTE.equals(stack().current());
     }
 
+    private void applyPlugins() {
+        for (net.vulkanmod.api.MenuPlugin plugin
+                : net.vulkanmod.config.ui.settings.MenuPlugins.discover()) {
+            net.vulkanmod.config.ui.settings.MenuPlugins.applyTo(plugin);
+        }
+    }
+
     public void apply() {
         this.profileChips = null;
+        this.presetCards = null;
+        boolean[] touchedPlugin = {false};
         deferred.drainTo((id, value) -> {
             catalog.binding(id).set(value);
             pending.unmark(id);
+            touchedPlugin[0] |= catalog.pluginIds().contains(id.namespace());
         });
+        if (touchedPlugin[0]) {
+            applyPlugins();
+        }
         Initializer.CONFIG.write();
     }
 
     public void discard() {
         this.profileChips = null;
+        this.presetCards = null;
         deferred.clear();
         pending.clear();
     }
@@ -257,6 +360,16 @@ public final class NavPresenter {
                     ProfileMatcher.match(profiles, changeableValues()));
         }
         return profileChips;
+    }
+
+    public List<PresetCardModel.Card> presetCards() {
+        net.vulkanmod.config.ui.settings.OverviewSignals.harvest(playingProfileKey());
+        if (presetCards == null) {
+            this.presetCards = PresetCardModel.cards(changeableProfiles(), committedValues(), changeableValues(),
+                    PerformancePreset.CUSTOM.translationKey,
+                    net.vulkanmod.config.ui.settings.OverviewSignals.suggestedPresetKey(playingProfileKey()));
+        }
+        return presetCards;
     }
 
     public boolean applyProfile(String profileKey) {
@@ -286,6 +399,26 @@ public final class NavPresenter {
             profiles.put(key, governed);
         });
         return profiles;
+    }
+
+    public String playingProfileKey() {
+        Map<SettingId, Object> live = committedValues();
+        for (Map.Entry<String, Map<SettingId, Object>> profile : changeableProfiles().entrySet()) {
+            if (PresetCardModel.differing(profile.getValue(), live) == 0) {
+                return profile.getKey();
+            }
+        }
+        return null;
+    }
+
+    private Map<SettingId, Object> committedValues() {
+        Map<SettingId, Object> values = new LinkedHashMap<>();
+        catalog.currentProfileValues().forEach((id, value) -> {
+            if (catalog.enabled(id)) {
+                values.put(id, value);
+            }
+        });
+        return values;
     }
 
     private Map<SettingId, Object> changeableValues() {
@@ -362,10 +495,15 @@ public final class NavPresenter {
 
     public RouteId activeSidebarRoute() {
         RouteId route = stack.current();
-        while (route.depth() > 1) {
+        while (route.depth() > 1 && !isSidebarRow(route)) {
             route = route.parent();
         }
         return route;
+    }
+
+    private boolean isSidebarRow(RouteId route) {
+        NavNode node = tree.find(route);
+        return node != null && node.sidebarVisible();
     }
 
     public List<NavNode> subTabs() {
@@ -441,7 +579,7 @@ public final class NavPresenter {
     private static RouteId destinationOf(NavTree tree, RouteId route) {
         RouteId destination = route;
         List<NavNode> children = tree.children(destination);
-        while (!children.isEmpty()) {
+        while (!children.isEmpty() && !children.get(0).sidebarVisible()) {
             destination = children.get(0).route();
             children = tree.children(destination);
         }
@@ -460,10 +598,19 @@ public final class NavPresenter {
         if (modScreen().isPresent()) {
             ring.register(MOD_SCREEN_FOCUS, true);
         }
+        ring.register(FAVORITES_FOCUS, true);
+    }
+
+    public record PluginPage(String id, String name, List<String> groups, boolean enabled) {
     }
 
     static NavTree buildTree(List<String> modIds, List<String> screenOnlyModIds) {
-        if (modIds == null || screenOnlyModIds == null) {
+        return buildTree(modIds, screenOnlyModIds, List.of());
+    }
+
+    static NavTree buildTree(List<String> modIds, List<String> screenOnlyModIds,
+                             List<PluginPage> pluginPages) {
+        if (modIds == null || screenOnlyModIds == null || pluginPages == null) {
             throw new IllegalArgumentException("modIds and screenOnlyModIds must not be null");
         }
         NavTree.Builder builder = new NavTree.Builder()
@@ -497,7 +644,8 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("shaders.profiles"), "vulkanmod.ui.page.shaders.profiles", null, false))
                 .add(new NavNode(RouteId.parse("shaders.settings"), "vulkanmod.ui.page.shaders.settings", null, false))
                 .add(new NavNode(RouteId.parse("mods"), "vulkanmod.ui.page.mods", "vulkanmod.ui.section.content", true))
-                .add(new NavNode(RouteId.parse("favorites"), "vulkanmod.ui.page.favorites", null, true))
+                .add(new NavNode(RouteId.parse("favorites"), "vulkanmod.ui.page.favorites", null, false))
+                .add(new NavNode(RouteId.parse("plugins"), "vulkanmod.ui.page.plugins", null, true))
                 .add(new NavNode(RouteId.parse("advanced"), "vulkanmod.ui.page.advanced", "vulkanmod.ui.section.system", true))
                 .add(new NavNode(RouteId.parse("advanced.renderer"), "vulkanmod.ui.page.advanced.renderer", null, false))
                 .add(new NavNode(RouteId.parse("advanced.synchronization"), "vulkanmod.ui.page.advanced.synchronization", null, false))
@@ -505,6 +653,13 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("experimental"), "vulkanmod.ui.page.experimental", null, true))
                 .add(new NavNode(RouteId.parse("developer"), "vulkanmod.ui.page.developer", null, true));
 
+        for (PluginPage plugin : pluginPages) {
+            builder.add(new NavNode(PluginSettings.routeOf(plugin.id()), plugin.name(), null, true));
+            for (String group : plugin.groups()) {
+                builder.add(new NavNode(PluginSettings.routeOf(plugin.id(), group),
+                        "vulkanmod.ui.plugin.group." + group, null, false));
+            }
+        }
         for (String modId : modIds) {
             builder.add(new NavNode(ModSettings.routeOf(modId), modName(modId), null, false));
         }
@@ -514,7 +669,7 @@ public final class NavPresenter {
         return builder.build();
     }
 
-    private static String modName(String modId) {
+    public static String modName(String modId) {
         try {
             return ModList.get().getModContainerById(modId)
                     .map(container -> container.getModInfo().getDisplayName())

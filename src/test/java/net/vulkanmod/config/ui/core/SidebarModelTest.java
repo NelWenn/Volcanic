@@ -1,6 +1,8 @@
 package net.vulkanmod.config.ui.core;
 
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SidebarModelTest {
@@ -9,13 +11,16 @@ class SidebarModelTest {
     private static final RouteId RENDERING = RouteId.parse("rendering");
     private static final RouteId MODS = RouteId.parse("mods");
 
-    private static SidebarModel model() {
-        NavTree tree = new NavTree.Builder()
+    private static NavTree tree() {
+        return new NavTree.Builder()
                 .add(new NavNode(OVERVIEW, "k.overview", "k.section.volcanic", true))
                 .add(new NavNode(RENDERING, "k.rendering", null, true))
-                .add(new NavNode(MODS, "k.mods", "k.section.content", true))
+                .add(new NavNode(MODS, "k.mods", SidebarModel.SECTION_SYSTEM, true))
                 .build();
-        return new SidebarModel(tree);
+    }
+
+    private static SidebarModel model() {
+        return new SidebarModel(tree());
     }
 
     @Test
@@ -64,31 +69,6 @@ class SidebarModelTest {
     }
 
     @Test
-    void routeAtResolvesRowsOnly() {
-        SidebarModel model = model();
-        assertNull(model.routeAt(0));
-        assertEquals(OVERVIEW, model.routeAt(16));
-        assertEquals(RENDERING, model.routeAt(41));
-        assertNull(model.routeAt(66));
-        assertEquals(MODS, model.routeAt(82));
-    }
-
-    @Test
-    void routeAtReturnsNullOutsideTheContent() {
-        SidebarModel model = model();
-        assertNull(model.routeAt(-1));
-        assertNull(model.routeAt(107));
-    }
-
-    @Test
-    void indexOfRouteFindsRowsAndRejectsUnknowns() {
-        SidebarModel model = model();
-        assertEquals(1, model.indexOfRoute(OVERVIEW));
-        assertEquals(4, model.indexOfRoute(MODS));
-        assertEquals(-1, model.indexOfRoute(RouteId.parse("nope")));
-    }
-
-    @Test
     void scrollClampsToTheOverflow() {
         SidebarModel model = model();
         assertEquals(0, model.maxScroll(200));
@@ -102,7 +82,7 @@ class SidebarModelTest {
         SidebarModel model = new SidebarModel(new NavTree.Builder().build());
         assertEquals(0, model.entryCount());
         assertEquals(0, model.totalHeight());
-        assertNull(model.routeAt(0));
+        assertNull(model.entryAt(0));
     }
 
     @Test
@@ -111,24 +91,74 @@ class SidebarModelTest {
     }
 
     @Test
-    void indexOfRouteRejectsANullRoute() {
-        SidebarModel model = model();
-        assertThrows(IllegalArgumentException.class, () -> model.indexOfRoute(null));
+    void anEntryRejectsWhatItCannotDraw() {
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Row(null, "k.title", 1));
+        assertThrows(IllegalArgumentException.class,
+                () -> new SidebarModel.Row(RouteId.parse("overview"), " ", 1));
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Section(null, false));
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Section("", false));
     }
 
     @Test
-    void rowRejectsANullRoute() {
-        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Row(null, "k.title"));
+    void aCollapsedSectionKeepsItsHeaderAndDropsItsRows() {
+        NavTree tree = tree();
+        SidebarModel open = new SidebarModel(tree, java.util.Set.of());
+        SidebarModel shut = new SidebarModel(tree, java.util.Set.of(SidebarModel.SECTION_SYSTEM));
+
+        assertTrue(shut.entryCount() < open.entryCount(), "collapsing must remove rows");
+        long headers = shut.entries().stream().filter(e -> e instanceof SidebarModel.Section).count();
+        long openHeaders = open.entries().stream().filter(e -> e instanceof SidebarModel.Section).count();
+        assertEquals(openHeaders, headers, "headers never disappear, only their rows");
     }
 
     @Test
-    void rowRejectsABlankTitleKey() {
-        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Row(RouteId.parse("overview"), " "));
+    void theCollapsedFlagReachesTheHeaderItBelongsTo() {
+        SidebarModel shut = new SidebarModel(tree(), java.util.Set.of(SidebarModel.SECTION_SYSTEM));
+        for (SidebarModel.Entry entry : shut.entries()) {
+            if (entry instanceof SidebarModel.Section section) {
+                assertEquals(SidebarModel.SECTION_SYSTEM.equals(section.labelKey()), section.collapsed());
+            }
+        }
     }
 
     @Test
-    void sectionRejectsABlankLabelKey() {
-        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Section(null));
-        assertThrows(IllegalArgumentException.class, () -> new SidebarModel.Section(""));
+    void paintingAndHitTestingCannotDiverge() {
+        for (java.util.Set<String> collapsed
+                : List.of(java.util.Set.<String>of(), java.util.Set.of(SidebarModel.SECTION_SYSTEM))) {
+            SidebarModel model = new SidebarModel(tree(), collapsed);
+            for (int i = 0; i < model.entryCount(); i++) {
+                assertEquals(i, model.entryIndexAt(model.offsetOf(i)),
+                        "top edge of entry " + i + " with collapsed=" + collapsed);
+                assertEquals(i, model.entryIndexAt(model.offsetOf(i) + model.heightOf(i) - 1),
+                        "bottom edge of entry " + i + " with collapsed=" + collapsed);
+            }
+        }
+    }
+
+    @Test
+    void scrollStaysInsideTheShorterListAfterCollapsing() {
+        SidebarModel shut = new SidebarModel(tree(), java.util.Set.of(SidebarModel.SECTION_SYSTEM));
+        int clamped = shut.clampScroll(9000, 60);
+
+        assertTrue(clamped <= shut.maxScroll(60));
+        assertTrue(shut.firstVisible(clamped) <= shut.lastVisible(clamped, 60),
+                "a stale scroll must not blank the sidebar");
+    }
+
+    @Test
+    void aFreshInstallCollapsesSystemAndAnEmptyListCollapsesNothing() {
+        assertEquals(java.util.Set.of(SidebarModel.SECTION_SYSTEM),
+                SidebarModel.collapsedOrDefault(null));
+        assertEquals(java.util.Set.of(), SidebarModel.collapsedOrDefault(List.of()),
+                "an empty stored list means the user expanded everything");
+        assertEquals(java.util.Set.of("a", "b"), SidebarModel.collapsedOrDefault(List.of("a", "b")));
+    }
+
+    @Test
+    void anIndexOutsideTheListYieldsNoEntry() {
+        SidebarModel model = new SidebarModel(tree());
+        assertNull(model.entryAt(-1));
+        assertNull(model.entryAt(model.entryCount()));
+        assertThrows(IllegalArgumentException.class, () -> new SidebarModel(tree(), null));
     }
 }

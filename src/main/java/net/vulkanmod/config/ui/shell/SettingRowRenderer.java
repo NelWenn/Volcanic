@@ -49,7 +49,7 @@ public final class SettingRowRenderer {
             "......."};
 
     private static final int STAR_INSET = 3;
-    private static final String[] STAR = {
+    static final String[] STAR = {
             "....#....",
             "...###...",
             "...###...",
