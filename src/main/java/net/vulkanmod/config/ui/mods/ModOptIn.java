@@ -191,6 +191,10 @@ public final class ModOptIn {
     }
 
     private static String modIdOf(ModSettingsEntry entry) {
+        Optional<String> declared = entry.modId();
+        if (declared.isPresent()) {
+            return declared.get();
+        }
         FormattedText modName = entry.modName;
         if (modName == null) {
             throw new IllegalArgumentException("modName must not be null");
