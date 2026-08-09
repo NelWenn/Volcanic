@@ -8,18 +8,22 @@ import net.vulkanmod.config.ui.core.SettingType;
 
 import java.util.List;
 
-public final class ShaderParameters {
-    public static final RouteId ROUTE = RouteId.parse("shaders.settings");
+public final class PluginParameters {
+    public static final RouteId SHADER_ROUTE = RouteId.parse("shaders.settings");
 
-    private ShaderParameters() {
+    private PluginParameters() {
     }
 
-    // TODO(revo) — le menu sait déjà afficher tout ça, il manque juste la source.
+    // TODO(revo) — le menu sait déjà tout afficher, il manque la source.
     //
-    // Renvoie ici les paramètres du plugin actif. Un SettingMeta par paramètre :
+    // À accrocher sur RenderPipelinePlugin, PAS sur un type propre aux shaders : un plugin
+    // n'est pas forcément un shader (Caldera, un overlay de debug…) et devrait pouvoir
+    // exposer ses réglages pareil. Un seul mécanisme pour tous les plugins.
+    //
+    // Renvoie un SettingMeta par paramètre :
     //   new SettingMeta.Builder(
     //           SettingId.of(pluginId, "sun.intensity"),  // namespace = id() du plugin
-    //           ROUTE,                                    // placement : à nous, pas à toi
+    //           SHADER_ROUTE,                             // placement : à nous, pas à toi
     //           "shader.radiance.sun_intensity",          // clé de trad, jamais un littéral
     //           SettingType.FLOAT,                        // BOOL / INT / FLOAT / ENUM
     //           SettingSource.SHADERS)
