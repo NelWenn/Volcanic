@@ -31,6 +31,7 @@ import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRegistry;
 import net.vulkanmod.config.ui.mods.ModConfigReader;
+import net.vulkanmod.config.ui.mods.ModOptIn;
 import net.vulkanmod.config.ui.mods.ModSettings;
 import net.vulkanmod.config.video.VideoModeManager;
 import net.vulkanmod.config.video.VideoModeSet;
@@ -47,6 +48,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 // Choice labels are translation keys; Minecraft renders an unknown key as itself, so plain
 // values such as "1920 x 1080" or "144" pass through untranslated.
@@ -139,19 +141,32 @@ public final class SettingsCatalog {
     }
 
     private void registerMods() {
-        List<ModSettings> mods;
-        try {
-            mods = ModConfigReader.readAll();
-        } catch (Throwable t) {
-            return;
+        Set<String> optedIn = new LinkedHashSet<>();
+        for (ModSettings mod : read(ModOptIn::readAll)) {
+            optedIn.add(mod.modId());
+            registerGuarded(mod);
         }
-        for (ModSettings mod : mods) {
-            try {
-                registerMod(mod);
-            } catch (RuntimeException e) {
-                Initializer.LOGGER.warn("Left {} out of the mods list: its settings could not be registered",
-                        mod.modId(), e);
+        for (ModSettings mod : read(ModConfigReader::readAll)) {
+            if (!optedIn.contains(mod.modId())) {
+                registerGuarded(mod);
             }
+        }
+    }
+
+    private static List<ModSettings> read(Supplier<List<ModSettings>> source) {
+        try {
+            return source.get();
+        } catch (Throwable t) {
+            return List.of();
+        }
+    }
+
+    private void registerGuarded(ModSettings mod) {
+        try {
+            registerMod(mod);
+        } catch (RuntimeException e) {
+            Initializer.LOGGER.warn("Left {} out of the mods list: its settings could not be registered",
+                    mod.modId(), e);
         }
     }
 

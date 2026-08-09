@@ -30,6 +30,22 @@ public class RangeOption extends Option<Integer> {
         return Component.nullToEmpty(this.name.getString() + ": " + this.getNewValue().toString());
     }
 
+    public Component getBaseName() {
+        return this.name;
+    }
+
+    public int getMin() {
+        return this.min;
+    }
+
+    public int getMax() {
+        return this.max;
+    }
+
+    public int getStep() {
+        return this.step;
+    }
+
     public float getScaledValue() {
         return this.scaledNewValue;
     }
