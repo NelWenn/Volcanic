@@ -26,9 +26,15 @@ public final class TooltipLayout {
             throw new IllegalArgumentException("lineCount must be at least one: " + lineCount);
         }
 
-        int width = Math.min(textWidth + PAD_X * 2, screen.width() - MARGIN * 2);
-        int height = Math.min(lineCount * TEXT_HEIGHT + (lineCount - 1) * LINE_GAP + PAD_Y * 2,
-                screen.height() - MARGIN * 2);
+        return placeBox(anchor, textWidth + PAD_X * 2,
+                lineCount * TEXT_HEIGHT + (lineCount - 1) * LINE_GAP + PAD_Y * 2, screen);
+    }
+
+    public static Rect placeBox(Rect anchor, int boxWidth, int boxHeight, Rect screen) {
+        require(anchor, "anchor");
+        require(screen, "screen");
+        int width = Math.min(boxWidth, screen.width() - MARGIN * 2);
+        int height = Math.min(boxHeight, screen.height() - MARGIN * 2);
         if (width <= 0 || height <= 0) {
             return Rect.EMPTY;
         }
@@ -37,6 +43,14 @@ public final class TooltipLayout {
         int top = below + height <= screen.bottom() - MARGIN ? below : anchor.y() - GAP - height;
         return new Rect(clamp(anchor.x(), screen.x() + MARGIN, screen.right() - MARGIN - width),
                 clamp(top, screen.y() + MARGIN, screen.bottom() - MARGIN - height), width, height);
+    }
+
+    public static int availableHeight(Rect anchor, Rect screen) {
+        require(anchor, "anchor");
+        require(screen, "screen");
+        int below = screen.bottom() - MARGIN - (anchor.bottom() + GAP);
+        int above = anchor.y() - GAP - (screen.y() + MARGIN);
+        return Math.max(0, Math.max(below, above));
     }
 
     public static int lineCapacity(Rect box) {

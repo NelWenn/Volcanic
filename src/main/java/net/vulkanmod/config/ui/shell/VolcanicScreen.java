@@ -42,6 +42,7 @@ public class VolcanicScreen extends Screen {
     private int contentScroll;
     private RouteId scrolledRoute;
     private SettingId dragged;
+    private SettingId pinned;
     private boolean drawerOpen;
     private int searchSelection = -1;
     private long frameNanos;
@@ -90,8 +91,9 @@ public class VolcanicScreen extends Screen {
         if (searchFocused()) {
             renderer.renderSearchOverlay(painter, this.font, layout, presenter, searchResults(),
                     search.query(), searchSelection, mouseX, mouseY);
-        } else if (!drawerOpen && dragged == null) {
-            renderer.renderTooltip(painter, this.font, layout, presenter, contentScroll, mouseX, mouseY);
+        } else if (!layout.hasDetailsPanel() && !drawerOpen) {
+            renderer.renderCard(painter, this.font, layout, presenter, contentScroll, mouseX, mouseY,
+                    pinned, dragged);
         }
         if (search != null) {
             search.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -141,10 +143,14 @@ public class VolcanicScreen extends Screen {
             setDrawerOpen(false);
             return true;
         }
+        if (renderer.lastCard().contains(x, y)) {
+            return true;
+        }
         if (clickApplyBar(x, y) || clickTabStrip(x, y) || clickBreadcrumb(x, y)
                 || clickProfileChip(x, y) || clickModScreen(x, y) || clickSettingRow(x, y)) {
             return true;
         }
+        this.pinned = null;
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
@@ -203,6 +209,10 @@ public class VolcanicScreen extends Screen {
         }
         switch (action) {
             case CLOSE -> {
+                if (pinned != null) {
+                    this.pinned = null;
+                    return true;
+                }
                 if (drawerOpen) {
                     setDrawerOpen(false);
                 } else {
@@ -224,6 +234,7 @@ public class VolcanicScreen extends Screen {
             case NEXT, PREVIOUS, UP, DOWN, HOME, END -> {
                 presenter.focus().apply(action);
                 revealFocusedSetting();
+                pinFocused();
                 return true;
             }
             case ACTIVATE -> {
@@ -411,6 +422,9 @@ public class VolcanicScreen extends Screen {
         }
 
         SettingMeta meta = presenter.settings().get(index);
+        presenter.focus().focusRegion(NavPresenter.REGION_CONTENT);
+        presenter.focus().ring(NavPresenter.REGION_CONTENT).focus(meta.id().toString());
+        this.pinned = meta.id();
         if (SettingRowLayout.starBox(boxes.get(index)).contains(mouseX, mouseY)) {
             presenter.toggleFavorite(meta.id());
             return true;
@@ -469,6 +483,11 @@ public class VolcanicScreen extends Screen {
 
         presenter.navigate(presenter.stack().trail().get(index));
         return true;
+    }
+
+    private void pinFocused() {
+        SettingMeta focused = presenter.focusedSetting();
+        this.pinned = focused == null ? null : focused.id();
     }
 
     private void select(RouteId route, String regionId) {

@@ -58,6 +58,8 @@ public final class Theme {
         colors.put(ColorToken.SUCCESS, 0xFF8FBC76);
         colors.put(ColorToken.SUCCESS_BG, 0xFF1C2A18);
         colors.put(ColorToken.WARNING, 0xFFE0A03A);
+        colors.put(ColorToken.IMPACT_TRACK, 0xFF251A17);
+        colors.put(ColorToken.IMPACT_VISUAL, 0xFF4A3730);
         return new Theme(colors);
     }
 }

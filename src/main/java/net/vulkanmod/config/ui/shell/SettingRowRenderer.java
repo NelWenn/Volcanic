@@ -29,7 +29,7 @@ public final class SettingRowRenderer {
     private static final String ARROW_RIGHT = "\u203A";
     private static final String ITALIC = "\u00A7o";
 
-    private static final String[] FLASK = {
+    static final String[] FLASK = {
             "..###..",
             "...#...",
             "...#...",
@@ -38,7 +38,7 @@ public final class SettingRowRenderer {
             "#######",
             "#######"};
 
-    private static final String[] CHECK = {
+    static final String[] CHECK = {
             "......#",
             ".....##",
             "#...##.",
@@ -193,7 +193,7 @@ public final class SettingRowRenderer {
         return hovered ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_MUTED;
     }
 
-    private static void paintGlyph(SurfacePainter painter, Rect glyph, String[] pattern, int argb, boolean filled) {
+    static void paintGlyph(SurfacePainter painter, Rect glyph, String[] pattern, int argb, boolean filled) {
         if (glyph.isEmpty()) {
             return;
         }

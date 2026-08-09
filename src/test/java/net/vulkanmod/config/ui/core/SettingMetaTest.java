@@ -32,6 +32,17 @@ class SettingMetaTest {
         assertFalse(meta.experimental());
         assertFalse(meta.recommended());
         assertNull(meta.descriptionKey());
+        assertNull(meta.performance());
+        assertNull(meta.visual());
+    }
+
+    @Test
+    void rejectsAnUnratedImpactInsteadOfStoringNull() {
+        assertThrows(IllegalArgumentException.class, () -> valid().performance(null));
+        assertThrows(IllegalArgumentException.class, () -> valid().visual(null));
+        SettingMeta meta = valid().performance(ImpactLevel.HIGH).visual(ImpactLevel.NONE).build();
+        assertEquals(ImpactLevel.HIGH, meta.performance());
+        assertEquals(ImpactLevel.NONE, meta.visual());
     }
 
     @Test

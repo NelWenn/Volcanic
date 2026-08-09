@@ -22,5 +22,7 @@ public enum ColorToken {
     ACCENT_BRIGHT,
     SUCCESS,
     SUCCESS_BG,
-    WARNING
+    WARNING,
+    IMPACT_TRACK,
+    IMPACT_VISUAL
 }

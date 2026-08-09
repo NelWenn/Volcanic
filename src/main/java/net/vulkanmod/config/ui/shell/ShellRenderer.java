@@ -8,9 +8,14 @@ import net.minecraft.network.chat.Style;
 import net.vulkanmod.config.ui.core.ApplyBarModel;
 import net.vulkanmod.config.ui.core.ApplyScope;
 import net.vulkanmod.config.ui.core.BreadcrumbModel;
+import net.vulkanmod.config.ui.core.Breakpoint;
 import net.vulkanmod.config.ui.core.ColorToken;
+import net.vulkanmod.config.ui.core.DetailsContent;
+import net.vulkanmod.config.ui.core.DetailsItem;
+import net.vulkanmod.config.ui.core.DetailsLayout;
 import net.vulkanmod.config.ui.core.Gradient;
 import net.vulkanmod.config.ui.core.HoverState;
+import net.vulkanmod.config.ui.core.ImpactLevel;
 import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.OverviewModel;
@@ -82,13 +87,24 @@ public final class ShellRenderer {
     private static final int TOOLTIP_RADIUS = 4;
     private static final int OVERLAY_PAD_X = 8;
     private static final int RESULT_RADIUS = 4;
+    private static final String KEY_DETAILS_EMPTY = "vulkanmod.details.empty";
+    private static final String KEY_DETAILS_PERFORMANCE = "vulkanmod.details.performance";
+    private static final String KEY_DETAILS_VISUAL = "vulkanmod.details.visual";
+    private static final String KEY_DETAILS_RECOMMENDED = "vulkanmod.details.recommended";
+    private static final String KEY_DETAILS_RESTART = "vulkanmod.details.restart";
+    private static final String KEY_DETAILS_EXPERIMENTAL = "vulkanmod.details.experimental";
+    private static final int DETAILS_GLYPH = 7;
+    private static final int DETAILS_GLYPH_GAP = 3;
     private static final RouteId OVERVIEW = RouteId.parse("overview");
     private static final RouteId FAVORITES = RouteId.parse("favorites");
     private static final RouteId MODS = RouteId.parse("mods");
     private static final int PROFILE_ROW = 0;
 
+    private static final int CARD_MARGIN = 4;
+
     private final Theme theme;
     private final SettingRowRenderer rowRenderer;
+    private Rect lastCard = Rect.EMPTY;
     private final HoverState hover = new HoverState(Motion.HOVER_MS);
     private final HoverState focus = new HoverState(Motion.SELECTION_MS);
 
@@ -140,6 +156,20 @@ public final class ShellRenderer {
             }
         }
 
+        Rect details = layout.details();
+        if (!details.isEmpty()) {
+            graphics.enableScissor(details.x(), details.y(), details.right(), details.bottom());
+            try {
+                SettingMeta target = searchFocused
+                        ? presenter.focusedSetting()
+                        : cardTarget(layout, presenter, contentScroll, mouseX, mouseY, null, dragged);
+                paintDetailItems(painter, details, detailsItems(font, presenter, target, details));
+                painter.flush();
+            } finally {
+                graphics.disableScissor();
+            }
+        }
+
         if (layout.hasDrawer() && !nav.isEmpty()) {
             painter.fill(layout.content(), theme.color(ColorToken.SURFACE_SUNKEN, SCRIM_ALPHA));
             painter.flush();
@@ -153,8 +183,98 @@ public final class ShellRenderer {
         focus.endFrame();
     }
 
-    public void renderTooltip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                              int contentScroll, int mouseX, int mouseY) {
+    private static List<String> wrapped(Font font, String key, int wrapWidth) {
+        if (key == null || key.isBlank()) {
+            return List.of();
+        }
+        return wrappedText(font, I18n.get(key), wrapWidth);
+    }
+
+    private static List<String> wrappedText(Font font, String text, int wrapWidth) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        List<String> lines = new ArrayList<>();
+        for (FormattedText line : font.getSplitter().splitLines(text, wrapWidth, Style.EMPTY)) {
+            lines.add(line.getString());
+        }
+        return lines;
+    }
+
+    private static DetailsContent.Text detailsText(Font font, int wrapWidth) {
+        return (key, uppercase) -> {
+            if (key == null || key.isBlank()) {
+                return List.of();
+            }
+            String value = I18n.get(key);
+            return wrappedText(font, uppercase ? value.toUpperCase(Locale.ROOT) : value, wrapWidth);
+        };
+    }
+
+    private List<DetailsItem> detailsItems(Font font, NavPresenter presenter, SettingMeta meta, Rect box) {
+        int wrapWidth = DetailsLayout.textWidth(box);
+        int capacity = DetailsLayout.lineCapacity(box);
+        if (wrapWidth <= 0 || capacity <= 0) {
+            return List.of();
+        }
+        String reasonKey = meta == null ? null : presenter.catalog().disabledReason(meta.id()).orElse(null);
+        return DetailsContent.fit(meta, reasonKey, detailsText(font, wrapWidth), capacity);
+    }
+
+    private SettingMeta cardTarget(ShellLayout layout, NavPresenter presenter, int contentScroll,
+                                   int mouseX, int mouseY, SettingId pinned, SettingId dragged) {
+        SettingMeta held = settingById(presenter, dragged != null ? dragged : pinned);
+        if (held != null) {
+            return held;
+        }
+        SettingMeta hovered = hoveredSetting(layout, presenter, contentScroll, mouseX, mouseY);
+        return hovered != null ? hovered : presenter.focusedSetting();
+    }
+
+    private SettingMeta hoveredSetting(ShellLayout layout, NavPresenter presenter, int contentScroll,
+                                       int mouseX, int mouseY) {
+        if (!layout.content().contains(mouseX, mouseY)) {
+            return null;
+        }
+        List<SettingMeta> settings = presenter.settings();
+        List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
+        for (int i = 0; i < settings.size() && i < boxes.size(); i++) {
+            if (boxes.get(i).contains(mouseX, mouseY)) {
+                return settings.get(i);
+            }
+        }
+        return null;
+    }
+
+    private static SettingMeta settingById(NavPresenter presenter, SettingId id) {
+        if (id == null) {
+            return null;
+        }
+        for (SettingMeta meta : presenter.settings()) {
+            if (meta.id().equals(id)) {
+                return meta;
+            }
+        }
+        return null;
+    }
+
+    private Rect anchorOf(ShellLayout layout, NavPresenter presenter, int contentScroll, SettingMeta meta) {
+        List<SettingMeta> settings = presenter.settings();
+        List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
+        for (int i = 0; i < settings.size() && i < boxes.size(); i++) {
+            if (settings.get(i).id().equals(meta.id())) {
+                return boxes.get(i);
+            }
+        }
+        return Rect.EMPTY;
+    }
+
+    public Rect lastCard() {
+        return lastCard;
+    }
+
+    public void renderCard(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                           int contentScroll, int mouseX, int mouseY, SettingId pinned, SettingId dragged) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
         }
@@ -162,80 +282,92 @@ public final class ShellRenderer {
         if (contentScroll < 0) {
             throw new IllegalArgumentException("contentScroll must not be negative: " + contentScroll);
         }
-        if (!layout.content().contains(mouseX, mouseY)) {
+        this.lastCard = Rect.EMPTY;
+
+        boolean sheet = layout.breakpoint() == Breakpoint.COMPACT;
+        SettingMeta meta = sheet
+                ? settingById(presenter, dragged != null ? dragged : pinned)
+                : cardTarget(layout, presenter, contentScroll, mouseX, mouseY, pinned, dragged);
+        if (meta == null) {
             return;
         }
-
-        List<SettingMeta> settings = presenter.settings();
-        List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
-        for (int i = 0; i < settings.size() && i < boxes.size(); i++) {
-            if (boxes.get(i).contains(mouseX, mouseY)) {
-                paintTooltip(painter, font, layout, presenter, boxes.get(i), settings.get(i));
-                return;
-            }
-        }
-    }
-
-    private void paintTooltip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                              Rect row, SettingMeta meta) {
         Rect bounds = layout.content();
-        int wrapWidth = TooltipLayout.maxTextWidth(bounds);
-        if (wrapWidth <= 0) {
+        Rect anchor = anchorOf(layout, presenter, contentScroll, meta);
+        if (bounds.isEmpty() || (!sheet && anchor.isEmpty())) {
             return;
         }
 
-        List<String> reason = wrapped(font,
-                presenter.catalog().disabledReason(meta.id()).orElse(null), wrapWidth);
-        List<String> description = wrapped(font, meta.descriptionKey(), wrapWidth);
-        if (reason.isEmpty() && description.isEmpty()) {
+        int width = Math.min(ShellLayout.DETAILS_WIDTH, bounds.width() - TooltipLayout.MARGIN * 2);
+        Rect probe = sheet
+                ? DetailsLayout.sheet(bounds, bounds.height(), CARD_MARGIN)
+                : new Rect(0, 0, width, TooltipLayout.availableHeight(anchor, bounds));
+        List<DetailsItem> items = detailsItems(font, presenter, meta, probe);
+        if (items.isEmpty()) {
             return;
         }
 
-        int textWidth = 0;
-        for (String line : reason) {
-            textWidth = Math.max(textWidth, font.width(line));
-        }
-        for (String line : description) {
-            textWidth = Math.max(textWidth, font.width(line));
-        }
-
-        Rect box = TooltipLayout.place(row, textWidth, reason.size() + description.size(), bounds);
+        int height = DetailsLayout.height(items.size());
+        Rect box = sheet
+                ? DetailsLayout.sheet(bounds, height, CARD_MARGIN)
+                : TooltipLayout.placeBox(anchor, width, height, bounds);
         if (box.isEmpty()) {
             return;
         }
 
-        paintRoundedFill(painter, box, TOOLTIP_RADIUS, theme.color(ColorToken.SURFACE_CHROME));
-        paintRoundedOutline(painter, box, TOOLTIP_RADIUS, theme.color(ColorToken.BORDER_ACCENT));
-
-        int capacity = TooltipLayout.lineCapacity(box);
-        int index = paintTooltipLines(painter, box, reason, 0, capacity, ColorToken.WARNING);
-        paintTooltipLines(painter, box, description, index, capacity, ColorToken.TEXT_SECONDARY);
+        int radius = sheet ? OVERLAY_RADIUS : TOOLTIP_RADIUS;
+        paintRoundedFill(painter, box, radius, theme.color(ColorToken.SURFACE_CHROME));
+        paintRoundedOutline(painter, box, radius, theme.color(ColorToken.BORDER_ACCENT));
+        paintDetailItems(painter, box, items);
         painter.flush();
+        this.lastCard = box;
     }
 
-    private int paintTooltipLines(SurfacePainter painter, Rect box, List<String> lines, int from, int capacity,
-                                  ColorToken token) {
-        int index = from;
-        for (String line : lines) {
-            if (index >= capacity) {
-                return index;
+    private void paintDetailItems(SurfacePainter painter, Rect box, List<DetailsItem> items) {
+        int capacity = DetailsLayout.lineCapacity(box);
+        for (int index = 0; index < items.size() && index < capacity; index++) {
+            DetailsItem item = items.get(index);
+            if (item.isBlank()) {
+                continue;
             }
-            painter.text(box.x() + TooltipLayout.PAD_X, TooltipLayout.lineTop(box, index), line,
-                    theme.color(token), false);
-            index++;
+            if (item.isBar()) {
+                paintImpactBar(painter, box, index, item);
+                continue;
+            }
+            int top = DetailsLayout.lineTop(box, index);
+            int x = box.x() + DetailsLayout.PAD_X;
+            String[] glyph = glyphOf(item.glyph());
+            if (glyph != null) {
+                SettingRowRenderer.paintGlyph(painter, new Rect(x, top, DETAILS_GLYPH, DetailsLayout.TEXT_HEIGHT),
+                        glyph, theme.color(item.token()), true);
+                x += DETAILS_GLYPH + DETAILS_GLYPH_GAP;
+            }
+            painter.text(x, top, item.text(), theme.color(item.token()), false);
         }
-        return index;
     }
 
-    private static List<String> wrapped(Font font, String key, int wrapWidth) {
-        if (key == null || key.isBlank()) {
-            return List.of();
+    private void paintImpactBar(SurfacePainter painter, Rect box, int index, DetailsItem item) {
+        Rect track = DetailsLayout.bar(box, index);
+        if (track.isEmpty()) {
+            return;
         }
-        List<String> lines = new ArrayList<>();
-        for (FormattedText line : font.getSplitter().splitLines(I18n.get(key), wrapWidth, Style.EMPTY)) {
-            lines.add(line.getString());
+        painter.fill(track, theme.color(ColorToken.IMPACT_TRACK));
+        Rect fill = DetailsLayout.barFill(track, item.bar());
+        if (fill.isEmpty()) {
+            return;
         }
-        return lines;
+        if (item.accentBar()) {
+            painter.gradient(fill, theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
+        } else {
+            painter.fill(fill, theme.color(ColorToken.IMPACT_VISUAL));
+        }
+    }
+
+    private static String[] glyphOf(DetailsItem.Glyph glyph) {
+        return switch (glyph) {
+            case CHECK -> SettingRowRenderer.CHECK;
+            case FLASK -> SettingRowRenderer.FLASK;
+            case NONE -> null;
+        };
     }
 
     public void renderSearchOverlay(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
@@ -454,6 +586,9 @@ public final class ShellRenderer {
         if (!layout.sidebar().isEmpty()) {
             painter.fill(new Rect(layout.sidebar().right(), layout.sidebar().y(), 1, layout.sidebar().height()),
                     border);
+        }
+        if (layout.hasDetailsPanel()) {
+            painter.fill(new Rect(layout.details().x(), layout.details().y(), 1, layout.details().height()), border);
         }
         painter.fill(new Rect(layout.topBar().x(), layout.topBar().bottom() - 1, layout.topBar().width(), 1), border);
         painter.fill(new Rect(layout.bottomBar().x(), layout.bottomBar().y(), layout.bottomBar().width(), 1), border);

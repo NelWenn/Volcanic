@@ -152,4 +152,47 @@ class TooltipLayoutTest {
         assertThrows(IllegalArgumentException.class, () -> TooltipLayout.lineTop(anchor, -1));
         assertThrows(IllegalArgumentException.class, () -> TooltipLayout.maxTextWidth(null));
     }
+
+    @Test
+    void aBoxSizedToTheAvailableHeightNeverCoversItsAnchorRow() {
+        int[][] shells = {{600, 390, 27, 32}, {420, 273, 22, 25}};
+        for (int[] shell : shells) {
+            Rect content = new Rect(0, 32, shell[0], shell[1] - 66);
+            for (int index = 0; index < 8; index++) {
+                int top = content.y() + 70 + index * shell[3];
+                if (top + shell[2] > content.bottom()) {
+                    break;
+                }
+                Rect row = new Rect(content.x() + 14, top, content.width() - 28, shell[2]);
+                int height = TooltipLayout.availableHeight(row, content);
+                if (height <= 0) {
+                    continue;
+                }
+                Rect box = TooltipLayout.placeBox(row, 196, height, content);
+                assertFalse(box.isEmpty(), "row " + index + " of " + shell[0] + " must place");
+                assertTrue(box.bottom() <= row.y() || box.y() >= row.bottom(),
+                        "row " + index + " of " + shell[0] + ": the card covered its own row");
+                assertTrue(box.y() >= content.y() && box.bottom() <= content.bottom(),
+                        "row " + index + " of " + shell[0] + ": the card escaped the content");
+            }
+        }
+    }
+
+    @Test
+    void availableHeightTakesTheRoomierSide() {
+        Rect screen = new Rect(0, 0, 400, 300);
+        assertTrue(TooltipLayout.availableHeight(new Rect(0, 10, 100, 20), screen)
+                > TooltipLayout.availableHeight(new Rect(0, 260, 100, 20), screen));
+        assertEquals(0, TooltipLayout.availableHeight(new Rect(0, 0, 100, 300), screen));
+    }
+
+    @Test
+    void placeBoxAgreesWithPlaceOnTheSameGeometry() {
+        Rect screen = new Rect(0, 0, 400, 300);
+        Rect anchor = new Rect(40, 60, 120, 27);
+        Rect viaPlace = TooltipLayout.place(anchor, 100, 3, screen);
+        Rect viaBox = TooltipLayout.placeBox(anchor, 100 + TooltipLayout.PAD_X * 2,
+                3 * TooltipLayout.TEXT_HEIGHT + 2 * TooltipLayout.LINE_GAP + TooltipLayout.PAD_Y * 2, screen);
+        assertEquals(viaPlace, viaBox);
+    }
 }
