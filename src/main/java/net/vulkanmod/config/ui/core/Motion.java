@@ -3,8 +3,6 @@ package net.vulkanmod.config.ui.core;
 public final class Motion {
     public static final int HOVER_MS = 200;
     public static final int SELECTION_MS = 120;
-    public static final int PAGE_MS = 140;
-    public static final int SCROLL_MS = 90;
 
     private Motion() {
     }

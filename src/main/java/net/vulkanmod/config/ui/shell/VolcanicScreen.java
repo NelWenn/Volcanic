@@ -29,6 +29,7 @@ public class VolcanicScreen extends Screen {
     private static final int SIDEBAR_SCROLL_STEP = 25;
     private static final int CONTENT_SCROLL_STEP = 16;
     private static final int PRIMARY_BUTTON = 0;
+    private static final long NANOS_PER_MS = 1_000_000L;
     private static final Theme THEME = Theme.volcanic();
 
     private final Screen parent;
@@ -43,6 +44,7 @@ public class VolcanicScreen extends Screen {
     private SettingId dragged;
     private boolean drawerOpen;
     private int searchSelection = -1;
+    private long frameNanos;
 
     public VolcanicScreen(Component title, Screen parent) {
         super(title);
@@ -84,14 +86,28 @@ public class VolcanicScreen extends Screen {
         syncContentScroll();
         SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
         renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, contentScroll,
-                mouseX, mouseY, dragged, drawerOpen, searchFocused());
+                mouseX, mouseY, dragged, drawerOpen, searchFocused(), frameDeltaMs());
         if (searchFocused()) {
             renderer.renderSearchOverlay(painter, this.font, layout, presenter, searchResults(),
                     search.query(), searchSelection, mouseX, mouseY);
+        } else if (!drawerOpen && dragged == null) {
+            renderer.renderTooltip(painter, this.font, layout, presenter, contentScroll, mouseX, mouseY);
         }
         if (search != null) {
             search.render(guiGraphics, mouseX, mouseY, partialTick);
         }
+    }
+
+    private long frameDeltaMs() {
+        long now = System.nanoTime();
+        long previous = this.frameNanos;
+        if (previous == 0L || now <= previous) {
+            this.frameNanos = now;
+            return 0L;
+        }
+        long elapsed = now - previous;
+        this.frameNanos = now - elapsed % NANOS_PER_MS;
+        return elapsed / NANOS_PER_MS;
     }
 
     private SearchResultsModel searchResults() {

@@ -44,6 +44,10 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
         return new ShellLayout(breakpoint, topBar, sidebar, content, details, bottomBar);
     }
 
+    public Rect screen() {
+        return new Rect(0, 0, topBar.width(), bottomBar.bottom());
+    }
+
     public boolean hasDetailsPanel() {
         return !details.isEmpty();
     }

@@ -13,10 +13,89 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SettingsDefinitionsTest {
+    private static final Path LANG = Path.of("src/main/resources/assets/vulkanmod/lang/en_us.json");
+
+    @Test
+    void everyTooltipStringLeftInTheLanguageFileIsWiredToItsSetting() throws IOException {
+        List<String> lang = Files.readAllLines(LANG);
+        List<String> unwired = new ArrayList<>();
+        for (SettingMeta meta : allSettings()) {
+            String key = meta.titleKey() + ".tooltip";
+            if (declares(lang, key) && !key.equals(meta.descriptionKey())) {
+                unwired.add(key);
+            }
+        }
+        assertEquals(List.of(), unwired);
+    }
+
+    @Test
+    void theTwentySixSettingsThatKeptATooltipAreTheOnesThatDescribeThemselves() {
+        assertEquals(26, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
+    }
+
+    @Test
+    void everyDescriptionKeyResolvesInTheLanguageFile() throws IOException {
+        List<String> lang = Files.readAllLines(LANG);
+        List<String> unresolved = new ArrayList<>();
+        for (SettingMeta meta : allSettings()) {
+            if (meta.descriptionKey() != null && !declares(lang, meta.descriptionKey())) {
+                unresolved.add(meta.descriptionKey());
+            }
+        }
+        assertEquals(List.of(), unresolved);
+    }
+
+    @Test
+    void theResolutionAndRefreshRateSayTheyNeedExclusiveFullscreen() {
+        assertEquals(Optional.of("vulkanmod.ui.disabled.exclusive_fullscreen"),
+                SettingsDefinitions.disabledReasonKey(SettingsDefinitions.RESOLUTION));
+        assertEquals(Optional.of("vulkanmod.ui.disabled.exclusive_fullscreen"),
+                SettingsDefinitions.disabledReasonKey(SettingsDefinitions.REFRESH_RATE));
+    }
+
+    @Test
+    void theShaderPackSaysAResourcePackOverridesIt() {
+        assertEquals(Optional.of("vulkanmod.ui.disabled.core_shader_pack"),
+                SettingsDefinitions.disabledReasonKey(SettingsDefinitions.SHADERS_SELECTED_PACK));
+    }
+
+    @Test
+    void aSettingWithNothingToExplainNamesNoReason() {
+        assertEquals(Optional.empty(), SettingsDefinitions.disabledReasonKey(SettingsDefinitions.VSYNC));
+        assertEquals(Optional.empty(), SettingsDefinitions.disabledReasonKey(SettingsDefinitions.INDIRECT_DRAW));
+        assertThrows(IllegalArgumentException.class, () -> SettingsDefinitions.disabledReasonKey(null));
+    }
+
+    @Test
+    void everyDisabledReasonKeyResolvesInTheLanguageFile() throws IOException {
+        List<String> lang = Files.readAllLines(LANG);
+        for (SettingMeta meta : allSettings()) {
+            SettingsDefinitions.disabledReasonKey(meta.id()).ifPresent(key ->
+                    assertTrue(declares(lang, key), "missing language key " + key));
+        }
+    }
+
+    private static boolean declares(List<String> lang, String key) {
+        return lang.stream().anyMatch(line -> line.trim().startsWith("\"" + key + "\":"));
+    }
+
+    private static List<SettingMeta> allSettings() {
+        List<SettingMeta> all = new ArrayList<>(SettingsDefinitions.displayGeneral());
+        all.addAll(SettingsDefinitions.displayInterface());
+        all.addAll(SettingsDefinitions.displayAdvanced());
+        all.addAll(renderingSettings());
+        all.addAll(performanceSettings());
+        all.addAll(qualitySettings());
+        all.addAll(advancedSettings());
+        all.addAll(SettingsDefinitions.shadersCurrent());
+        return all;
+    }
+
     @Test
     void displayGeneralHasItsFiveSettingsInSpecOrder() {
         assertEquals(List.of("vulkanmod:display.window_mode", "vulkanmod:display.resolution",
@@ -498,8 +577,30 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void noAdvancedSettingIsFlaggedExperimental() {
-        assertTrue(advancedSettings().stream().noneMatch(SettingMeta::experimental));
+    void theMoltenVkProfileIsTheOnlyExperimentalSettingInTheMenu() {
+        assertEquals(List.of("vulkanmod:advanced.moltenvk_aggressive"),
+                allSettings().stream().filter(SettingMeta::experimental)
+                        .map(meta -> meta.id().toString()).toList());
+    }
+
+    @Test
+    void occlusionCullingIsTheOnlyRecommendedSettingInTheMenu() {
+        assertEquals(List.of("vulkanmod:culling.occlusion"),
+                allSettings().stream().filter(SettingMeta::recommended)
+                        .map(meta -> meta.id().toString()).toList());
+    }
+
+    @Test
+    void noSettingIsBothExperimentalAndRecommended() {
+        assertTrue(allSettings().stream().noneMatch(meta -> meta.experimental() && meta.recommended()));
+    }
+
+    @Test
+    void theTenAdvancedSettingsDoNotAllBecomeBadgedByBeingAdvanced() {
+        List<SettingMeta> advanced = allSettings().stream().filter(SettingMeta::advanced).toList();
+        assertEquals(10, advanced.size());
+        assertTrue(advanced.stream().noneMatch(SettingMeta::recommended));
+        assertEquals(1, advanced.stream().filter(SettingMeta::experimental).count());
     }
 
     @Test

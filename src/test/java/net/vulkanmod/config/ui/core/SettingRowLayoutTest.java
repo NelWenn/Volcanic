@@ -219,6 +219,97 @@ class SettingRowLayoutTest {
     }
 
     @Test
+    void theBadgeSitsAfterTheTitleWithASmallGap() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        Rect card = SettingRowLayout.cardBox(row);
+        Rect badge = SettingRowLayout.badgeBox(row, 80);
+
+        assertFalse(badge.isEmpty());
+        int titleEnd = card.x() + SettingRowLayout.CARD_PAD_X + 80;
+        int gap = badge.x() - titleEnd;
+        assertTrue(gap > 0 && gap <= 8, "the badge should follow the title by a few pixels, was " + gap);
+        assertTrue(badge.right() <= card.right());
+    }
+
+    @Test
+    void aLongerTitlePushesTheBadgeRightByExactlyTheExtraWidth() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        assertEquals(40, SettingRowLayout.badgeBox(row, 120).x() - SettingRowLayout.badgeBox(row, 80).x());
+    }
+
+    @Test
+    void theBadgeIsAChunkySquareVerticallyCentredInTheRow() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        Rect badge = SettingRowLayout.badgeBox(row, 60);
+
+        assertEquals(badge.width(), badge.height());
+        assertTrue(badge.width() >= 6 && badge.width() <= 9,
+                "the badge should be a 6-9px pixel glyph, was " + badge.width());
+        assertTrue(Math.abs((badge.y() - row.y()) - (row.bottom() - badge.bottom())) <= 1);
+        assertTrue(badge.y() >= row.y() && badge.bottom() <= row.bottom());
+    }
+
+    @Test
+    void aSecondBadgeSitsOneGapAfterTheFirstWithoutOverlapping() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        Rect card = SettingRowLayout.cardBox(row);
+        Rect first = SettingRowLayout.badgeBox(row, 60);
+        Rect second = SettingRowLayout.badgeBox(row, 60 + SettingRowLayout.BADGE_ADVANCE);
+
+        assertFalse(second.isEmpty());
+        assertTrue(second.x() > first.right(), "badges must not overlap: " + first + " then " + second);
+        assertEquals(first.x() - (card.x() + SettingRowLayout.CARD_PAD_X + 60), second.x() - first.right(),
+                "the gap between two badges must match the gap after the title");
+        assertEquals(first.y(), second.y());
+    }
+
+    @Test
+    void theBadgeIsEmptyRatherThanRunningPastTheCard() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        Rect card = SettingRowLayout.cardBox(row);
+
+        assertTrue(SettingRowLayout.badgeBox(row, card.width()).isEmpty());
+        for (int textWidth = 0; textWidth < card.width() * 2; textWidth += 3) {
+            Rect badge = SettingRowLayout.badgeBox(row, textWidth);
+            assertTrue(badge.isEmpty() || badge.right() < card.right(),
+                    "badge for a " + textWidth + "px title escaped the card: " + badge + " in " + card);
+        }
+    }
+
+    @Test
+    void theBadgeIsEmptyWhenTheRowCannotHoldIt() {
+        assertEquals(Rect.EMPTY, SettingRowLayout.badgeBox(Rect.EMPTY, 0));
+        assertEquals(Rect.EMPTY, SettingRowLayout.badgeBox(new Rect(0, 0, 8, 27), 0));
+        assertEquals(Rect.EMPTY, SettingRowLayout.badgeBox(new Rect(0, 0, 300, 4), 0));
+    }
+
+    @Test
+    void theBadgeFitsACompactRow() {
+        Rect row = SettingRowLayout.rows(new Rect(0, 32, 320, 200), 1, 0, Breakpoint.COMPACT).get(0);
+        Rect badge = SettingRowLayout.badgeBox(row, 40);
+
+        assertFalse(badge.isEmpty());
+        assertTrue(badge.y() >= row.y() && badge.bottom() <= row.bottom(),
+                "the badge must fit the 22px compact row: " + badge + " in " + row);
+    }
+
+    @Test
+    void badgeBoxFollowsTheRowAsItScrolls() {
+        Rect unscrolled = SettingRowLayout.rows(CONTENT, 2, 0, WIDE).get(1);
+        Rect scrolled = SettingRowLayout.rows(CONTENT, 2, 40, WIDE).get(1);
+        assertEquals(SettingRowLayout.badgeBox(unscrolled, 60).y() - 40,
+                SettingRowLayout.badgeBox(scrolled, 60).y());
+        assertEquals(SettingRowLayout.badgeBox(unscrolled, 60).x(), SettingRowLayout.badgeBox(scrolled, 60).x());
+    }
+
+    @Test
+    void badgeBoxRejectsInvalidInput() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.badgeBox(null, 0));
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.badgeBox(row, -1));
+    }
+
+    @Test
     void noScrollWhenEveryRowFitsInTheContentRegion() {
         assertEquals(0, SettingRowLayout.maxScroll(CONTENT, 0, WIDE));
         assertEquals(0, SettingRowLayout.maxScroll(CONTENT, 1, WIDE));

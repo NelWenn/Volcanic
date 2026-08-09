@@ -20,7 +20,16 @@ public final class PaintQueue {
         if (isDegenerate(op)) {
             return;
         }
-        layers.get(layer).add(op);
+        List<PaintOp> ops = layers.get(layer);
+        if (!ops.isEmpty() && op instanceof PaintOp.Fill next
+                && ops.get(ops.size() - 1) instanceof PaintOp.Fill previous) {
+            Rect run = joined(previous, next);
+            if (run != null) {
+                ops.set(ops.size() - 1, new PaintOp.Fill(run, previous.argb()));
+                return;
+            }
+        }
+        ops.add(op);
     }
 
     public List<PaintOp> drain() {
@@ -44,6 +53,21 @@ public final class PaintQueue {
             total += ops.size();
         }
         return total;
+    }
+
+    private static Rect joined(PaintOp.Fill previous, PaintOp.Fill next) {
+        if (previous.argb() != next.argb()) {
+            return null;
+        }
+        Rect a = previous.rect();
+        Rect b = next.rect();
+        if (a.x() == b.x() && a.width() == b.width() && a.bottom() == b.y()) {
+            return new Rect(a.x(), a.y(), a.width(), a.height() + b.height());
+        }
+        if (a.y() == b.y() && a.height() == b.height() && a.right() == b.x()) {
+            return new Rect(a.x(), a.y(), a.width() + b.width(), a.height());
+        }
+        return null;
     }
 
     private static boolean isDegenerate(PaintOp op) {

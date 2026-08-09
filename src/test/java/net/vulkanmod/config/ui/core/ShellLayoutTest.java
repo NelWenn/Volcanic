@@ -16,6 +16,15 @@ class ShellLayoutTest {
     }
 
     @Test
+    void theScreenBoxCoversEveryRegionOfTheShell() {
+        ShellLayout layout = ShellLayout.of(854, 480);
+
+        assertEquals(new Rect(0, 0, 854, 480), layout.screen());
+        assertEquals(layout.bottomBar().bottom(), layout.screen().bottom());
+        assertEquals(layout.details().right(), layout.screen().right());
+    }
+
+    @Test
     void wideLayoutHasThreeColumns() {
         ShellLayout layout = ShellLayout.of(854, 480);
         assertTrue(layout.hasDetailsPanel());

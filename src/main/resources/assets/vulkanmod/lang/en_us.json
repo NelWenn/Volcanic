@@ -186,6 +186,9 @@
   "vulkanmod.ui.search.source.shaders": "Shaders",
   "vulkanmod.ui.search.source.mods": "Mods",
 
+  "vulkanmod.ui.disabled.exclusive_fullscreen": "Only available in exclusive fullscreen. Set Window Mode to Fullscreen to pick a resolution and a refresh rate.",
+  "vulkanmod.ui.disabled.core_shader_pack": "A resource pack is supplying its own core shaders, and they replace the shader pack while it is loaded. Remove that pack to choose again.",
+
   "vulkanmod.overview.profile": "Performance Profile",
   "vulkanmod.overview.gpu": "Graphics Device",
   "vulkanmod.overview.resolution": "Resolution",

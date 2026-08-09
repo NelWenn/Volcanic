@@ -5,9 +5,14 @@ import java.util.List;
 
 public final class SettingRowLayout {
     public static final int CARD_RADIUS = 8;
+    public static final int CARD_PAD_X = 12;
     public static final int RESET_SIZE = 15;
     public static final int RESET_RADIUS = 4;
     public static final int RESET_GAP = 5;
+
+    public static final int BADGE_SIZE = 7;
+    public static final int BADGE_GAP = 5;
+    public static final int BADGE_ADVANCE = BADGE_SIZE + BADGE_GAP;
 
     private static final int STAR_SIZE = 15;
     private static final int STAR_GAP = 4;
@@ -90,6 +95,24 @@ public final class SettingRowLayout {
         }
         return new Rect(row.right() - RESET_SIZE - STAR_GAP - STAR_SIZE,
                 row.y() + (row.height() - STAR_SIZE) / 2, STAR_SIZE, STAR_SIZE);
+    }
+
+    public static Rect badgeBox(Rect row, int textWidth) {
+        if (row == null) {
+            throw new IllegalArgumentException("row must not be null");
+        }
+        if (textWidth < 0) {
+            throw new IllegalArgumentException("textWidth must not be negative: " + textWidth);
+        }
+        Rect card = cardBox(row);
+        if (card.isEmpty() || card.height() < BADGE_SIZE) {
+            return Rect.EMPTY;
+        }
+        int x = card.x() + CARD_PAD_X + textWidth + BADGE_GAP;
+        if (x + BADGE_SIZE > card.right() - CARD_PAD_X) {
+            return Rect.EMPTY;
+        }
+        return new Rect(x, row.y() + (row.height() - BADGE_SIZE) / 2, BADGE_SIZE, BADGE_SIZE);
     }
 
     public static int contentHeight(int count, Breakpoint breakpoint) {

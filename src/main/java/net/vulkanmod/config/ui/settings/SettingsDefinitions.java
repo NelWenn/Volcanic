@@ -8,8 +8,12 @@ import net.vulkanmod.config.ui.core.SettingSource;
 import net.vulkanmod.config.ui.core.SettingType;
 
 import java.util.List;
+import java.util.Optional;
 
 public final class SettingsDefinitions {
+    public static final String REASON_EXCLUSIVE_FULLSCREEN = "vulkanmod.ui.disabled.exclusive_fullscreen";
+    public static final String REASON_CORE_SHADER_PACK = "vulkanmod.ui.disabled.core_shader_pack";
+
     public static final RouteId SHADERS_CURRENT = RouteId.parse("shaders.current");
     public static final SettingId SHADERS_ENABLED = SettingId.parse("vulkanmod:shaders.enabled");
     public static final SettingId SHADERS_SELECTED_PACK = SettingId.parse("vulkanmod:shaders.selected_pack");
@@ -146,6 +150,19 @@ public final class SettingsDefinitions {
     private SettingsDefinitions() {
     }
 
+    public static Optional<String> disabledReasonKey(SettingId id) {
+        if (id == null) {
+            throw new IllegalArgumentException("id must not be null");
+        }
+        if (RESOLUTION.equals(id) || REFRESH_RATE.equals(id)) {
+            return Optional.of(REASON_EXCLUSIVE_FULLSCREEN);
+        }
+        if (SHADERS_SELECTED_PACK.equals(id)) {
+            return Optional.of(REASON_CORE_SHADER_PACK);
+        }
+        return Optional.empty();
+    }
+
     public static List<SettingMeta> displayGeneral() {
         return List.of(
                 new SettingMeta.Builder(WINDOW_MODE, DISPLAY_GENERAL, "vulkanmod.options.windowMode",
@@ -185,6 +202,7 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(SHADERS_ENABLED, SHADERS_CURRENT, "vulkanmod.options.shadersEnabled",
                         SettingType.BOOL, SettingSource.SHADERS)
+                        .descriptionKey("vulkanmod.options.shadersEnabled.tooltip")
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(SHADERS_SELECTED_PACK, SHADERS_CURRENT, "vulkanmod.options.selectedShader",
                         SettingType.ENUM, SettingSource.SHADERS)
@@ -195,6 +213,7 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(DISABLE_HIDPI, DISPLAY_ADVANCED, "vulkanmod.options.disableHiDPI",
                         SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.disableHiDPI.tooltip")
                         .scope(ApplyScope.RESTART).advanced(true).build());
     }
 
@@ -211,6 +230,7 @@ public final class SettingsDefinitions {
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(CHUNK_FADE_IN, RENDERING_GENERAL, "vulkanmod.options.chunkFadeIn",
                         SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.chunkFadeIn.tooltip")
                         .scope(ApplyScope.INSTANT).build());
     }
 
@@ -218,15 +238,19 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(VSR_PRESET, RENDERING_RESOLUTION, "vulkanmod.options.vsrPreset",
                         SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.vsrPreset.tooltip")
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(VSR_UPSCALER, RENDERING_RESOLUTION, "vulkanmod.options.vsrBackend",
                         SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.vsrBackend.tooltip")
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(VSR_RENDER_SCALE, RENDERING_RESOLUTION, "vulkanmod.options.renderScale",
                         SettingType.INT, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.renderScale.tooltip")
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(VSR_SHARPNESS, RENDERING_RESOLUTION, "vulkanmod.options.vsrSharpness",
                         SettingType.INT, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.vsrSharpness.tooltip")
                         .scope(ApplyScope.INSTANT).build());
     }
 
@@ -234,18 +258,23 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(CULLING_OCCLUSION, RENDERING_CULLING, "vulkanmod.options.occlusionCulling",
                         SettingType.BOOL, SettingSource.VOLCANIC)
-                        .scope(ApplyScope.CHUNK_REBUILD).build(),
+                        .descriptionKey("vulkanmod.options.occlusionCulling.tooltip")
+                        .scope(ApplyScope.CHUNK_REBUILD).recommended(true).build(),
                 new SettingMeta.Builder(CULLING_MODE, RENDERING_CULLING, "vulkanmod.options.advCulling",
                         SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.advCulling.tooltip")
                         .scope(ApplyScope.CHUNK_REBUILD).advanced(true).build(),
                 new SettingMeta.Builder(CULLING_BLOCK_ENTITIES, RENDERING_CULLING, "vulkanmod.options.blockEntityCulling",
                         SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.blockEntityCulling.tooltip")
                         .scope(ApplyScope.CHUNK_REBUILD).build(),
                 new SettingMeta.Builder(CULLING_PARTICLES, RENDERING_CULLING, "vulkanmod.options.particleCulling",
                         SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.particleCulling.tooltip")
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(CULLING_LOD_GPU, RENDERING_CULLING, "vulkanmod.options.lodGpuCulling",
                         SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.lodGpuCulling.tooltip")
                         .scope(ApplyScope.CHUNK_REBUILD).advanced(true).build());
     }
 
@@ -253,6 +282,7 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(PERFORMANCE_PROFILE, PERFORMANCE_GENERAL,
                         "vulkanmod.options.performancePreset", SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.performancePreset.tooltip")
                         .scope(ApplyScope.CHUNK_REBUILD).build());
     }
 
@@ -260,9 +290,11 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(INDIRECT_DRAW, PERFORMANCE_GPU, "vulkanmod.options.indirectDraw",
                         SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.indirectDraw.tooltip")
                         .scope(ApplyScope.CHUNK_REBUILD).build(),
                 new SettingMeta.Builder(UNIQUE_OPAQUE_LAYER, PERFORMANCE_GPU, "vulkanmod.options.uniqueOpaqueLayer",
                         SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.uniqueOpaqueLayer.tooltip")
                         .scope(ApplyScope.CHUNK_REBUILD).build());
     }
 
@@ -270,9 +302,11 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(ADAPTIVE_CHUNK_UPLOADS, PERFORMANCE_CHUNKS,
                         "vulkanmod.options.adaptiveChunkUploads", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.adaptiveChunkUploads.tooltip")
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(CHUNK_UPLOADS_PER_FRAME, PERFORMANCE_CHUNKS,
                         "vulkanmod.options.chunkUploadsPerFrame", SettingType.INT, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.chunkUploadsPerFrame.tooltip")
                         .scope(ApplyScope.INSTANT).advanced(true).build());
     }
 
@@ -280,6 +314,7 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(FRAME_QUEUE, PERFORMANCE_SYNCHRONIZATION, "vulkanmod.options.frameQueue",
                         SettingType.INT, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.frameQueue.tooltip")
                         .scope(ApplyScope.SWAPCHAIN).advanced(true).build());
     }
 
@@ -300,9 +335,11 @@ public final class SettingsDefinitions {
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(CONNECTED_TEXTURES, QUALITY_TEXTURES, "vulkanmod.options.connectedTextures",
                         SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.connectedTextures.tooltip")
                         .scope(ApplyScope.CHUNK_REBUILD).build(),
                 new SettingMeta.Builder(CUSTOM_ITEM_TEXTURES, QUALITY_TEXTURES,
                         "vulkanmod.options.customItemTextures", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.customItemTextures.tooltip")
                         .scope(ApplyScope.INSTANT).build());
     }
 
@@ -344,6 +381,7 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(GPU_DEVICE, ADVANCED_RENDERER, "vulkanmod.options.deviceSelector",
                         SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.deviceSelector.tooltip")
                         .scope(ApplyScope.RESTART).build());
     }
 
@@ -351,22 +389,27 @@ public final class SettingsDefinitions {
         return List.of(
                 new SettingMeta.Builder(MOLTENVK_AGGRESSIVE, ADVANCED_SYNCHRONIZATION,
                         "vulkanmod.options.moltenVkAggressive", SettingType.BOOL, SettingSource.VOLCANIC)
-                        .scope(ApplyScope.RESTART).advanced(true).build());
+                        .descriptionKey("vulkanmod.options.moltenVkAggressive.tooltip")
+                        .scope(ApplyScope.RESTART).advanced(true).experimental(true).build());
     }
 
     public static List<SettingMeta> advancedCompatibility() {
         return List.of(
                 new SettingMeta.Builder(EXTERNAL_LOD, ADVANCED_COMPATIBILITY, "vulkanmod.options.externalLod",
                         SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.externalLod.tooltip")
                         .scope(ApplyScope.RESTART).advanced(true).build(),
                 new SettingMeta.Builder(EXTERNAL_LOD_DRAW, ADVANCED_COMPATIBILITY,
                         "vulkanmod.options.externalLodDraw", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.externalLodDraw.tooltip")
                         .scope(ApplyScope.RESTART).advanced(true).build(),
                 new SettingMeta.Builder(GL_LEGACY_BRIDGE, ADVANCED_COMPATIBILITY,
                         "vulkanmod.options.glLegacyBridge", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.glLegacyBridge.tooltip")
                         .scope(ApplyScope.RESTART).advanced(true).build(),
                 new SettingMeta.Builder(GL_FBO_VIEWPORT, ADVANCED_COMPATIBILITY,
                         "vulkanmod.options.glFboViewport", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.glFboViewport.tooltip")
                         .scope(ApplyScope.RESTART).advanced(true).build());
     }
 }

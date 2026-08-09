@@ -29,6 +29,24 @@ public final class SettingRowRenderer {
     private static final String ARROW_RIGHT = "\u203A";
     private static final String ITALIC = "\u00A7o";
 
+    private static final String[] FLASK = {
+            "..###..",
+            "...#...",
+            "...#...",
+            "..###..",
+            ".#####.",
+            "#######",
+            "#######"};
+
+    private static final String[] CHECK = {
+            "......#",
+            ".....##",
+            "#...##.",
+            "##.##..",
+            ".###...",
+            "..#....",
+            "......."};
+
     private static final int STAR_INSET = 3;
     private static final String[] STAR = {
             "....#....",
@@ -51,7 +69,7 @@ public final class SettingRowRenderer {
     }
 
     public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, SettingBinding binding,
-                       Object value, boolean enabled, boolean hovered, boolean resettable, boolean resetHovered,
+                       Object value, boolean enabled, float hovered, boolean resettable, boolean resetHovered,
                        boolean favorite, boolean starHovered) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
@@ -71,6 +89,9 @@ public final class SettingRowRenderer {
         if (value == null) {
             throw new IllegalArgumentException("value must not be null for setting " + meta.id());
         }
+        if (hovered < 0.0f || hovered > 1.0f) {
+            throw new IllegalArgumentException("hovered must be within 0..1: " + hovered);
+        }
         if (box.isEmpty()) {
             return;
         }
@@ -80,14 +101,16 @@ public final class SettingRowRenderer {
             return;
         }
 
-        boolean highlighted = hovered && enabled;
+        float highlighted = enabled ? hovered : 0.0f;
         boolean reset = resettable && enabled;
 
         ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS, cardArgb(highlighted));
         ShellRenderer.paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS, borderArgb(highlighted));
 
-        painter.text(card.x() + ShellRenderer.CARD_PAD_X, textTop(card), title(meta, reset),
+        String title = title(meta, reset);
+        painter.text(card.x() + ShellRenderer.CARD_PAD_X, textTop(card), title,
                 titleArgb(enabled, highlighted), false);
+        paintBadges(painter, box, meta, font.width(title), enabled);
 
         if (reset) {
             paintReset(painter, SettingRowLayout.resetBox(box), resetHovered);
@@ -107,6 +130,23 @@ public final class SettingRowRenderer {
     private static String title(SettingMeta meta, boolean modified) {
         String text = I18n.get(meta.titleKey());
         return modified ? ITALIC + text : text;
+    }
+
+    private void paintBadges(SurfacePainter painter, Rect row, SettingMeta meta, int titleWidth, boolean enabled) {
+        int offset = titleWidth;
+        if (meta.experimental()) {
+            paintGlyph(painter, SettingRowLayout.badgeBox(row, offset), FLASK,
+                    badgeArgb(ColorToken.WARNING, enabled), true);
+            offset += SettingRowLayout.BADGE_ADVANCE;
+        }
+        if (meta.recommended()) {
+            paintGlyph(painter, SettingRowLayout.badgeBox(row, offset), CHECK,
+                    badgeArgb(ColorToken.SUCCESS, enabled), true);
+        }
+    }
+
+    private int badgeArgb(ColorToken token, boolean enabled) {
+        return theme.color(enabled ? token : ColorToken.TEXT_FAINT);
     }
 
     private void paintReset(SurfacePainter painter, Rect box, boolean hovered) {
@@ -143,7 +183,7 @@ public final class SettingRowRenderer {
             ShellRenderer.paintRoundedFill(painter, box, SettingRowLayout.RESET_RADIUS,
                     theme.color(ColorToken.SURFACE_NAV_ACTIVE));
         }
-        paintStarGlyph(painter, box.inset(STAR_INSET), theme.color(starToken(favorite, hovered)), favorite);
+        paintGlyph(painter, box.inset(STAR_INSET), STAR, theme.color(starToken(favorite, hovered)), favorite);
     }
 
     private static ColorToken starToken(boolean favorite, boolean hovered) {
@@ -153,29 +193,30 @@ public final class SettingRowRenderer {
         return hovered ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_MUTED;
     }
 
-    private static void paintStarGlyph(SurfacePainter painter, Rect glyph, int argb, boolean filled) {
+    private static void paintGlyph(SurfacePainter painter, Rect glyph, String[] pattern, int argb, boolean filled) {
         if (glyph.isEmpty()) {
             return;
         }
-        int scale = Math.max(1, Math.min(glyph.width(), glyph.height()) / STAR.length);
-        int left = glyph.x() + (glyph.width() - STAR.length * scale) / 2;
-        int top = glyph.y() + (glyph.height() - STAR.length * scale) / 2;
-        for (int row = 0; row < STAR.length; row++) {
-            for (int column = 0; column < STAR[row].length(); column++) {
-                if (lit(row, column) && (filled || !enclosed(row, column))) {
+        int scale = Math.max(1, Math.min(glyph.width(), glyph.height()) / pattern.length);
+        int left = glyph.x() + (glyph.width() - pattern.length * scale) / 2;
+        int top = glyph.y() + (glyph.height() - pattern.length * scale) / 2;
+        for (int row = 0; row < pattern.length; row++) {
+            for (int column = 0; column < pattern[row].length(); column++) {
+                if (lit(pattern, row, column) && (filled || !enclosed(pattern, row, column))) {
                     painter.fill(new Rect(left + column * scale, top + row * scale, scale, scale), argb);
                 }
             }
         }
     }
 
-    private static boolean lit(int row, int column) {
-        return row >= 0 && row < STAR.length
-                && column >= 0 && column < STAR[row].length() && STAR[row].charAt(column) == '#';
+    private static boolean lit(String[] pattern, int row, int column) {
+        return row >= 0 && row < pattern.length
+                && column >= 0 && column < pattern[row].length() && pattern[row].charAt(column) == '#';
     }
 
-    private static boolean enclosed(int row, int column) {
-        return lit(row - 1, column) && lit(row + 1, column) && lit(row, column - 1) && lit(row, column + 1);
+    private static boolean enclosed(String[] pattern, int row, int column) {
+        return lit(pattern, row - 1, column) && lit(pattern, row + 1, column)
+                && lit(pattern, row, column - 1) && lit(pattern, row, column + 1);
     }
 
     private void paintPill(SurfacePainter painter, Rect box, int right, boolean on) {
@@ -191,7 +232,7 @@ public final class SettingRowRenderer {
     }
 
     private void paintSlider(SurfacePainter painter, Font font, Rect row, Rect card, int right, String text,
-                             int value, int min, int max, boolean enabled, boolean active) {
+                             int value, int min, int max, boolean enabled, float active) {
         Rect zone = max > min ? ShellRenderer.sliderTrack(row) : Rect.EMPTY;
         paintValue(painter, font, card, zone.isEmpty() ? right : zone.x() - TRACK_GAP, text, valueArgb(enabled));
         if (zone.isEmpty()) {
@@ -208,18 +249,18 @@ public final class SettingRowRenderer {
 
         ShellRenderer.paintRoundedFill(painter,
                 SliderGeometry.knob(zone, value, min, max, SliderGeometry.KNOB_WIDTH),
-                KNOB_RADIUS, theme.color(knobToken(enabled, active)));
+                KNOB_RADIUS, knobArgb(enabled, active));
     }
 
-    private static ColorToken knobToken(boolean enabled, boolean active) {
+    private int knobArgb(boolean enabled, float active) {
         if (!enabled) {
-            return ColorToken.TEXT_FAINT;
+            return theme.color(ColorToken.TEXT_FAINT);
         }
-        return active ? ColorToken.ACCENT : ColorToken.TEXT_MUTED;
+        return blend(ColorToken.TEXT_MUTED, ColorToken.ACCENT, active);
     }
 
     private void paintCycler(SurfacePainter painter, Font font, Rect box, int right, String text,
-                             boolean enabled, boolean hovered) {
+                             boolean enabled, float hovered) {
         int argb = arrowArgb(enabled, hovered);
         painter.text(right - font.width(ARROW_RIGHT), textTop(box), ARROW_RIGHT, argb, false);
 
@@ -234,30 +275,34 @@ public final class SettingRowRenderer {
         painter.text(right - font.width(text), textTop(box), text, argb, false);
     }
 
-    private int titleArgb(boolean enabled, boolean hovered) {
+    private int titleArgb(boolean enabled, float hovered) {
         if (!enabled) {
             return theme.color(ColorToken.TEXT_FAINT);
         }
-        return theme.color(hovered ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT);
+        return blend(ColorToken.TEXT_DEFAULT, ColorToken.TEXT_PRIMARY, hovered);
     }
 
     private int valueArgb(boolean enabled) {
         return theme.color(enabled ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_FAINT);
     }
 
-    private int arrowArgb(boolean enabled, boolean hovered) {
+    private int arrowArgb(boolean enabled, float hovered) {
         if (!enabled) {
             return theme.color(ColorToken.TEXT_FAINT);
         }
-        return theme.color(hovered ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_MUTED);
+        return blend(ColorToken.TEXT_MUTED, ColorToken.TEXT_SECONDARY, hovered);
     }
 
-    private int cardArgb(boolean hovered) {
-        return theme.color(hovered ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD);
+    private int cardArgb(float hovered) {
+        return blend(ColorToken.SURFACE_CARD, ColorToken.SURFACE_CARD_HOVER, hovered);
     }
 
-    private int borderArgb(boolean hovered) {
-        return theme.color(hovered ? ColorToken.BORDER_STRONG : ColorToken.BORDER_SUBTLE);
+    private int borderArgb(float hovered) {
+        return blend(ColorToken.BORDER_SUBTLE, ColorToken.BORDER_STRONG, hovered);
+    }
+
+    private int blend(ColorToken idle, ColorToken active, float progress) {
+        return ShellRenderer.lerpArgb(theme.color(idle), theme.color(active), progress);
     }
 
     private static int textTop(Rect box) {

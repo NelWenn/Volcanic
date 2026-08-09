@@ -3,11 +3,15 @@ package net.vulkanmod.config.ui.shell;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.network.chat.Style;
 import net.vulkanmod.config.ui.core.ApplyBarModel;
 import net.vulkanmod.config.ui.core.ApplyScope;
 import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.ColorToken;
 import net.vulkanmod.config.ui.core.Gradient;
+import net.vulkanmod.config.ui.core.HoverState;
+import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.OverviewModel;
 import net.vulkanmod.config.ui.core.ProfileChipRow;
@@ -27,10 +31,12 @@ import net.vulkanmod.config.ui.core.SidebarViewport;
 import net.vulkanmod.config.ui.core.SliderGeometry;
 import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
+import net.vulkanmod.config.ui.core.TooltipLayout;
 import net.vulkanmod.config.ui.render.SurfacePainter;
 import net.vulkanmod.config.ui.settings.SettingBinding;
 import net.vulkanmod.config.ui.settings.SettingsCatalog;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -45,7 +51,7 @@ public final class ShellRenderer {
     private static final int ROW_INSET_Y = 1;
     private static final int ACCENT_BAR_WIDTH = 2;
 
-    static final int CARD_PAD_X = 12;
+    static final int CARD_PAD_X = SettingRowLayout.CARD_PAD_X;
     static final int SLIDER_TRACK_WIDTH = 56;
 
     private static final int CONTENT_PAD_X = 14;
@@ -73,6 +79,7 @@ public final class ShellRenderer {
     private static final String KEY_SEARCH_EMPTY = "vulkanmod.ui.search.empty";
     private static final String KEY_SEARCH_SOURCE = "vulkanmod.ui.search.source.";
     private static final int OVERLAY_RADIUS = 6;
+    private static final int TOOLTIP_RADIUS = 4;
     private static final int OVERLAY_PAD_X = 8;
     private static final int RESULT_RADIUS = 4;
     private static final RouteId OVERVIEW = RouteId.parse("overview");
@@ -82,6 +89,8 @@ public final class ShellRenderer {
 
     private final Theme theme;
     private final SettingRowRenderer rowRenderer;
+    private final HoverState hover = new HoverState(Motion.HOVER_MS);
+    private final HoverState focus = new HoverState(Motion.SELECTION_MS);
 
     public ShellRenderer(Theme theme) {
         if (theme == null) {
@@ -93,7 +102,7 @@ public final class ShellRenderer {
 
     public void render(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
                        NavPresenter presenter, int scroll, int contentScroll, int mouseX, int mouseY,
-                       SettingId dragged, boolean drawerOpen, boolean searchFocused) {
+                       SettingId dragged, boolean drawerOpen, boolean searchFocused, long deltaMs) {
         if (graphics == null) {
             throw new IllegalArgumentException("graphics must not be null");
         }
@@ -107,6 +116,9 @@ public final class ShellRenderer {
         if (contentScroll < 0) {
             throw new IllegalArgumentException("contentScroll must not be negative: " + contentScroll);
         }
+        if (deltaMs < 0) {
+            throw new IllegalArgumentException("deltaMs must not be negative: " + deltaMs);
+        }
 
         paintChrome(painter, layout, drawerOpen, searchFocused);
         paintApplyBar(painter, font, layout, presenter, mouseX, mouseY);
@@ -114,14 +126,14 @@ public final class ShellRenderer {
 
         Rect nav = layout.sidebarOrDrawer(drawerOpen);
         if (!layout.hasDrawer()) {
-            paintNav(graphics, painter, nav, presenter, scroll, mouseX, mouseY);
+            paintNav(graphics, painter, nav, presenter, scroll, mouseX, mouseY, deltaMs);
         }
 
         Rect content = layout.content();
         if (!content.isEmpty()) {
             graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
             try {
-                paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged);
+                paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
                 painter.flush();
             } finally {
                 graphics.disableScissor();
@@ -131,11 +143,99 @@ public final class ShellRenderer {
         if (layout.hasDrawer() && !nav.isEmpty()) {
             painter.fill(layout.content(), theme.color(ColorToken.SURFACE_SUNKEN, SCRIM_ALPHA));
             painter.flush();
-            paintNav(graphics, painter, nav, presenter, scroll, mouseX, mouseY);
+            paintNav(graphics, painter, nav, presenter, scroll, mouseX, mouseY, deltaMs);
             painter.fill(new Rect(nav.right(), nav.y(), 1, nav.height()),
                     theme.color(ColorToken.BORDER_ACCENT));
             painter.flush();
         }
+
+        hover.endFrame();
+        focus.endFrame();
+    }
+
+    public void renderTooltip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                              int contentScroll, int mouseX, int mouseY) {
+        if (painter == null) {
+            throw new IllegalArgumentException("painter must not be null");
+        }
+        requireInputs(font, layout, presenter);
+        if (contentScroll < 0) {
+            throw new IllegalArgumentException("contentScroll must not be negative: " + contentScroll);
+        }
+        if (!layout.content().contains(mouseX, mouseY)) {
+            return;
+        }
+
+        List<SettingMeta> settings = presenter.settings();
+        List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
+        for (int i = 0; i < settings.size() && i < boxes.size(); i++) {
+            if (boxes.get(i).contains(mouseX, mouseY)) {
+                paintTooltip(painter, font, layout, presenter, boxes.get(i), settings.get(i));
+                return;
+            }
+        }
+    }
+
+    private void paintTooltip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                              Rect row, SettingMeta meta) {
+        Rect bounds = layout.content();
+        int wrapWidth = TooltipLayout.maxTextWidth(bounds);
+        if (wrapWidth <= 0) {
+            return;
+        }
+
+        List<String> reason = wrapped(font,
+                presenter.catalog().disabledReason(meta.id()).orElse(null), wrapWidth);
+        List<String> description = wrapped(font, meta.descriptionKey(), wrapWidth);
+        if (reason.isEmpty() && description.isEmpty()) {
+            return;
+        }
+
+        int textWidth = 0;
+        for (String line : reason) {
+            textWidth = Math.max(textWidth, font.width(line));
+        }
+        for (String line : description) {
+            textWidth = Math.max(textWidth, font.width(line));
+        }
+
+        Rect box = TooltipLayout.place(row, textWidth, reason.size() + description.size(), bounds);
+        if (box.isEmpty()) {
+            return;
+        }
+
+        paintRoundedFill(painter, box, TOOLTIP_RADIUS, theme.color(ColorToken.SURFACE_CHROME));
+        paintRoundedOutline(painter, box, TOOLTIP_RADIUS, theme.color(ColorToken.BORDER_ACCENT));
+
+        int capacity = TooltipLayout.lineCapacity(box);
+        int index = paintTooltipLines(painter, box, reason, 0, capacity, ColorToken.WARNING);
+        paintTooltipLines(painter, box, description, index, capacity, ColorToken.TEXT_SECONDARY);
+        painter.flush();
+    }
+
+    private int paintTooltipLines(SurfacePainter painter, Rect box, List<String> lines, int from, int capacity,
+                                  ColorToken token) {
+        int index = from;
+        for (String line : lines) {
+            if (index >= capacity) {
+                return index;
+            }
+            painter.text(box.x() + TooltipLayout.PAD_X, TooltipLayout.lineTop(box, index), line,
+                    theme.color(token), false);
+            index++;
+        }
+        return index;
+    }
+
+    private static List<String> wrapped(Font font, String key, int wrapWidth) {
+        if (key == null || key.isBlank()) {
+            return List.of();
+        }
+        List<String> lines = new ArrayList<>();
+        for (FormattedText line : font.getSplitter().splitLines(I18n.get(key), wrapWidth, Style.EMPTY)) {
+            lines.add(line.getString());
+        }
+        return lines;
     }
 
     public void renderSearchOverlay(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
@@ -212,13 +312,13 @@ public final class ShellRenderer {
     }
 
     private void paintNav(GuiGraphics graphics, SurfacePainter painter, Rect region, NavPresenter presenter,
-                          int scroll, int mouseX, int mouseY) {
+                          int scroll, int mouseX, int mouseY, long deltaMs) {
         if (region.isEmpty()) {
             return;
         }
         graphics.enableScissor(region.x(), region.y(), region.right(), region.bottom());
         try {
-            paintSidebar(painter, region, presenter, scroll, mouseX, mouseY);
+            paintSidebar(painter, region, presenter, scroll, mouseX, mouseY, deltaMs);
             painter.flush();
         } finally {
             graphics.disableScissor();
@@ -342,8 +442,7 @@ public final class ShellRenderer {
 
     private void paintChrome(SurfacePainter painter, ShellLayout layout, boolean drawerOpen,
                              boolean searchFocused) {
-        Rect screen = new Rect(0, 0, layout.topBar().width(), layout.bottomBar().bottom());
-        painter.fill(screen, theme.color(ColorToken.SURFACE_BASE));
+        painter.fill(layout.screen(), theme.color(ColorToken.SURFACE_BASE));
         painter.fill(layout.topBar(), theme.color(ColorToken.SURFACE_CHROME));
         painter.fill(layout.bottomBar(), theme.color(ColorToken.SURFACE_CHROME));
 
@@ -439,7 +538,7 @@ public final class ShellRenderer {
     }
 
     private void paintSidebar(SurfacePainter painter, Rect sidebar, NavPresenter presenter,
-                              int scroll, int mouseX, int mouseY) {
+                              int scroll, int mouseX, int mouseY, long deltaMs) {
         Gradient background = theme.gradient(ColorToken.SURFACE_BASE, ColorToken.SURFACE_SIDEBAR_BOTTOM);
         painter.gradient(sidebar, background.topArgb(), background.bottomArgb());
 
@@ -462,8 +561,10 @@ public final class ShellRenderer {
                 case SidebarModel.Row(RouteId route, String titleKey) -> {
                     Rect box = rowBox(sidebar, top, height);
                     boolean active = route.equals(activeRoute);
-                    paintRowSurface(painter, box, active, route.equals(hoveredRoute),
-                            route.toString().equals(focusedId));
+                    String key = route.toString();
+                    paintRowSurface(painter, box, active,
+                            hover.advance(key, route.equals(hoveredRoute), deltaMs),
+                            focus.advance(key, key.equals(focusedId), deltaMs));
                     painter.text(sidebar.x() + ROW_TEXT_X, top + (height - TEXT_HEIGHT) / 2, I18n.get(titleKey),
                             theme.color(active ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY), false);
                 }
@@ -473,22 +574,22 @@ public final class ShellRenderer {
         paintScrollIndicator(painter, ScrollIndicator.of(sidebar, model.totalHeight(), scroll));
     }
 
-    private void paintRowSurface(SurfacePainter painter, Rect box, boolean active, boolean hovered, boolean focused) {
+    private void paintRowSurface(SurfacePainter painter, Rect box, boolean active, float hovered, float focused) {
         if (active) {
             paintRoundedGradient(painter, box, NAV_RADIUS,
                     theme.color(ColorToken.SURFACE_NAV_ACTIVE), theme.color(ColorToken.SURFACE_SIDEBAR_BOTTOM));
             paintRoundedOutline(painter, box, NAV_RADIUS, theme.color(ColorToken.BORDER_ACCENT));
             paintLeadingEdge(painter, box, NAV_RADIUS, theme.color(ColorToken.ACCENT));
-        } else if (hovered) {
-            paintRoundedFill(painter, box, NAV_RADIUS, theme.color(ColorToken.SURFACE_CARD_HOVER));
+        } else if (hovered > 0.0f) {
+            paintRoundedFill(painter, box, NAV_RADIUS, theme.color(ColorToken.SURFACE_CARD_HOVER, hovered));
         }
-        if (focused) {
-            paintRoundedOutline(painter, box, NAV_RADIUS, theme.color(ColorToken.ACCENT));
+        if (focused > 0.0f) {
+            paintRoundedOutline(painter, box, NAV_RADIUS, theme.color(ColorToken.ACCENT, focused));
         }
     }
 
     private void paintContent(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                              int contentScroll, int mouseX, int mouseY, SettingId dragged) {
+                              int contentScroll, int mouseX, int mouseY, SettingId dragged, long deltaMs) {
         Rect content = layout.content();
         if (content.isEmpty()) {
             return;
@@ -503,7 +604,7 @@ public final class ShellRenderer {
         if (OVERVIEW.equals(presenter.stack().current())) {
             paintOverview(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
         } else {
-            paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged);
+            paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
         }
         paintScrollIndicator(painter, layout, presenter, contentScroll);
     }
@@ -579,7 +680,7 @@ public final class ShellRenderer {
     }
 
     private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                               int contentScroll, int mouseX, int mouseY, SettingId dragged) {
+                               int contentScroll, int mouseX, int mouseY, SettingId dragged, long deltaMs) {
         List<SettingMeta> settings = presenter.settings();
         if (settings.isEmpty() && paintEmptyPage(painter, font, layout, presenter, mouseX, mouseY)) {
             return;
@@ -592,15 +693,19 @@ public final class ShellRenderer {
             Rect box = boxes.get(i);
             SettingMeta meta = settings.get(i);
             SettingBinding binding = catalog.binding(meta.id());
+            String key = meta.id().toString();
             rowRenderer.render(painter, font, box, meta, binding, presenter.valueOf(meta),
                     catalog.enabled(meta.id()),
-                    box.contains(mouseX, mouseY) || meta.id().equals(dragged), presenter.resettable(meta),
+                    hover.advance(key, box.contains(mouseX, mouseY) || meta.id().equals(dragged), deltaMs),
+                    presenter.resettable(meta),
                     SettingRowLayout.resetBox(box).contains(mouseX, mouseY),
                     presenter.isFavorite(meta.id()),
                     SettingRowLayout.starBox(box).contains(mouseX, mouseY));
-            if (meta.id().toString().equals(focusedId)) {
+
+            float focused = focus.advance(key, key.equals(focusedId), deltaMs);
+            if (focused > 0.0f) {
                 paintRoundedOutline(painter, SettingRowLayout.cardBox(box), SettingRowLayout.CARD_RADIUS,
-                        theme.color(ColorToken.ACCENT));
+                        theme.color(ColorToken.ACCENT, focused));
             }
         }
     }
@@ -727,7 +832,7 @@ public final class ShellRenderer {
         return I18n.get(presenter.titleKeyOf(route));
     }
 
-    private static int lerpArgb(int from, int to, float progress) {
+    static int lerpArgb(int from, int to, float progress) {
         int alpha = lerpChannel(from >>> 24, to >>> 24, progress);
         int red = lerpChannel((from >> 16) & 0xFF, (to >> 16) & 0xFF, progress);
         int green = lerpChannel((from >> 8) & 0xFF, (to >> 8) & 0xFF, progress);

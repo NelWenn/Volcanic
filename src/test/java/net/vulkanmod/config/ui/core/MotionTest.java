@@ -35,7 +35,5 @@ class MotionTest {
     void durationsMatchTheDesignSystem() {
         assertEquals(200, Motion.HOVER_MS);
         assertEquals(120, Motion.SELECTION_MS);
-        assertEquals(140, Motion.PAGE_MS);
-        assertEquals(90, Motion.SCROLL_MS);
     }
 }

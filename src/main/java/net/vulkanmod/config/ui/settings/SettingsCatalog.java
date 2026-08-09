@@ -247,6 +247,10 @@ public final class SettingsCatalog {
         return true;
     }
 
+    public Optional<String> disabledReason(SettingId id) {
+        return enabled(id) ? Optional.empty() : SettingsDefinitions.disabledReasonKey(id);
+    }
+
     public OverviewModel overview() {
         int scale = RenderScale.clamp(Initializer.CONFIG.renderScale);
         return new OverviewModel()
