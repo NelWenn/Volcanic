@@ -82,8 +82,8 @@ public final class ModConfigReader {
             if (!accumulator.metas.isEmpty()) {
                 settings.add(new ModSettings(accumulator.modId, accumulator.metas, accumulator.bindings));
             }
-            Initializer.LOGGER.debug("Mod settings: {} contributed {} visual settings, {} filtered out, {} unmappable",
-                    accumulator.modId, accumulator.metas.size(), accumulator.filtered, accumulator.skipped);
+            Initializer.LOGGER.debug("Mod settings: {} contributed {} settings, {} unmappable",
+                    accumulator.modId, accumulator.metas.size(), accumulator.skipped);
         }
         return List.copyOf(settings);
     }
@@ -91,7 +91,7 @@ public final class ModConfigReader {
     private static void read(ModConfig config, Map<String, Accumulator> byMod) {
         try {
             if (config.getType() != ModConfig.Type.CLIENT || !(config.getSpec() instanceof ModConfigSpec spec)
-                    || !spec.isLoaded()) {
+                    || !spec.isLoaded() || !RenderingMods.isRenderingMod(config.getModId())) {
                 return;
             }
             Accumulator accumulator = byMod.computeIfAbsent(config.getModId(), Accumulator::new);
@@ -279,7 +279,6 @@ public final class ModConfigReader {
         private final String modId;
         private final List<SettingMeta> metas = new ArrayList<>();
         private final Map<SettingId, SettingBinding> bindings = new LinkedHashMap<>();
-        private int filtered;
         private int skipped;
 
         private Accumulator(String modId) {
@@ -291,10 +290,6 @@ public final class ModConfigReader {
                 ModConfigSpec.ValueSpec spec = value.getSpec();
                 String path = String.join(".", value.getPath());
                 String description = descriptionOf(spec);
-                if (!VisualFilter.isVisual(path, description, spec.getTranslationKey())) {
-                    filtered++;
-                    return;
-                }
                 Mapped mapped = map(value, spec);
                 SettingId id = idOf(config, path);
                 if (mapped == null || bindings.containsKey(id)) {

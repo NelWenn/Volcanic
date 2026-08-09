@@ -25,7 +25,7 @@ public final class ModScreens {
         try {
             for (ModContainer container : ModList.get().getSortedMods()) {
                 String modId = container.getModId();
-                if (!excluded.contains(modId)
+                if (!excluded.contains(modId) && RenderingMods.isRenderingMod(modId)
                         && container.getCustomExtension(IConfigScreenFactory.class).isPresent()) {
                     ids.add(modId);
                 }
