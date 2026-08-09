@@ -179,10 +179,6 @@ public final class NavPresenter {
 
         this.profileChips = null;
         SettingBinding binding = catalog.binding(meta.id());
-        if (meta.scope().immediate()) {
-            binding.set(value);
-            return true;
-        }
         if (deferred.set(meta.id(), value, binding.get())) {
             pending.mark(meta.id(), meta.scope());
         } else {

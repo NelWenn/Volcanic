@@ -14,11 +14,15 @@ class ApplyBarModelTest {
     }
 
     @Test
-    void changesThatTakeEffectImmediatelyAreNotWorthAnnouncing() {
+    void everyPendingChangeIsAnnounced() {
         PendingChanges pending = new PendingChanges();
         pending.mark(A, ApplyScope.INSTANT);
         pending.mark(B, ApplyScope.INSTANT);
-        assertFalse(ApplyBarModel.of(pending).visible());
+
+        ApplyBarModel bar = ApplyBarModel.of(pending);
+        assertTrue(bar.visible(), "nothing applies until Apply, so instant changes must be announced too");
+        assertEquals(ApplyScope.INSTANT, bar.scope());
+        assertEquals(2, bar.count());
     }
 
     @Test

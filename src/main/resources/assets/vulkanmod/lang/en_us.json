@@ -2,7 +2,6 @@
   "vulkanmod.options.windowMode": "Window Mode",
   "vulkanmod.options.windowMode.windowed": "Windowed",
   "vulkanmod.options.windowMode.windowedFullscreen": "Windowed Fullscreen",
-
   "vulkanmod.options.performancePreset": "Performance Preset",
   "vulkanmod.options.performancePreset.tooltip": "Applies a group of Minecraft and VulkanMod settings for the selected performance target.",
   "vulkanmod.options.performancePreset.custom": "Custom",
@@ -10,26 +9,20 @@
   "vulkanmod.options.performancePreset.balanced": "Balanced",
   "vulkanmod.options.performancePreset.quality": "Quality",
   "vulkanmod.options.performancePreset.ultra": "Ultra",
-
   "vulkanmod.options.advCulling": "Advanced Chunk Culling",
   "vulkanmod.options.advCulling.aggressive": "Aggressive",
   "vulkanmod.options.advCulling.conservative": "Conservative",
   "vulkanmod.options.advCulling.normal": "Normal",
   "vulkanmod.options.advCulling.tooltip": "Use a culling algorithm that might improve performance by reducing the number of non visible chunk sections rendered.",
-
   "vulkanmod.options.ao.subBlock": "ON (Sub-block)",
   "vulkanmod.options.ao.subBlock.tooltip": "ON (Sub-block): Enables smooth lighting for non full block (experimental).",
-
   "vulkanmod.options.deviceSelector": "Device selector",
   "vulkanmod.options.deviceSelector.auto": "Auto",
   "vulkanmod.options.deviceSelector.tooltip": "Current device",
-
   "vulkanmod.options.entityCulling": "Entity Culling",
   "vulkanmod.options.entityCulling.tooltip": "Enables culling for entities on not visible sections.",
-
   "vulkanmod.options.frameQueue": "Render queue size",
   "vulkanmod.options.frameQueue.tooltip": "Higher values might help stabilize frametime but will increase input lag.",
-
   "vulkanmod.options.indirectDraw": "Indirect Draw",
   "vulkanmod.options.indirectDraw.tooltip": "Reduces CPU overhead but increases GPU overhead. Enabling it might help in CPU limited systems. Unavailable on Intel GPUs and devices without multi-draw-indirect support.",
   "vulkanmod.options.lodGpuCulling": "LOD GPU Culling",
@@ -42,12 +35,9 @@
   "vulkanmod.options.chunkUploadsPerFrame.tooltip": "Base number of built chunks uploaded to the GPU each frame. Higher loads terrain faster and stutters more.",
   "vulkanmod.options.chunkFadeIn": "Chunk Fade-In",
   "vulkanmod.options.chunkFadeIn.tooltip": "Newly loaded chunks dither in smoothly over the distant terrain instead of appearing instantly.",
-
   "vulkanmod.options.refreshRate": "Refresh Rate",
-
   "vulkanmod.options.uniqueOpaqueLayer": "Unique opaque layer",
   "vulkanmod.options.uniqueOpaqueLayer.tooltip": "Use a unique render layer for opaque terrain to improve performance.",
-
   "vulkanmod.options.particleCulling": "Particle Culling",
   "vulkanmod.options.particleCulling.quality": "Quality",
   "vulkanmod.options.particleCulling.balanced": "Balanced",
@@ -64,7 +54,6 @@
   "vulkanmod.options.customItemTextures.tooltip": "Applies OptiFine-style custom item texture rules from the loaded resource packs, for named items and armour trims.",
   "vulkanmod.options.renderScale": "Internal Resolution",
   "vulkanmod.options.renderScale.tooltip": "The resolution the world is rendered at, as a percentage of the window. Lower means more frames and a softer image.",
-
   "vulkanmod.options.vsrPreset": "Resolution Scaling",
   "vulkanmod.options.vsrPreset.off": "Off",
   "vulkanmod.options.vsrPreset.quality": "Quality",
@@ -72,17 +61,14 @@
   "vulkanmod.options.vsrPreset.performance": "Performance",
   "vulkanmod.options.vsrPreset.custom": "Custom",
   "vulkanmod.options.vsrPreset.tooltip": "Renders the world below the window resolution, then reconstructs it to full size. Quality renders at 77%, Balanced at 67%, Performance at 50%, each with the sharpening that suits it. Custom lets you set the internal resolution and the sharpening yourself.\n\nThis only helps when the GPU is the bottleneck, which in practice means with shaders enabled. On vanilla rendering the GPU is barely loaded and lowering the internal resolution costs image quality for no frame rate at all.",
-
   "vulkanmod.options.vsrBackend": "Upscaler",
   "vulkanmod.options.vsrBackend.bilinear": "Bilinear",
   "vulkanmod.options.vsrBackend.fsr1": "FSR 1",
   "vulkanmod.options.vsrBackend.sharpen": "Sharpen only",
   "vulkanmod.options.vsrBackend.vtu": "VTU (temporal)",
   "vulkanmod.options.vsrBackend.tooltip": "How the internal resolution is reconstructed.\n\nBilinear is the plain reference filter: cheapest and softest.\nFSR 1 reconstructs edges before sharpening: the crispest single frame, but high contrast edges can shimmer while the camera moves.\nVTU accumulates several frames to rebuild detail: the most stable in motion, and it needs shaders to be enabled. Without them it falls back to FSR 1.",
-
   "vulkanmod.options.vsrSharpness": "Sharpening",
   "vulkanmod.options.vsrSharpness.tooltip": "Contrast adaptive sharpening applied after reconstruction. It only affects edges, never flat areas, and never overshoots into halos. Set it to 0% to disable it.",
-
   "vulkanmod.options.shadersEnabled": "Enable Shaders",
   "vulkanmod.options.shadersEnabled.tooltip": "Enable Volcanic's native Vulkan post-processing effects.",
   "vulkanmod.options.selectedShader": "Shader",
@@ -99,15 +85,12 @@
   "vulkanmod.options.optimizedShadows.tooltip": "Render shadows at half resolution for a large performance gain. Slightly softer shadow edges.",
   "vulkanmod.options.shadowQuality": "Shadow Definition",
   "vulkanmod.options.shadowDistance": "Shadow Distance",
-
   "vulkanmod.options.wind": "Wind",
   "vulkanmod.options.windStrength": "Wind Strength",
   "vulkanmod.options.disableHiDPI": "Reduce Resolution (HiDPI)",
   "vulkanmod.options.disableHiDPI.tooltip": "macOS: render at the display's logical resolution instead of the full Retina resolution. Much faster, slightly softer image. Requires restart.",
-
   "vulkanmod.options.moltenVkAggressive": "Aggressive MoltenVK Profile",
   "vulkanmod.options.moltenVkAggressive.tooltip": "macOS: submits queues asynchronously, prefills Metal command buffers and allocates from a shared MTLHeap. Can raise frame rates and may hurt stability. Requires restart.",
-
   "vulkanmod.options.externalLod": "External LOD Bridge",
   "vulkanmod.options.externalLod.off": "Off",
   "vulkanmod.options.externalLod.safe": "Safe",
@@ -119,11 +102,9 @@
   "vulkanmod.options.glLegacyBridge.tooltip": "Keeps the legacy OpenGL draw path available for mods that still issue GL calls. Requires restart.",
   "vulkanmod.options.glFboViewport": "GL FBO Viewport",
   "vulkanmod.options.glFboViewport.tooltip": "Uses the framebuffer-object viewport convention for mods that render to their own render targets. Requires restart.",
-
   "vulkanmod.keybind.toggle_debug_overlay": "Toggle Debug Overlay",
   "vulkanmod.keybind.open_options": "Open Volcanic Settings",
   "vulkanmod.options.title": "Volcanic Graphics",
-
   "vulkanmod.applybar.chunk_rebuild": "%d held, Apply rebuilds the chunks, Esc discards",
   "vulkanmod.applybar.texture_reload": "%d held, Apply reloads the textures, Esc discards",
   "vulkanmod.applybar.swapchain": "%d held, Apply recreates the swapchain, Esc discards",
@@ -131,11 +112,10 @@
   "vulkanmod.applybar.restart": "%d held, Apply saves for the next start, Esc discards",
   "vulkanmod.applybar.apply": "Apply",
   "vulkanmod.applybar.discard": "Discard",
-
+  "vulkanmod.applybar.instant": "%d change(s) waiting to be applied",
   "vulkanmod.ui.section.volcanic": "Volcanic",
   "vulkanmod.ui.section.content": "Content",
   "vulkanmod.ui.section.system": "System",
-
   "vulkanmod.ui.page.overview": "Overview",
   "vulkanmod.ui.page.display": "Display",
   "vulkanmod.ui.page.display.general": "General",
@@ -173,7 +153,6 @@
   "vulkanmod.ui.page.advanced.compatibility": "Compatibility",
   "vulkanmod.ui.page.experimental": "Experimental",
   "vulkanmod.ui.page.developer": "Developer",
-
   "vulkanmod.ui.favorites.empty": "No favorites yet — click the star beside a setting to keep it here.",
   "vulkanmod.ui.mods.empty": "No installed mod exposes visual settings, and none has a settings screen of its own.",
   "vulkanmod.ui.mods.open": "Open this mod's own settings",
@@ -185,10 +164,8 @@
   "vulkanmod.ui.search.source.minecraft": "Minecraft",
   "vulkanmod.ui.search.source.shaders": "Shaders",
   "vulkanmod.ui.search.source.mods": "Mods",
-
   "vulkanmod.ui.disabled.exclusive_fullscreen": "Only available in exclusive fullscreen. Set Window Mode to Fullscreen to pick a resolution and a refresh rate.",
   "vulkanmod.ui.disabled.core_shader_pack": "A resource pack is supplying its own core shaders, and they replace the shader pack while it is loaded. Remove that pack to choose again.",
-
   "vulkanmod.overview.profile": "Performance Profile",
   "vulkanmod.overview.gpu": "Graphics Device",
   "vulkanmod.overview.resolution": "Resolution",

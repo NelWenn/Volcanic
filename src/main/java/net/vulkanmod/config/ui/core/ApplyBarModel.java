@@ -27,10 +27,10 @@ public record ApplyBarModel(boolean visible, ApplyScope scope, int count) {
         if (pending == null) {
             throw new IllegalArgumentException("pending must not be null");
         }
-        ApplyScope heaviest = pending.heaviestScope();
-        if (heaviest == ApplyScope.INSTANT) {
+        if (pending.isEmpty()) {
             return NONE;
         }
+        ApplyScope heaviest = pending.heaviestScope();
         return new ApplyBarModel(true, heaviest, pending.countAtLeast(heaviest));
     }
 }
