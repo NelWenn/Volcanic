@@ -89,9 +89,90 @@ class SettingRowLayoutTest {
 
         assertFalse(reset.isEmpty());
         assertTrue(reset.x() > card.right(), "reset must start after the card: " + reset.x() + " vs " + card.right());
-        assertEquals(SettingRowLayout.RESET_GAP, reset.x() - card.right());
         assertEquals(row.right(), reset.right());
-        assertEquals(row.width() - reset.width() - SettingRowLayout.RESET_GAP, card.width());
+    }
+
+    @Test
+    void theStarSitsInTheGutterBetweenTheCardAndTheReset() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        Rect card = SettingRowLayout.cardBox(row);
+        Rect star = SettingRowLayout.starBox(row);
+        Rect reset = SettingRowLayout.resetBox(row);
+
+        assertFalse(star.isEmpty());
+        assertEquals(SettingRowLayout.RESET_GAP, star.x() - card.right());
+        assertTrue(star.right() < reset.x(),
+                "the star must not overlap the reset: " + star.right() + " vs " + reset.x());
+        assertTrue(reset.x() - star.right() > 0, "the two controls need a gap between them");
+        assertEquals(row.right(), reset.right());
+    }
+
+    @Test
+    void theGutterIsWideEnoughForBothControls() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        Rect card = SettingRowLayout.cardBox(row);
+        Rect star = SettingRowLayout.starBox(row);
+        Rect reset = SettingRowLayout.resetBox(row);
+
+        assertEquals(row.width(), card.width() + (star.x() - card.right()) + star.width()
+                + (reset.x() - star.right()) + reset.width());
+    }
+
+    @Test
+    void theStarIsAChunkySquareVerticallyCentredInTheRow() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, WIDE).get(0);
+        Rect star = SettingRowLayout.starBox(row);
+
+        assertEquals(star.width(), star.height());
+        assertTrue(star.width() >= 14 && star.width() <= 16,
+                "star should be a 14-16px click target, was " + star.width());
+        assertTrue(Math.abs((star.y() - row.y()) - (row.bottom() - star.bottom())) <= 1);
+        assertTrue(star.y() >= row.y() && star.bottom() <= row.bottom());
+    }
+
+    @Test
+    void aCompactRowStillHoldsBothControlsSideBySide() {
+        Rect row = SettingRowLayout.rows(CONTENT, 1, 0, Breakpoint.COMPACT).get(0);
+        Rect card = SettingRowLayout.cardBox(row);
+        Rect star = SettingRowLayout.starBox(row);
+        Rect reset = SettingRowLayout.resetBox(row);
+
+        assertFalse(card.isEmpty());
+        assertFalse(star.isEmpty());
+        assertFalse(reset.isEmpty());
+        assertTrue(card.right() < star.x() && star.right() < reset.x());
+        assertEquals(row.right(), reset.right());
+        assertTrue(star.y() >= row.y() && star.bottom() <= row.bottom(),
+                "the star must fit the 22px compact row: " + star + " in " + row);
+        assertTrue(reset.y() >= row.y() && reset.bottom() <= row.bottom());
+    }
+
+    @Test
+    void theNarrowestCompactWindowStillLeavesRoomForTheCard() {
+        Rect narrow = new Rect(0, 32, 320, 200);
+        Rect row = SettingRowLayout.rows(narrow, 1, 0, Breakpoint.COMPACT).get(0);
+        Rect card = SettingRowLayout.cardBox(row);
+
+        assertFalse(card.isEmpty());
+        assertTrue(card.width() > row.width() / 2,
+                "the gutter must not eat the card at 320px: card " + card.width() + " of row " + row.width());
+        assertTrue(card.right() < SettingRowLayout.starBox(row).x());
+    }
+
+    @Test
+    void starBoxFollowsTheRowAsItScrolls() {
+        Rect unscrolled = SettingRowLayout.rows(CONTENT, 2, 0, WIDE).get(1);
+        Rect scrolled = SettingRowLayout.rows(CONTENT, 2, 40, WIDE).get(1);
+        assertEquals(SettingRowLayout.starBox(unscrolled).y() - 40, SettingRowLayout.starBox(scrolled).y());
+        assertEquals(SettingRowLayout.starBox(unscrolled).x(), SettingRowLayout.starBox(scrolled).x());
+    }
+
+    @Test
+    void starBoxIsEmptyWhenTheRowCannotHoldIt() {
+        assertEquals(Rect.EMPTY, SettingRowLayout.starBox(Rect.EMPTY));
+        assertEquals(Rect.EMPTY, SettingRowLayout.starBox(new Rect(0, 0, 8, 27)));
+        assertEquals(Rect.EMPTY, SettingRowLayout.starBox(new Rect(0, 0, 300, 4)));
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.starBox(null));
     }
 
     @Test

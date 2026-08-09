@@ -27,6 +27,19 @@ class SettingRegistryTest {
     }
 
     @Test
+    void listsEverySettingInRegistrationOrderAcrossRoutes() {
+        SettingRegistry registry = new SettingRegistry();
+        registry.register(meta("vulkanmod:a", GENERAL));
+        registry.register(meta("vulkanmod:c", INTERFACE));
+        registry.register(meta("vulkanmod:b", GENERAL));
+
+        assertEquals(List.of(SettingId.parse("vulkanmod:a"), SettingId.parse("vulkanmod:c"),
+                        SettingId.parse("vulkanmod:b")),
+                registry.all().stream().map(SettingMeta::id).toList());
+        assertTrue(new SettingRegistry().all().isEmpty());
+    }
+
+    @Test
     void aRouteWithNoSettingsIsEmptyRatherThanNull() {
         assertTrue(new SettingRegistry().forRoute(GENERAL).isEmpty());
     }

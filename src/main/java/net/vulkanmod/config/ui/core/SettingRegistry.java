@@ -39,6 +39,10 @@ public final class SettingRegistry {
         return meta;
     }
 
+    public List<SettingMeta> all() {
+        return List.copyOf(byId.values());
+    }
+
     public List<SettingMeta> forRoute(RouteId route) {
         if (route == null) {
             throw new IllegalArgumentException("route must not be null");

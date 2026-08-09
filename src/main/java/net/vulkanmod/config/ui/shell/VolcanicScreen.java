@@ -9,6 +9,8 @@ import net.vulkanmod.config.ui.core.KeyAction;
 import net.vulkanmod.config.ui.core.ProfileChipRow;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
+import net.vulkanmod.config.ui.core.SearchIndex;
+import net.vulkanmod.config.ui.core.SearchResultsModel;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
@@ -20,21 +22,26 @@ import net.vulkanmod.config.ui.render.SurfacePainter;
 import net.vulkanmod.config.ui.settings.SettingBinding;
 
 import java.util.List;
+import java.util.Optional;
 
 public class VolcanicScreen extends Screen {
     private static final int SIDEBAR_SCROLL_STEP = 25;
     private static final int CONTENT_SCROLL_STEP = 16;
     private static final int PRIMARY_BUTTON = 0;
+    private static final Theme THEME = Theme.volcanic();
 
     private final Screen parent;
     private final NavPresenter presenter = new NavPresenter();
-    private final ShellRenderer renderer = new ShellRenderer(Theme.volcanic());
+    private final ShellRenderer renderer = new ShellRenderer(THEME);
     private ShellLayout layout = ShellLayout.of(0, 0);
+    private SearchIndex searchIndex;
+    private SearchField search;
     private int sidebarScroll;
     private int contentScroll;
     private RouteId scrolledRoute;
     private SettingId dragged;
     private boolean drawerOpen;
+    private int searchSelection = -1;
 
     public VolcanicScreen(Component title, Screen parent) {
         super(title);
@@ -52,6 +59,23 @@ public class VolcanicScreen extends Screen {
                     presenter.stack().current().toString());
         }
         this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, navViewport().height());
+        initSearch();
+    }
+
+    private void initSearch() {
+        String query = search == null ? "" : search.query();
+        this.search = null;
+        Rect box = layout.searchField();
+        if (box.isEmpty()) {
+            return;
+        }
+        if (searchIndex == null) {
+            this.searchIndex = SearchField.indexOf(presenter.catalog());
+        }
+        SearchField field = new SearchField(this.font, box, searchIndex, THEME);
+        field.setQuery(query);
+        addRenderableWidget(field.widget());
+        this.search = field;
     }
 
     @Override
@@ -59,7 +83,18 @@ public class VolcanicScreen extends Screen {
         syncContentScroll();
         SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
         renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, contentScroll,
-                mouseX, mouseY, dragged, drawerOpen);
+                mouseX, mouseY, dragged, drawerOpen, searchFocused());
+        if (searchFocused()) {
+            renderer.renderSearchOverlay(painter, this.font, layout, presenter, searchResults(),
+                    search.query(), searchSelection, mouseX, mouseY);
+        }
+        if (search != null) {
+            search.render(guiGraphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    private SearchResultsModel searchResults() {
+        return SearchResultsModel.of(search == null ? List.of() : search.results(), layout.content());
     }
 
     @Override
@@ -70,6 +105,14 @@ public class VolcanicScreen extends Screen {
 
         int x = (int) mouseX;
         int y = (int) mouseY;
+        if (search != null && layout.searchField().contains(x, y)) {
+            focusSearch(true);
+            search.click(mouseX, mouseY, button);
+            return true;
+        }
+        if (searchFocused()) {
+            return clickSearchResult(x, y);
+        }
         if (layout.menuButton().contains(x, y)) {
             setDrawerOpen(!drawerOpen);
             return true;
@@ -107,7 +150,7 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (dragged != null) {
+        if (dragged != null || searchFocused()) {
             return true;
         }
 
@@ -133,6 +176,14 @@ public class VolcanicScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         KeyAction action = UiKeys.actionFor(keyCode, modifiers);
+        if (action == KeyAction.SEARCH && search != null) {
+            focusSearch(true);
+            search.selectAll();
+            return true;
+        }
+        if (searchFocused()) {
+            return searchKeyPressed(action, keyCode, scanCode, modifiers);
+        }
         switch (action) {
             case CLOSE -> {
                 if (drawerOpen) {
@@ -183,6 +234,71 @@ public class VolcanicScreen extends Screen {
                 return super.keyPressed(keyCode, scanCode, modifiers);
             }
         }
+    }
+
+    private boolean searchKeyPressed(KeyAction action, int keyCode, int scanCode, int modifiers) {
+        if (action == KeyAction.CLOSE) {
+            search.setQuery("");
+            focusSearch(false);
+            return true;
+        }
+        if (action == KeyAction.NEXT || action == KeyAction.PREVIOUS) {
+            focusSearch(false);
+            return true;
+        }
+        if (action == KeyAction.UP || action == KeyAction.DOWN) {
+            this.searchSelection = searchResults()
+                    .nextHit(searchSelection, action == KeyAction.DOWN ? 1 : -1);
+            return true;
+        }
+        if (action == KeyAction.ACTIVATE) {
+            openSelectedResult();
+            return true;
+        }
+        search.keyPressed(keyCode, scanCode, modifiers);
+        this.searchSelection = -1;
+        return true;
+    }
+
+    @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        boolean handled = super.charTyped(codePoint, modifiers);
+        if (searchFocused()) {
+            this.searchSelection = -1;
+        }
+        return handled;
+    }
+
+    private boolean clickSearchResult(int mouseX, int mouseY) {
+        SearchResultsModel results = searchResults();
+        Optional<SearchIndex.Entry> hit = results.hitAt(results.indexAt(mouseX, mouseY));
+        if (hit.isEmpty()) {
+            focusSearch(false);
+            return true;
+        }
+        openResult(hit.get());
+        return true;
+    }
+
+    private void openSelectedResult() {
+        SearchResultsModel results = searchResults();
+        results.hitAt(searchSelection).or(() -> results.hitAt(results.firstHit())).ifPresent(this::openResult);
+    }
+
+    private void openResult(SearchIndex.Entry entry) {
+        focusSearch(false);
+        presenter.reveal(entry.id());
+        syncContentScroll();
+        revealFocusedSetting();
+    }
+
+    private boolean searchFocused() {
+        return search != null && search.isFocused();
+    }
+
+    private void focusSearch(boolean focused) {
+        setFocused(focused ? search.widget() : null);
+        this.searchSelection = -1;
     }
 
     @Override
@@ -257,6 +373,10 @@ public class VolcanicScreen extends Screen {
         }
 
         SettingMeta meta = presenter.settings().get(index);
+        if (SettingRowLayout.starBox(boxes.get(index)).contains(mouseX, mouseY)) {
+            presenter.toggleFavorite(meta.id());
+            return true;
+        }
         if (SettingRowLayout.resetBox(boxes.get(index)).contains(mouseX, mouseY) && presenter.reset(meta)) {
             return true;
         }

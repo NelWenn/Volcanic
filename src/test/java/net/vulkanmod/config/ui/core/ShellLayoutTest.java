@@ -102,6 +102,44 @@ class ShellLayoutTest {
     }
 
     @Test
+    void searchFieldSitsAtTheRightEndOfTheTopBar() {
+        ShellLayout layout = ShellLayout.of(854, 480);
+        Rect field = layout.searchField();
+
+        assertFalse(field.isEmpty());
+        assertTrue(field.y() >= layout.topBar().y());
+        assertTrue(field.bottom() <= layout.topBar().bottom());
+        assertTrue(field.right() < layout.topBar().right(), "the field keeps a margin from the edge");
+        assertEquals(layout.topBar().y() + (layout.topBar().height() - field.height()) / 2, field.y());
+    }
+
+    @Test
+    void searchFieldClearsTheBrandAndTheMenuButton() {
+        ShellLayout compact = ShellLayout.of(480, 270);
+        assertTrue(compact.searchField().x() > compact.menuButton().right(),
+                "the field must not sit on top of the drawer button");
+        assertTrue(ShellLayout.of(640, 360).searchField().x() > ShellLayout.SIDEBAR_WIDTH / 2);
+    }
+
+    @Test
+    void compactGetsANarrowerSearchFieldThanTheWiderBreakpoints() {
+        assertTrue(ShellLayout.of(480, 270).searchField().width()
+                < ShellLayout.of(640, 360).searchField().width());
+        assertEquals(ShellLayout.of(640, 360).searchField().width(),
+                ShellLayout.of(854, 480).searchField().width());
+    }
+
+    @Test
+    void aTopBarTooNarrowForTheFieldOffersNone() {
+        assertTrue(ShellLayout.of(160, 270).searchField().isEmpty());
+    }
+
+    @Test
+    void aCollapsedTopBarOffersNoSearchField() {
+        assertTrue(ShellLayout.of(854, 10).searchField().isEmpty());
+    }
+
+    @Test
     void applyAndDiscardSitSideBySideInsideTheBottomBar() {
         ShellLayout layout = ShellLayout.of(854, 480);
         Rect bar = layout.bottomBar();

@@ -15,9 +15,12 @@ import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.ScrollIndicator;
+import net.vulkanmod.config.ui.core.SearchIndex;
+import net.vulkanmod.config.ui.core.SearchResultsModel;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
+import net.vulkanmod.config.ui.core.SettingSource;
 import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.core.SidebarViewport;
@@ -55,11 +58,20 @@ public final class ShellRenderer {
     private static final int BRAND_GAP = 8;
     private static final float SCRIM_ALPHA = 0.72f;
     private static final int BAR_BUTTON_RADIUS = 5;
+    private static final int SEARCH_RADIUS = 5;
     private static final String KEY_APPLY = "vulkanmod.applybar.apply";
     private static final String KEY_DISCARD = "vulkanmod.applybar.discard";
     private static final String BRAND = "VOLCANIC";
     private static final String BREADCRUMB_SEPARATOR = "›";
+    private static final String KEY_FAVORITES_EMPTY = "vulkanmod.ui.favorites.empty";
+    private static final String KEY_SEARCH_PROMPT = "vulkanmod.ui.search.prompt";
+    private static final String KEY_SEARCH_EMPTY = "vulkanmod.ui.search.empty";
+    private static final String KEY_SEARCH_SOURCE = "vulkanmod.ui.search.source.";
+    private static final int OVERLAY_RADIUS = 6;
+    private static final int OVERLAY_PAD_X = 8;
+    private static final int RESULT_RADIUS = 4;
     private static final RouteId OVERVIEW = RouteId.parse("overview");
+    private static final RouteId FAVORITES = RouteId.parse("favorites");
     private static final int PROFILE_ROW = 0;
 
     private final Theme theme;
@@ -75,7 +87,7 @@ public final class ShellRenderer {
 
     public void render(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
                        NavPresenter presenter, int scroll, int contentScroll, int mouseX, int mouseY,
-                       SettingId dragged, boolean drawerOpen) {
+                       SettingId dragged, boolean drawerOpen, boolean searchFocused) {
         if (graphics == null) {
             throw new IllegalArgumentException("graphics must not be null");
         }
@@ -90,7 +102,7 @@ public final class ShellRenderer {
             throw new IllegalArgumentException("contentScroll must not be negative: " + contentScroll);
         }
 
-        paintChrome(painter, layout, drawerOpen);
+        paintChrome(painter, layout, drawerOpen, searchFocused);
         paintApplyBar(painter, font, layout, presenter, mouseX, mouseY);
         painter.flush();
 
@@ -118,6 +130,79 @@ public final class ShellRenderer {
                     theme.color(ColorToken.BORDER_ACCENT));
             painter.flush();
         }
+    }
+
+    public void renderSearchOverlay(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                                    SearchResultsModel results, String query, int selected,
+                                    int mouseX, int mouseY) {
+        if (painter == null) {
+            throw new IllegalArgumentException("painter must not be null");
+        }
+        requireInputs(font, layout, presenter);
+        if (results == null) {
+            throw new IllegalArgumentException("results must not be null");
+        }
+        if (query == null) {
+            throw new IllegalArgumentException("query must not be null; use \"\"");
+        }
+
+        Rect panel = results.panel();
+        if (panel.isEmpty()) {
+            return;
+        }
+
+        painter.fill(layout.content(), theme.color(ColorToken.SURFACE_SUNKEN, SCRIM_ALPHA));
+        paintRoundedFill(painter, panel, OVERLAY_RADIUS, theme.color(ColorToken.SURFACE_CHROME));
+        paintRoundedOutline(painter, panel, OVERLAY_RADIUS, theme.color(ColorToken.BORDER_ACCENT));
+
+        List<SearchResultsModel.Row> rows = results.rows();
+        if (rows.isEmpty()) {
+            paintCentredNotice(painter, font, panel,
+                    query.isBlank() ? I18n.get(KEY_SEARCH_PROMPT) : I18n.get(KEY_SEARCH_EMPTY, query));
+            painter.flush();
+            return;
+        }
+
+        List<Rect> boxes = results.boxes();
+        int hovered = results.indexAt(mouseX, mouseY);
+        for (int i = 0; i < boxes.size(); i++) {
+            Rect box = boxes.get(i);
+            switch (rows.get(i)) {
+                case SearchResultsModel.Header(SettingSource source) -> painter.text(
+                        box.x() + OVERLAY_PAD_X, box.y() + (box.height() - TEXT_HEIGHT) / 2,
+                        I18n.get(KEY_SEARCH_SOURCE + source.name().toLowerCase(Locale.ROOT))
+                                .toUpperCase(Locale.ROOT),
+                        theme.color(ColorToken.TEXT_FAINT), false);
+                case SearchResultsModel.Hit(SearchIndex.Entry entry) ->
+                        paintResult(painter, font, box, presenter, entry, i == selected, i == hovered);
+            }
+        }
+        painter.flush();
+    }
+
+    private void paintResult(SurfacePainter painter, Font font, Rect box, NavPresenter presenter,
+                             SearchIndex.Entry entry, boolean selected, boolean hovered) {
+        if (selected || hovered) {
+            paintRoundedFill(painter, box, RESULT_RADIUS, theme.color(ColorToken.SURFACE_CARD_HOVER));
+        }
+        if (selected) {
+            paintRoundedOutline(painter, box, RESULT_RADIUS, theme.color(ColorToken.ACCENT));
+        }
+
+        int top = box.y() + (box.height() - TEXT_HEIGHT) / 2;
+        String path = routeLabel(presenter, entry.route());
+        int pathX = box.right() - OVERLAY_PAD_X - font.width(path);
+        painter.text(pathX, top, path, theme.color(ColorToken.TEXT_MUTED), false);
+
+        int titleX = box.x() + OVERLAY_PAD_X;
+        painter.text(titleX, top, font.plainSubstrByWidth(entry.title(), Math.max(0, pathX - OVERLAY_PAD_X - titleX)),
+                theme.color(selected ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_DEFAULT), false);
+    }
+
+    private static String routeLabel(NavPresenter presenter, RouteId route) {
+        String leaf = label(presenter, route);
+        RouteId parent = route.parent();
+        return parent.depth() == 0 ? leaf : label(presenter, parent) + " " + BREADCRUMB_SEPARATOR + " " + leaf;
     }
 
     private void paintNav(GuiGraphics graphics, SurfacePainter painter, Rect region, NavPresenter presenter,
@@ -235,7 +320,8 @@ public final class ShellRenderer {
         return active;
     }
 
-    private void paintChrome(SurfacePainter painter, ShellLayout layout, boolean drawerOpen) {
+    private void paintChrome(SurfacePainter painter, ShellLayout layout, boolean drawerOpen,
+                             boolean searchFocused) {
         Rect screen = new Rect(0, 0, layout.topBar().width(), layout.bottomBar().bottom());
         painter.fill(screen, theme.color(ColorToken.SURFACE_BASE));
         painter.fill(layout.topBar(), theme.color(ColorToken.SURFACE_CHROME));
@@ -261,6 +347,17 @@ public final class ShellRenderer {
         if (!menu.isEmpty()) {
             paintMenuIcon(painter, menu, theme.color(drawerOpen ? ColorToken.ACCENT : ColorToken.TEXT_SECONDARY));
         }
+
+        paintSearchFrame(painter, layout.searchField(), searchFocused);
+    }
+
+    private void paintSearchFrame(SurfacePainter painter, Rect field, boolean focused) {
+        if (field.isEmpty()) {
+            return;
+        }
+        paintRoundedFill(painter, field, SEARCH_RADIUS, theme.color(ColorToken.SURFACE_CARD));
+        paintRoundedOutline(painter, field, SEARCH_RADIUS,
+                theme.color(focused ? ColorToken.ACCENT : ColorToken.BORDER_SUBTLE));
     }
 
     public Rect applyButton(ShellLayout layout, NavPresenter presenter) {
@@ -464,6 +561,11 @@ public final class ShellRenderer {
     private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
                                int contentScroll, int mouseX, int mouseY, SettingId dragged) {
         List<SettingMeta> settings = presenter.settings();
+        if (settings.isEmpty() && FAVORITES.equals(presenter.stack().current())) {
+            paintCentredNotice(painter, font, layout.content(), I18n.get(KEY_FAVORITES_EMPTY));
+            return;
+        }
+
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
         SettingsCatalog catalog = presenter.catalog();
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
@@ -474,12 +576,23 @@ public final class ShellRenderer {
             rowRenderer.render(painter, font, box, meta, binding, presenter.valueOf(meta),
                     catalog.enabled(meta.id()),
                     box.contains(mouseX, mouseY) || meta.id().equals(dragged), presenter.resettable(meta),
-                    SettingRowLayout.resetBox(box).contains(mouseX, mouseY));
+                    SettingRowLayout.resetBox(box).contains(mouseX, mouseY),
+                    presenter.isFavorite(meta.id()),
+                    SettingRowLayout.starBox(box).contains(mouseX, mouseY));
             if (meta.id().toString().equals(focusedId)) {
                 paintRoundedOutline(painter, SettingRowLayout.cardBox(box), SettingRowLayout.CARD_RADIUS,
                         theme.color(ColorToken.ACCENT));
             }
         }
+    }
+
+    private void paintCentredNotice(SurfacePainter painter, Font font, Rect content, String text) {
+        if (content.isEmpty()) {
+            return;
+        }
+        painter.text(content.x() + (content.width() - font.width(text)) / 2,
+                content.y() + (content.height() - TEXT_HEIGHT) / 2, text,
+                theme.color(ColorToken.TEXT_MUTED), false);
     }
 
     private void paintBreadcrumbs(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {

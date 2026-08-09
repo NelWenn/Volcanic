@@ -29,6 +29,18 @@ public final class SettingRowRenderer {
     private static final String ARROW_RIGHT = "\u203A";
     private static final String ITALIC = "\u00A7o";
 
+    private static final int STAR_INSET = 3;
+    private static final String[] STAR = {
+            "....#....",
+            "...###...",
+            "...###...",
+            "#########",
+            ".#######.",
+            "..#####..",
+            "..#####..",
+            ".##...##.",
+            "##.....##"};
+
     private final Theme theme;
 
     public SettingRowRenderer(Theme theme) {
@@ -39,7 +51,8 @@ public final class SettingRowRenderer {
     }
 
     public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, SettingBinding binding,
-                       Object value, boolean enabled, boolean hovered, boolean resettable, boolean resetHovered) {
+                       Object value, boolean enabled, boolean hovered, boolean resettable, boolean resetHovered,
+                       boolean favorite, boolean starHovered) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
         }
@@ -79,6 +92,7 @@ public final class SettingRowRenderer {
         if (reset) {
             paintReset(painter, SettingRowLayout.resetBox(box), resetHovered);
         }
+        paintStar(painter, SettingRowLayout.starBox(box), favorite, starHovered);
 
         int right = card.right() - ShellRenderer.CARD_PAD_X;
         switch (meta.type()) {
@@ -119,6 +133,49 @@ public final class SettingRowRenderer {
         for (int step = 0; step < head; step++) {
             painter.fill(new Rect(glyph.x() + step, top - step, 1, thickness + step * 2), argb);
         }
+    }
+
+    private void paintStar(SurfacePainter painter, Rect box, boolean favorite, boolean hovered) {
+        if (box.isEmpty()) {
+            return;
+        }
+        if (hovered) {
+            ShellRenderer.paintRoundedFill(painter, box, SettingRowLayout.RESET_RADIUS,
+                    theme.color(ColorToken.SURFACE_NAV_ACTIVE));
+        }
+        paintStarGlyph(painter, box.inset(STAR_INSET), theme.color(starToken(favorite, hovered)), favorite);
+    }
+
+    private static ColorToken starToken(boolean favorite, boolean hovered) {
+        if (favorite) {
+            return ColorToken.ACCENT;
+        }
+        return hovered ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_MUTED;
+    }
+
+    private static void paintStarGlyph(SurfacePainter painter, Rect glyph, int argb, boolean filled) {
+        if (glyph.isEmpty()) {
+            return;
+        }
+        int scale = Math.max(1, Math.min(glyph.width(), glyph.height()) / STAR.length);
+        int left = glyph.x() + (glyph.width() - STAR.length * scale) / 2;
+        int top = glyph.y() + (glyph.height() - STAR.length * scale) / 2;
+        for (int row = 0; row < STAR.length; row++) {
+            for (int column = 0; column < STAR[row].length(); column++) {
+                if (lit(row, column) && (filled || !enclosed(row, column))) {
+                    painter.fill(new Rect(left + column * scale, top + row * scale, scale, scale), argb);
+                }
+            }
+        }
+    }
+
+    private static boolean lit(int row, int column) {
+        return row >= 0 && row < STAR.length
+                && column >= 0 && column < STAR[row].length() && STAR[row].charAt(column) == '#';
+    }
+
+    private static boolean enclosed(int row, int column) {
+        return lit(row - 1, column) && lit(row + 1, column) && lit(row, column - 1) && lit(row, column + 1);
     }
 
     private void paintPill(SurfacePainter painter, Rect box, int right, boolean on) {

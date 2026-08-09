@@ -9,6 +9,10 @@ public final class SettingRowLayout {
     public static final int RESET_RADIUS = 4;
     public static final int RESET_GAP = 5;
 
+    private static final int STAR_SIZE = 15;
+    private static final int STAR_GAP = 4;
+    private static final int GUTTER = RESET_GAP + STAR_SIZE + STAR_GAP + RESET_SIZE;
+
     private static final int ROW_HEIGHT = 27;
     private static final int ROW_HEIGHT_COMPACT = 22;
     private static final int ROW_GAP = 5;
@@ -59,7 +63,7 @@ public final class SettingRowLayout {
         if (row == null) {
             throw new IllegalArgumentException("row must not be null");
         }
-        int width = row.width() - RESET_SIZE - RESET_GAP;
+        int width = row.width() - GUTTER;
         if (row.isEmpty() || width <= 0) {
             return Rect.EMPTY;
         }
@@ -75,6 +79,17 @@ public final class SettingRowLayout {
         }
         return new Rect(row.right() - RESET_SIZE, row.y() + (row.height() - RESET_SIZE) / 2,
                 RESET_SIZE, RESET_SIZE);
+    }
+
+    public static Rect starBox(Rect row) {
+        if (row == null) {
+            throw new IllegalArgumentException("row must not be null");
+        }
+        if (cardBox(row).isEmpty() || row.height() < STAR_SIZE) {
+            return Rect.EMPTY;
+        }
+        return new Rect(row.right() - RESET_SIZE - STAR_GAP - STAR_SIZE,
+                row.y() + (row.height() - STAR_SIZE) / 2, STAR_SIZE, STAR_SIZE);
     }
 
     public static int contentHeight(int count, Breakpoint breakpoint) {

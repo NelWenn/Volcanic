@@ -3,6 +3,8 @@ package net.vulkanmod.config.ui.shell;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.PerformancePreset;
 import net.vulkanmod.config.ui.core.DeferredValues;
+import net.vulkanmod.config.ui.core.Favorites;
+import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.FocusModel;
 import net.vulkanmod.config.ui.core.FocusRing;
 import net.vulkanmod.config.ui.core.NavNode;
@@ -17,7 +19,9 @@ import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.settings.SettingBinding;
 import net.vulkanmod.config.ui.settings.SettingsCatalog;
+import net.vulkanmod.config.ui.settings.UiState;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +38,7 @@ public final class NavPresenter {
     private final PendingChanges pending = new PendingChanges();
     private final DeferredValues deferred = new DeferredValues();
     private List<ProfileChipRow.Chip> profileChips;
+    private Favorites favorites;
 
     public NavPresenter() {
         this.tree = buildTree();
@@ -74,7 +79,44 @@ public final class NavPresenter {
     }
 
     public List<SettingMeta> settings() {
+        if (FAVORITES_ROUTE.equals(stack.current())) {
+            return favoriteSettings();
+        }
         return catalog.registry().forRoute(stack.current());
+    }
+
+    public boolean isFavorite(SettingId id) {
+        return favorites().contains(id);
+    }
+
+    public void toggleFavorite(SettingId id) {
+        favorites().toggle(id);
+        UiState.save(UiState.PATH, favorites());
+        if (!FAVORITES_ROUTE.equals(stack.current())) {
+            return;
+        }
+        String focused = focus.ring(REGION_CONTENT).focused();
+        rebuildContentRing();
+        if (focused != null) {
+            focus.ring(REGION_CONTENT).focus(focused);
+        }
+    }
+
+    private Favorites favorites() {
+        if (favorites == null) {
+            this.favorites = UiState.load(UiState.PATH);
+        }
+        return favorites;
+    }
+
+    private List<SettingMeta> favoriteSettings() {
+        List<SettingMeta> resolved = new ArrayList<>();
+        for (SettingId id : favorites().ids()) {
+            if (catalog.registry().contains(id)) {
+                resolved.add(catalog.registry().get(id));
+            }
+        }
+        return List.copyOf(resolved);
     }
 
     public Object valueOf(SettingMeta meta) {
@@ -142,6 +184,7 @@ public final class NavPresenter {
     }
 
     private static final RouteId OVERVIEW_ROUTE = RouteId.parse("overview");
+    private static final RouteId FAVORITES_ROUTE = RouteId.parse("favorites");
 
     public int contentRowCount() {
         return isOverview() ? catalog.overview().rows().size() : settings().size();
@@ -243,6 +286,15 @@ public final class NavPresenter {
             rebuildContentRing();
         }
         return moved;
+    }
+
+    public boolean reveal(SettingId id) {
+        if (id == null) {
+            throw new IllegalArgumentException("id must not be null");
+        }
+        navigate(catalog.registry().get(id).route());
+        return FocusHandoff.enter(focus, REGION_CONTENT, id.toString())
+                && focus.ring(REGION_CONTENT).focus(id.toString());
     }
 
     public boolean back() {

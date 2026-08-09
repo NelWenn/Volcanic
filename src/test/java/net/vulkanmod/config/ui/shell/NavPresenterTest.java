@@ -251,6 +251,29 @@ class NavPresenterTest {
     }
 
     @Test
+    void revealingASettingLandsOnItsPageWithThatRowFocused() {
+        NavPresenter presenter = new NavPresenter();
+
+        assertTrue(presenter.reveal(SettingsDefinitions.VSYNC));
+
+        assertEquals(RouteId.parse("display.general"), presenter.stack().current());
+        assertEquals(NavPresenter.REGION_CONTENT, presenter.focus().activeRegion());
+        assertEquals(SettingsDefinitions.VSYNC, presenter.focusedSetting().id());
+        assertThrows(IllegalArgumentException.class, () -> presenter.reveal(null));
+    }
+
+    @Test
+    void revealingASettingOnThePageAlreadyShownStillMovesTheFocusToIt() {
+        NavPresenter presenter = new NavPresenter();
+        presenter.reveal(SettingsDefinitions.VSYNC);
+
+        assertTrue(presenter.reveal(SettingsDefinitions.FRAMERATE_LIMIT));
+
+        assertEquals(RouteId.parse("display.general"), presenter.stack().current());
+        assertEquals(SettingsDefinitions.FRAMERATE_LIMIT, presenter.focusedSetting().id());
+    }
+
+    @Test
     void eachDisplayRouteServesItsOwnRows() {
         NavPresenter presenter = new NavPresenter();
         assertEquals(List.of(), presenter.settings());
