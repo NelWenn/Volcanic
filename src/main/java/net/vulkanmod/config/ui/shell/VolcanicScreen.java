@@ -13,6 +13,7 @@ import net.vulkanmod.config.ui.core.SearchIndex;
 import net.vulkanmod.config.ui.core.SearchResultsModel;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
+import net.vulkanmod.config.ui.core.SettingType;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
 import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.SliderGeometry;
@@ -86,15 +87,18 @@ public class VolcanicScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         syncContentScroll();
         SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
-        renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, contentScroll,
-                mouseX, mouseY, dragged, drawerOpen, searchFocused(), frameDeltaMs());
-        if (searchFocused()) {
-            renderer.renderSearchOverlay(painter, this.font, layout, presenter, searchResults(),
-                    search.query(), searchSelection, mouseX, mouseY);
-        } else if (!layout.hasDetailsPanel() && !drawerOpen) {
-            renderer.renderCard(painter, this.font, layout, presenter, contentScroll, mouseX, mouseY,
-                    pinned, dragged);
-        }
+        long deltaMs = frameDeltaMs();
+        guiGraphics.drawManaged(() -> {
+            renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, contentScroll,
+                    mouseX, mouseY, dragged, drawerOpen, searchFocused(), deltaMs);
+            if (searchFocused()) {
+                renderer.renderSearchOverlay(painter, this.font, layout, presenter, searchResults(),
+                        search.query(), searchSelection, mouseX, mouseY);
+            } else if (!layout.hasDetailsPanel() && !drawerOpen) {
+                renderer.renderCard(painter, this.font, layout, presenter, contentScroll, mouseX, mouseY,
+                        pinned, dragged);
+            }
+        });
         if (search != null) {
             search.render(guiGraphics, mouseX, mouseY, partialTick);
         }
@@ -431,6 +435,17 @@ public class VolcanicScreen extends Screen {
         }
         if (SettingRowLayout.resetBox(boxes.get(index)).contains(mouseX, mouseY) && presenter.reset(meta)) {
             return true;
+        }
+
+        if (meta.type() == SettingType.ENUM && presenter.catalog().enabled(meta.id())) {
+            if (SettingRowLayout.cyclerPrevBox(boxes.get(index)).contains(mouseX, mouseY)) {
+                presenter.step(meta, -1);
+                return true;
+            }
+            if (SettingRowLayout.cyclerNextBox(boxes.get(index)).contains(mouseX, mouseY)) {
+                presenter.step(meta, 1);
+                return true;
+            }
         }
 
         if (meta.type().slider() && presenter.catalog().enabled(meta.id())) {

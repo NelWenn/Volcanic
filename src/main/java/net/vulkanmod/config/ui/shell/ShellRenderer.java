@@ -302,7 +302,8 @@ public final class ShellRenderer {
                 ? DetailsLayout.sheet(bounds, bounds.height(), CARD_MARGIN)
                 : new Rect(0, 0, width, TooltipLayout.availableHeight(anchor, bounds));
         List<DetailsItem> items = detailsItems(font, presenter, meta, probe);
-        if (items.isEmpty()) {
+        int titleLines = detailsText(font, DetailsLayout.textWidth(probe)).lines(meta.titleKey(), true).size();
+        if (items.size() <= titleLines) {
             return;
         }
 
@@ -824,18 +825,22 @@ public final class ShellRenderer {
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
         SettingsCatalog catalog = presenter.catalog();
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
+        SettingMeta pointed = hoveredSetting(layout, presenter, contentScroll, mouseX, mouseY);
         for (int i = 0; i < boxes.size(); i++) {
             Rect box = boxes.get(i);
             SettingMeta meta = settings.get(i);
             SettingBinding binding = catalog.binding(meta.id());
             String key = meta.id().toString();
+            boolean onRow = meta.equals(pointed);
             rowRenderer.render(painter, font, box, meta, binding, presenter.valueOf(meta),
                     catalog.enabled(meta.id()),
-                    hover.advance(key, box.contains(mouseX, mouseY) || meta.id().equals(dragged), deltaMs),
+                    hover.advance(key, onRow || meta.id().equals(dragged), deltaMs),
                     presenter.resettable(meta),
-                    SettingRowLayout.resetBox(box).contains(mouseX, mouseY),
+                    onRow && SettingRowLayout.resetBox(box).contains(mouseX, mouseY),
                     presenter.isFavorite(meta.id()),
-                    SettingRowLayout.starBox(box).contains(mouseX, mouseY));
+                    onRow && SettingRowLayout.starBox(box).contains(mouseX, mouseY),
+                    onRow && SettingRowLayout.cyclerPrevBox(box).contains(mouseX, mouseY),
+                    onRow && SettingRowLayout.cyclerNextBox(box).contains(mouseX, mouseY));
 
             float focused = focus.advance(key, key.equals(focusedId), deltaMs);
             if (focused > 0.0f) {

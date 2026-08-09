@@ -35,7 +35,8 @@ public final class FrameTimer {
         try {
             INSTANCE = new FrameTimer(framesNum);
             INSTANCE.logging = MoltenVKConfig.perfDiagEnabled();
-            Initializer.LOGGER.info("FrameTimer: GPU timing enabled ({} frames, timestampPeriod={} ns, logging={})",
+            Initializer.LOGGER.info("FrameTimer: {} ({} frames, timestampPeriod={} ns, logging={})",
+                    GPU_TIMESTAMPS ? "wall + GPU timestamps" : "wall only, GPU timestamps off",
                     framesNum, INSTANCE.timestampPeriod, INSTANCE.logging);
         } catch (Throwable t) {
             Initializer.LOGGER.warn("FrameTimer: disabled ({})", t.toString());
@@ -51,6 +52,8 @@ public final class FrameTimer {
     }
 
     private static final long REPORT_INTERVAL_NS = 2_000_000_000L;
+    private static final boolean GPU_TIMESTAMPS =
+            !"false".equalsIgnoreCase(System.getProperty("vulkanmod.perf.timestamps", "true"));
 
     private final int framesNum;
     private final long queryPool;
@@ -80,6 +83,11 @@ public final class FrameTimer {
         this.framesNum = framesNum;
         this.written = new boolean[framesNum];
         this.timestampPeriod = DeviceManager.deviceProperties.limits().timestampPeriod();
+
+        if (!GPU_TIMESTAMPS) {
+            this.queryPool = VK_NULL_HANDLE;
+            return;
+        }
 
         try (MemoryStack stack = stackPush()) {
             VkQueryPoolCreateInfo info = VkQueryPoolCreateInfo.calloc(stack)
@@ -150,6 +158,9 @@ public final class FrameTimer {
 
     /** Reset this slot's queries and write the frame-start timestamp. Must NOT be inside a render pass. */
     public void cmdBeginTimestamp(org.lwjgl.vulkan.VkCommandBuffer cmd, int frame) {
+        if (queryPool == VK_NULL_HANDLE) {
+            return;
+        }
         int base = frame * 2;
         vkCmdResetQueryPool(cmd, queryPool, base, 2);
         vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, queryPool, base);
@@ -157,11 +168,17 @@ public final class FrameTimer {
 
     /** Write the frame-end timestamp. Safe to call inside a render pass. */
     public void cmdEndTimestamp(org.lwjgl.vulkan.VkCommandBuffer cmd, int frame) {
+        if (queryPool == VK_NULL_HANDLE) {
+            return;
+        }
         vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, frame * 2 + 1);
         written[frame] = true;
     }
 
     private double readGpuMs(int frame) {
+        if (queryPool == VK_NULL_HANDLE) {
+            return -1;
+        }
         try (MemoryStack stack = stackPush()) {
             LongBuffer results = stack.mallocLong(2);
             int r = vkGetQueryPoolResults(DeviceManager.vkDevice, queryPool, frame * 2, 2,

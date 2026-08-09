@@ -189,5 +189,9 @@
   "vulkanmod.overview.render_distance": "Render Distance",
   "vulkanmod.overview.occlusion_culling": "Occlusion Culling",
   "vulkanmod.overview.shader_pack": "Shader Pack",
-  "vulkanmod.overview.gpu_frame_time": "GPU Frame Time"
+  "vulkanmod.overview.frame_time": "Frame time",
+  "vulkanmod.overview.stability": "Stability",
+  "vulkanmod.overview.provenance": "Measured from",
+  "vulkanmod.ui.overview.sampling": "sampling %s / %s",
+  "vulkanmod.ui.overview.from_frames": "%s played frames"
 }

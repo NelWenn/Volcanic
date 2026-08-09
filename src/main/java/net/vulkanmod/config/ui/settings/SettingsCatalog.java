@@ -21,7 +21,8 @@ import net.vulkanmod.config.VsrPreset;
 import net.vulkanmod.render.chunk.build.TaskDispatcher;
 import net.vulkanmod.render.chunk.build.light.LightMode;
 import net.vulkanmod.render.vsr.Vsr;
-import net.vulkanmod.vulkan.FrameTimer;
+import net.vulkanmod.config.ui.core.FrameSamples;
+import net.vulkanmod.vulkan.SessionSamples;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.device.Device;
@@ -304,7 +305,9 @@ public final class SettingsCatalog {
                 .add("vulkanmod.overview.occlusion_culling",
                         Optional.of(toggleText(SettingsDefinitions.CULLING_OCCLUSION)))
                 .add("vulkanmod.overview.shader_pack", shaderPack())
-                .add("vulkanmod.overview.gpu_frame_time", measuredGpuFrameTime());
+                .add("vulkanmod.overview.frame_time", measuredFrameTime())
+                .add("vulkanmod.overview.stability", measuredStability())
+                .add("vulkanmod.overview.provenance", measuredFrom());
     }
 
     public Map<String, Map<SettingId, Object>> profileValues() {
@@ -402,9 +405,30 @@ public final class SettingsCatalog {
         return Optional.of(I18n.exists(key) ? I18n.get(key) : selected);
     }
 
-    private static Optional<String> measuredGpuFrameTime() {
-        double gpuMs = FrameTimer.gpuMs();
-        return gpuMs > 0.0 ? Optional.of(String.format(Locale.ROOT, "%.2f ms", gpuMs)) : Optional.empty();
+    private static Optional<String> measuredFrameTime() {
+        FrameSamples samples = SessionSamples.samples();
+        if (!samples.ready()) {
+            return Optional.of(I18n.get("vulkanmod.ui.overview.sampling", samples.count(), FrameSamples.READY_AT));
+        }
+        return Optional.of(String.format(Locale.ROOT, "%.1f ms  ·  %.0f fps", samples.median(), samples.fps()));
+    }
+
+    private static Optional<String> measuredStability() {
+        FrameSamples samples = SessionSamples.samples();
+        if (!samples.ready()) {
+            return Optional.empty();
+        }
+        if (!samples.hasLowPercentile()) {
+            return Optional.of(String.format(Locale.ROOT, "P95 %.1f ms", samples.p95()));
+        }
+        return Optional.of(String.format(Locale.ROOT, "P95 %.1f ms  ·  P1 %.1f ms", samples.p95(), samples.p1()));
+    }
+
+    private static Optional<String> measuredFrom() {
+        FrameSamples samples = SessionSamples.samples();
+        return samples.ready()
+                ? Optional.of(I18n.get("vulkanmod.ui.overview.from_frames", samples.count()))
+                : Optional.empty();
     }
 
     private void bindDisplayGeneral() {

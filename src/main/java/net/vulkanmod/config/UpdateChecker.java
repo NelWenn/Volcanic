@@ -11,8 +11,8 @@ import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 
 public abstract class UpdateChecker {
-    public static final String RELEASES_URL = "https://github.com/TrulyRin/VulkanMod-Reforged/releases";
-    private static final String LATEST_RELEASE_API = "https://api.github.com/repos/TrulyRin/VulkanMod-Reforged/releases/latest";
+    public static final String RELEASES_URL = "https://github.com/NelWenn/Volcanic/releases";
+    private static final String LATEST_RELEASE_API = "https://api.github.com/repos/NelWenn/Volcanic/releases/latest";
 
     private static boolean updateAvailable = false;
 

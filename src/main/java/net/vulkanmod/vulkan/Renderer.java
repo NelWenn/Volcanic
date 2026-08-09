@@ -310,6 +310,8 @@ public class Renderer {
         if (FrameTimer.instance() != null)
             FrameTimer.instance().onEndFrameCpu();
 
+        SessionSamples.onFrameEnd();
+
         if (CompatProfiler.ENABLED || Initializer.CONFIG.adaptiveChunkUploads) {
             long duration = System.nanoTime() - net.vulkanmod.compat.observer.CompatProfiler.cpuFrameStart;
             float cpuRenderTimeMs = duration * 0.000001f;

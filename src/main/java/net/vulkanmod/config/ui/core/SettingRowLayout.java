@@ -10,6 +10,11 @@ public final class SettingRowLayout {
     public static final int RESET_RADIUS = 4;
     public static final int RESET_GAP = 5;
 
+    public static final int ARROW_SIZE = 15;
+    public static final int ARROW_RADIUS = 4;
+    private static final int CYCLER_MIN_VALUE = 40;
+    private static final int CYCLER_TITLE_RESERVE = 104;
+
     public static final int BADGE_SIZE = 7;
     public static final int BADGE_GAP = 5;
     public static final int BADGE_ADVANCE = BADGE_SIZE + BADGE_GAP;
@@ -95,6 +100,49 @@ public final class SettingRowLayout {
         }
         return new Rect(row.right() - RESET_SIZE - STAR_GAP - STAR_SIZE,
                 row.y() + (row.height() - STAR_SIZE) / 2, STAR_SIZE, STAR_SIZE);
+    }
+
+    public static Rect cyclerPrevBox(Rect row) {
+        return cyclerPart(row, 0);
+    }
+
+    public static Rect cyclerValueBox(Rect row) {
+        return cyclerPart(row, 1);
+    }
+
+    public static Rect cyclerNextBox(Rect row) {
+        return cyclerPart(row, 2);
+    }
+
+    public static Rect cyclerBox(Rect row) {
+        if (row == null) {
+            throw new IllegalArgumentException("row must not be null");
+        }
+        Rect card = cardBox(row);
+        int inner = card.width() - CARD_PAD_X * 2;
+        if (card.isEmpty() || row.height() < ARROW_SIZE || inner <= 0) {
+            return Rect.EMPTY;
+        }
+        int width = Math.min(Math.max(inner / 2, ARROW_SIZE * 2 + CYCLER_MIN_VALUE),
+                inner - CYCLER_TITLE_RESERVE);
+        if (width < ARROW_SIZE * 2 + CYCLER_MIN_VALUE) {
+            return Rect.EMPTY;
+        }
+        return new Rect(card.right() - CARD_PAD_X - width, row.y(), width, row.height());
+    }
+
+    private static Rect cyclerPart(Rect row, int part) {
+        Rect region = cyclerBox(row);
+        if (region.isEmpty()) {
+            return Rect.EMPTY;
+        }
+        int top = region.y() + (region.height() - ARROW_SIZE) / 2;
+        return switch (part) {
+            case 0 -> new Rect(region.x(), top, ARROW_SIZE, ARROW_SIZE);
+            case 1 -> new Rect(region.x() + ARROW_SIZE, region.y(),
+                    region.width() - ARROW_SIZE * 2, region.height());
+            default -> new Rect(region.right() - ARROW_SIZE, top, ARROW_SIZE, ARROW_SIZE);
+        };
     }
 
     public static Rect badgeBox(Rect row, int textWidth) {

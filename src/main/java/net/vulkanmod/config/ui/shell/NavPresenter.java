@@ -17,6 +17,7 @@ import net.vulkanmod.config.ui.core.ProfileMatcher;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
+import net.vulkanmod.config.ui.core.SettingType;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.mods.ModScreens;
 import net.vulkanmod.config.ui.mods.ModSettings;
@@ -144,10 +145,7 @@ public final class NavPresenter {
 
         return switch (meta.type()) {
             case BOOL -> set(meta, !boolValue(meta, valueOf(meta)));
-            case ENUM -> {
-                List<String> choices = catalog.binding(meta.id()).choices();
-                yield !choices.isEmpty() && set(meta, cycled(choices, valueOf(meta)));
-            }
+            case ENUM -> step(meta, 1);
             case INT -> false;
         };
     }
@@ -156,7 +154,14 @@ public final class NavPresenter {
         if (meta == null) {
             throw new IllegalArgumentException("meta must not be null");
         }
-        if (!meta.type().slider() || direction == 0 || !catalog.enabled(meta.id())) {
+        if (direction == 0 || !catalog.enabled(meta.id())) {
+            return false;
+        }
+        if (meta.type() == SettingType.ENUM) {
+            List<String> choices = catalog.binding(meta.id()).choices();
+            return !choices.isEmpty() && set(meta, stepped(choices, valueOf(meta), direction));
+        }
+        if (!meta.type().slider()) {
             return false;
         }
 
@@ -407,10 +412,16 @@ public final class NavPresenter {
     }
 
     static String cycled(List<String> choices, Object current) {
+        return stepped(choices, current, 1);
+    }
+
+    static String stepped(List<String> choices, Object current, int direction) {
         if (choices == null || choices.isEmpty()) {
             throw new IllegalArgumentException("choices must not be empty");
         }
-        return choices.get((choices.indexOf(current) + 1) % choices.size());
+        int size = choices.size();
+        int next = (choices.indexOf(current) + Integer.signum(direction)) % size;
+        return choices.get(next < 0 ? next + size : next);
     }
 
     private static int intValue(SettingMeta meta, Object value) {

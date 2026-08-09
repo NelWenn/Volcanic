@@ -16,6 +16,7 @@ public final class SettingRowRenderer {
     private static final int GLYPH_INSET = 4;
 
     private static final int TEXT_HEIGHT = 9;
+    private static final int GLYPH_HEIGHT = 8;
 
     private static final int PILL_WIDTH = 22;
     private static final int PILL_HEIGHT = 12;
@@ -70,7 +71,7 @@ public final class SettingRowRenderer {
 
     public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, SettingBinding binding,
                        Object value, boolean enabled, float hovered, boolean resettable, boolean resetHovered,
-                       boolean favorite, boolean starHovered) {
+                       boolean favorite, boolean starHovered, boolean prevHovered, boolean nextHovered) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
         }
@@ -122,8 +123,8 @@ public final class SettingRowRenderer {
             case BOOL -> paintPill(painter, card, right, booleanValue(meta, value));
             case INT -> paintSlider(painter, font, box, card, right, binding.display(value),
                     intValue(meta, value), binding.min(), binding.max(), enabled, highlighted);
-            case ENUM -> paintCycler(painter, font, card, right, I18n.get(binding.display(value)),
-                    enabled, highlighted);
+            case ENUM -> paintCycler(painter, font, box, I18n.get(binding.display(value)),
+                    enabled, highlighted, prevHovered, nextHovered);
         }
     }
 
@@ -259,16 +260,50 @@ public final class SettingRowRenderer {
         return blend(ColorToken.TEXT_MUTED, ColorToken.ACCENT, active);
     }
 
-    private void paintCycler(SurfacePainter painter, Font font, Rect box, int right, String text,
-                             boolean enabled, float hovered) {
-        int argb = arrowArgb(enabled, hovered);
-        painter.text(right - font.width(ARROW_RIGHT), textTop(box), ARROW_RIGHT, argb, false);
+    private void paintCycler(SurfacePainter painter, Font font, Rect row, String text,
+                             boolean enabled, float hovered, boolean prevHovered, boolean nextHovered) {
+        Rect prev = SettingRowLayout.cyclerPrevBox(row);
+        Rect value = SettingRowLayout.cyclerValueBox(row);
+        Rect next = SettingRowLayout.cyclerNextBox(row);
+        if (prev.isEmpty()) {
+            paintValue(painter, font, row, SettingRowLayout.cardBox(row).right() - SettingRowLayout.CARD_PAD_X,
+                    text, valueArgb(enabled));
+            return;
+        }
 
-        int valueRight = right - font.width(ARROW_RIGHT) - ARROW_GAP;
-        painter.text(valueRight - font.width(text), textTop(box), text, valueArgb(enabled), false);
+        paintArrow(painter, font, prev, ARROW_LEFT, enabled, hovered, prevHovered);
+        paintArrow(painter, font, next, ARROW_RIGHT, enabled, hovered, nextHovered);
 
-        int leftArrowX = valueRight - font.width(text) - ARROW_GAP - font.width(ARROW_LEFT);
-        painter.text(leftArrowX, textTop(box), ARROW_LEFT, argb, false);
+        String shown = trimmed(font, text, value.width() - ARROW_GAP * 2);
+        painter.text(value.x() + (value.width() - font.width(shown)) / 2, textTop(value), shown,
+                valueArgb(enabled), false);
+    }
+
+    private void paintArrow(SurfacePainter painter, Font font, Rect box, String glyph,
+                            boolean enabled, float rowHovered, boolean pointed) {
+        if (box.isEmpty()) {
+            return;
+        }
+        if (enabled && pointed) {
+            ShellRenderer.paintRoundedFill(painter, box, SettingRowLayout.ARROW_RADIUS,
+                    theme.color(ColorToken.SURFACE_NAV_ACTIVE));
+            ShellRenderer.paintRoundedOutline(painter, box, SettingRowLayout.ARROW_RADIUS,
+                    theme.color(ColorToken.ACCENT));
+        }
+        int ink = Math.max(1, font.width(glyph) - 1);
+        painter.text(box.x() + (box.width() - ink) / 2, box.y() + (box.height() - GLYPH_HEIGHT) / 2, glyph,
+                arrowArgb(enabled, pointed ? 1.0f : rowHovered), false);
+    }
+
+    private static String trimmed(Font font, String text, int width) {
+        if (width <= 0 || font.width(text) <= width) {
+            return text;
+        }
+        String cut = text;
+        while (!cut.isEmpty() && font.width(cut + "…") > width) {
+            cut = cut.substring(0, cut.length() - 1);
+        }
+        return cut.isEmpty() ? text : cut + "…";
     }
 
     private void paintValue(SurfacePainter painter, Font font, Rect box, int right, String text, int argb) {

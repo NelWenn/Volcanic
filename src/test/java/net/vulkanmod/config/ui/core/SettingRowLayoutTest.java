@@ -445,4 +445,76 @@ class SettingRowLayoutTest {
         assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.trackFill(-1, 3, 0, 10));
         assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.trackFill(60, 3, 10, 0));
     }
+
+    @Test
+    void theCyclerPartsTileTheRightEdgeWithoutOverlapping() {
+        Rect row = new Rect(164, 102, 422, 27);
+        Rect prev = SettingRowLayout.cyclerPrevBox(row);
+        Rect value = SettingRowLayout.cyclerValueBox(row);
+        Rect next = SettingRowLayout.cyclerNextBox(row);
+
+        Rect region = SettingRowLayout.cyclerBox(row);
+        assertEquals(SettingRowLayout.ARROW_SIZE, prev.width());
+        assertEquals(SettingRowLayout.ARROW_SIZE, next.width());
+        assertEquals(prev.right(), value.x(), "no gap between the previous arrow and the value");
+        assertEquals(value.right(), next.x(), "no gap between the value and the next arrow");
+        assertEquals(region.x(), prev.x());
+        assertEquals(region.right(), next.right());
+        assertEquals(SettingRowLayout.cardBox(row).right() - SettingRowLayout.CARD_PAD_X, next.right());
+        assertTrue(value.width() > SettingRowLayout.ARROW_SIZE * 2,
+                "the value column must be the widest part");
+    }
+
+    @Test
+    void theCyclerStaysInsideTheCardAndClearsTheStar() {
+        Rect row = new Rect(164, 102, 422, 27);
+        Rect card = SettingRowLayout.cardBox(row);
+
+        assertTrue(SettingRowLayout.cyclerPrevBox(row).x() >= card.x() + SettingRowLayout.CARD_PAD_X);
+        assertTrue(SettingRowLayout.cyclerNextBox(row).right() <= card.right());
+        assertTrue(SettingRowLayout.cyclerNextBox(row).right() <= SettingRowLayout.starBox(row).x(),
+                "the cycler must not sit under the favourite star");
+    }
+
+    @Test
+    void theCyclerCollapsesRatherThanOverlapTheTitleOnANarrowRow() {
+        assertTrue(SettingRowLayout.cyclerPrevBox(new Rect(0, 0, 170, 27)).isEmpty());
+        assertTrue(SettingRowLayout.cyclerValueBox(new Rect(0, 0, 170, 27)).isEmpty());
+        assertTrue(SettingRowLayout.cyclerNextBox(new Rect(0, 0, 170, 27)).isEmpty());
+        assertTrue(SettingRowLayout.cyclerBox(new Rect(0, 0, 170, 27)).isEmpty());
+        assertTrue(SettingRowLayout.cyclerPrevBox(Rect.EMPTY).isEmpty());
+    }
+
+    @Test
+    void theCyclerRegionGrowsWithTheRowAndLeavesRoomForTheTitle() {
+        int previous = 0;
+        for (int width : new int[] {300, 422, 700, 1200}) {
+            Rect row = new Rect(164, 102, width, 27);
+            Rect region = SettingRowLayout.cyclerBox(row);
+            Rect card = SettingRowLayout.cardBox(row);
+            assertTrue(region.width() >= previous, "the region must not shrink as the row grows");
+            previous = region.width();
+            assertTrue(region.x() - (card.x() + SettingRowLayout.CARD_PAD_X) >= 100,
+                    "the title keeps its room at width " + width);
+            assertTrue(region.right() <= card.right() - SettingRowLayout.CARD_PAD_X);
+        }
+    }
+
+    @Test
+    void theArrowsAreSquareButtonsCentredOnTheRow() {
+        Rect row = new Rect(164, 102, 422, 27);
+        Rect prev = SettingRowLayout.cyclerPrevBox(row);
+
+        assertEquals(SettingRowLayout.ARROW_SIZE, prev.width());
+        assertEquals(SettingRowLayout.ARROW_SIZE, prev.height());
+        assertEquals(row.y() + (row.height() - SettingRowLayout.ARROW_SIZE) / 2, prev.y());
+        assertTrue(prev.bottom() <= row.bottom());
+    }
+
+    @Test
+    void cyclerBoxesRejectANullRow() {
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.cyclerPrevBox(null));
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.cyclerValueBox(null));
+        assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.cyclerNextBox(null));
+    }
 }

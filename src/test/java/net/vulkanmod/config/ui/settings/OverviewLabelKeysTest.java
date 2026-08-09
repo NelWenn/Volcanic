@@ -35,7 +35,9 @@ class OverviewLabelKeysTest {
                 "vulkanmod.overview.render_distance",
                 "vulkanmod.overview.occlusion_culling",
                 "vulkanmod.overview.shader_pack",
-                "vulkanmod.overview.gpu_frame_time"), labelKeys());
+                "vulkanmod.overview.frame_time",
+                "vulkanmod.overview.stability",
+                "vulkanmod.overview.provenance"), labelKeys());
     }
 
     @Test
