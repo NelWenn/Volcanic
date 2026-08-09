@@ -16,14 +16,19 @@ public final class PluginParameters {
 
     // TODO(revo) — le menu sait déjà tout afficher, il manque la source.
     //
-    // À accrocher sur RenderPipelinePlugin, PAS sur un type propre aux shaders : un plugin
-    // n'est pas forcément un shader (Caldera, un overlay de debug…) et devrait pouvoir
-    // exposer ses réglages pareil. Un seul mécanisme pour tous les plugins.
+    // À accrocher sur RenderPipelinePlugin, PAS sur un type propre aux shaders. Tout plugin
+    // doit pouvoir exposer des paramètres ; être un shader est un cas particulier, pas la
+    // règle. Caldera est justement un plugin qui n'est PAS un shader.
+    //
+    // Il nous manque une chose pour router : dis-nous si le plugin est un shader.
+    //   - plugin shader      -> il apparaît dans la liste des shaders, params sous SHADER_ROUTE
+    //   - plugin non-shader  -> il a sa propre page, params dessus (cas Caldera)
+    // Un kind() sur le SPI, ou une interface marqueur, peu importe la forme.
     //
     // Renvoie un SettingMeta par paramètre :
     //   new SettingMeta.Builder(
     //           SettingId.of(pluginId, "sun.intensity"),  // namespace = id() du plugin
-    //           SHADER_ROUTE,                             // placement : à nous, pas à toi
+    //           route,                                    //choisie selon kind(), voir ci-dessus
     //           "shader.radiance.sun_intensity",          // clé de trad, jamais un littéral
     //           SettingType.FLOAT,                        // BOOL / INT / FLOAT / ENUM
     //           SettingSource.SHADERS)
