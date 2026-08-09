@@ -64,6 +64,11 @@ public final class ShellRenderer {
     private static final String BRAND = "VOLCANIC";
     private static final String BREADCRUMB_SEPARATOR = "›";
     private static final String KEY_FAVORITES_EMPTY = "vulkanmod.ui.favorites.empty";
+    private static final String KEY_MODS_EMPTY = "vulkanmod.ui.mods.empty";
+    private static final String KEY_MODS_OPEN = "vulkanmod.ui.mods.open";
+    private static final String KEY_MODS_PASSTHROUGH = "vulkanmod.ui.mods.passthrough";
+    private static final int MOD_BUTTON_PAD_X = 10;
+    private static final int MOD_NOTE_GAP = 10;
     private static final String KEY_SEARCH_PROMPT = "vulkanmod.ui.search.prompt";
     private static final String KEY_SEARCH_EMPTY = "vulkanmod.ui.search.empty";
     private static final String KEY_SEARCH_SOURCE = "vulkanmod.ui.search.source.";
@@ -72,6 +77,7 @@ public final class ShellRenderer {
     private static final int RESULT_RADIUS = 4;
     private static final RouteId OVERVIEW = RouteId.parse("overview");
     private static final RouteId FAVORITES = RouteId.parse("favorites");
+    private static final RouteId MODS = RouteId.parse("mods");
     private static final int PROFILE_ROW = 0;
 
     private final Theme theme;
@@ -275,6 +281,20 @@ public final class ShellRenderer {
             throw new IllegalArgumentException("row must not be null");
         }
         return SliderGeometry.track(SettingRowLayout.cardBox(row), CARD_PAD_X, SLIDER_TRACK_WIDTH);
+    }
+
+    public Rect modScreenButton(Font font, ShellLayout layout, NavPresenter presenter) {
+        requireInputs(font, layout, presenter);
+        if (presenter.modScreen().isEmpty()) {
+            return Rect.EMPTY;
+        }
+        List<Rect> rows = SettingRowLayout.rows(layout.content(), 1, 0, layout.breakpoint());
+        if (rows.isEmpty()) {
+            return Rect.EMPTY;
+        }
+        Rect row = rows.get(0);
+        int width = Math.min(row.width(), font.width(I18n.get(KEY_MODS_OPEN)) + MOD_BUTTON_PAD_X * 2);
+        return new Rect(row.x() + (row.width() - width) / 2, row.y(), width, row.height());
     }
 
     public List<Rect> profileChipBoxes(Font font, ShellLayout layout, NavPresenter presenter, int scroll) {
@@ -561,8 +581,7 @@ public final class ShellRenderer {
     private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
                                int contentScroll, int mouseX, int mouseY, SettingId dragged) {
         List<SettingMeta> settings = presenter.settings();
-        if (settings.isEmpty() && FAVORITES.equals(presenter.stack().current())) {
-            paintCentredNotice(painter, font, layout.content(), I18n.get(KEY_FAVORITES_EMPTY));
+        if (settings.isEmpty() && paintEmptyPage(painter, font, layout, presenter, mouseX, mouseY)) {
             return;
         }
 
@@ -584,6 +603,31 @@ public final class ShellRenderer {
                         theme.color(ColorToken.ACCENT));
             }
         }
+    }
+
+    private boolean paintEmptyPage(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                                   int mouseX, int mouseY) {
+        RouteId current = presenter.stack().current();
+        if (FAVORITES.equals(current)) {
+            paintCentredNotice(painter, font, layout.content(), I18n.get(KEY_FAVORITES_EMPTY));
+            return true;
+        }
+        if (MODS.equals(current)) {
+            paintCentredNotice(painter, font, layout.content(), I18n.get(KEY_MODS_EMPTY));
+            return true;
+        }
+
+        Rect button = modScreenButton(font, layout, presenter);
+        if (button.isEmpty()) {
+            return false;
+        }
+        paintBarButton(painter, font, button, I18n.get(KEY_MODS_OPEN), ColorToken.BORDER_STRONG, mouseX, mouseY);
+        if (presenter.modScreenFocused()) {
+            paintRoundedOutline(painter, button, BAR_BUTTON_RADIUS, theme.color(ColorToken.ACCENT));
+        }
+        paintCentredNotice(painter, font, new Rect(layout.content().x(), button.bottom() + MOD_NOTE_GAP,
+                layout.content().width(), TEXT_HEIGHT), I18n.get(KEY_MODS_PASSTHROUGH));
+        return true;
     }
 
     private void paintCentredNotice(SurfacePainter painter, Font font, Rect content, String text) {

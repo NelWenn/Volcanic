@@ -1,5 +1,6 @@
 package net.vulkanmod.config.ui.shell;
 
+import net.neoforged.fml.ModList;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.PerformancePreset;
 import net.vulkanmod.config.ui.core.DeferredValues;
@@ -17,6 +18,8 @@ import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SidebarModel;
+import net.vulkanmod.config.ui.mods.ModScreens;
+import net.vulkanmod.config.ui.mods.ModSettings;
 import net.vulkanmod.config.ui.settings.SettingBinding;
 import net.vulkanmod.config.ui.settings.SettingsCatalog;
 import net.vulkanmod.config.ui.settings.UiState;
@@ -25,10 +28,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public final class NavPresenter {
     public static final String REGION_SIDEBAR = "sidebar";
     public static final String REGION_CONTENT = "content";
+    public static final String MOD_SCREEN_FOCUS = "mods:screen";
 
     private final NavTree tree;
     private final NavStack stack;
@@ -37,11 +42,14 @@ public final class NavPresenter {
     private final SettingsCatalog catalog = new SettingsCatalog();
     private final PendingChanges pending = new PendingChanges();
     private final DeferredValues deferred = new DeferredValues();
+    private final List<String> screenOnlyModIds;
     private List<ProfileChipRow.Chip> profileChips;
     private Favorites favorites;
 
     public NavPresenter() {
-        this.tree = buildTree();
+        List<String> modIds = catalog.modIds();
+        this.screenOnlyModIds = screenOnlyModIds(modIds);
+        this.tree = buildTree(modIds, screenOnlyModIds);
         this.stack = new NavStack(tree, destinationOf(tree, tree.defaultRoute()));
         this.sidebar = new SidebarModel(tree);
         this.focus = new FocusModel();
@@ -185,6 +193,37 @@ public final class NavPresenter {
 
     private static final RouteId OVERVIEW_ROUTE = RouteId.parse("overview");
     private static final RouteId FAVORITES_ROUTE = RouteId.parse("favorites");
+    private static final RouteId MODS_ROUTE = RouteId.parse("mods");
+
+    public Optional<String> modScreen() {
+        return modScreenOf(stack.current(), screenOnlyModIds);
+    }
+
+    public boolean modScreenFocused() {
+        return REGION_CONTENT.equals(focus.activeRegion()) && MOD_SCREEN_FOCUS.equals(focus.focused());
+    }
+
+    static Optional<String> modScreenOf(RouteId route, List<String> screenOnlyModIds) {
+        if (route == null) {
+            throw new IllegalArgumentException("route must not be null");
+        }
+        if (screenOnlyModIds == null) {
+            throw new IllegalArgumentException("screenOnlyModIds must not be null");
+        }
+        if (route.depth() != 2 || !MODS_ROUTE.equals(route.parent())) {
+            return Optional.empty();
+        }
+        String modId = route.segments().get(route.depth() - 1);
+        return screenOnlyModIds.contains(modId) ? Optional.of(modId) : Optional.empty();
+    }
+
+    private static List<String> screenOnlyModIds(List<String> modIds) {
+        try {
+            return ModScreens.without(modIds);
+        } catch (Throwable t) {
+            return List.of();
+        }
+    }
 
     public int contentRowCount() {
         return isOverview() ? catalog.overview().rows().size() : settings().size();
@@ -411,10 +450,16 @@ public final class NavPresenter {
         for (SettingMeta meta : settings()) {
             ring.register(meta.id().toString(), true);
         }
+        if (modScreen().isPresent()) {
+            ring.register(MOD_SCREEN_FOCUS, true);
+        }
     }
 
-    private static NavTree buildTree() {
-        return new NavTree.Builder()
+    static NavTree buildTree(List<String> modIds, List<String> screenOnlyModIds) {
+        if (modIds == null || screenOnlyModIds == null) {
+            throw new IllegalArgumentException("modIds and screenOnlyModIds must not be null");
+        }
+        NavTree.Builder builder = new NavTree.Builder()
                 .add(new NavNode(RouteId.parse("overview"), "vulkanmod.ui.page.overview", "vulkanmod.ui.section.volcanic", true))
                 .add(new NavNode(RouteId.parse("display"), "vulkanmod.ui.page.display", null, true))
                 .add(new NavNode(RouteId.parse("display.general"), "vulkanmod.ui.page.display.general", null, false))
@@ -451,7 +496,25 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("advanced.synchronization"), "vulkanmod.ui.page.advanced.synchronization", null, false))
                 .add(new NavNode(RouteId.parse("advanced.compatibility"), "vulkanmod.ui.page.advanced.compatibility", null, false))
                 .add(new NavNode(RouteId.parse("experimental"), "vulkanmod.ui.page.experimental", null, true))
-                .add(new NavNode(RouteId.parse("developer"), "vulkanmod.ui.page.developer", null, true))
-                .build();
+                .add(new NavNode(RouteId.parse("developer"), "vulkanmod.ui.page.developer", null, true));
+
+        for (String modId : modIds) {
+            builder.add(new NavNode(ModSettings.routeOf(modId), modName(modId), null, false));
+        }
+        for (String modId : screenOnlyModIds) {
+            builder.add(new NavNode(ModSettings.routeOf(modId), modName(modId), null, false));
+        }
+        return builder.build();
+    }
+
+    private static String modName(String modId) {
+        try {
+            return ModList.get().getModContainerById(modId)
+                    .map(container -> container.getModInfo().getDisplayName())
+                    .filter(name -> !name.isBlank())
+                    .orElse(modId);
+        } catch (Throwable t) {
+            return modId;
+        }
     }
 }

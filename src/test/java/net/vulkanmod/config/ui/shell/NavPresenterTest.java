@@ -45,6 +45,62 @@ class NavPresenterTest {
     }
 
     @Test
+    void everyReadableModGetsAPageUnderMods() {
+        NavTree tree = NavPresenter.buildTree(List.of("jade", "create"), List.of());
+
+        List<RouteId> pages = new ArrayList<>();
+        for (NavNode node : tree.children(RouteId.parse("mods"))) {
+            pages.add(node.route());
+            assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
+        }
+        assertEquals(List.of(RouteId.parse("mods.jade"), RouteId.parse("mods.create")), pages);
+        assertEquals(11, tree.sidebarRows().size());
+        assertFalse(tree.contains(RouteId.parse("jade")), "a mod must not become a top-level category");
+    }
+
+    @Test
+    void withoutModsTheModsPageKeepsNoChildren() {
+        assertEquals(List.of(), NavPresenter.buildTree(List.of(), List.of()).children(RouteId.parse("mods")));
+        assertThrows(IllegalArgumentException.class, () -> NavPresenter.buildTree(null, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> NavPresenter.buildTree(List.of(), null));
+    }
+
+    @Test
+    void aModPageIsNamedAfterItsModWhenTheLoaderCannotBeAsked() {
+        NavTree tree = NavPresenter.buildTree(List.of("jade"), List.of());
+        assertEquals("jade", tree.find(RouteId.parse("mods.jade")).titleKey());
+    }
+
+    @Test
+    void aModWeCannotReadStillGetsAPageAfterTheReadableOnes() {
+        NavTree tree = NavPresenter.buildTree(List.of("jade"), List.of("waystones"));
+
+        List<RouteId> pages = new ArrayList<>();
+        for (NavNode node : tree.children(RouteId.parse("mods"))) {
+            pages.add(node.route());
+            assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
+        }
+        assertEquals(List.of(RouteId.parse("mods.jade"), RouteId.parse("mods.waystones")), pages);
+        assertEquals(11, tree.sidebarRows().size());
+    }
+
+    @Test
+    void onlyThePageOfAModWeCannotReadOffersItsOwnScreen() {
+        List<String> screenOnly = List.of("waystones");
+
+        assertEquals("waystones",
+                NavPresenter.modScreenOf(RouteId.parse("mods.waystones"), screenOnly).orElse(null));
+        assertTrue(NavPresenter.modScreenOf(RouteId.parse("mods.jade"), screenOnly).isEmpty());
+        assertTrue(NavPresenter.modScreenOf(RouteId.parse("mods"), screenOnly).isEmpty());
+        assertTrue(NavPresenter.modScreenOf(RouteId.parse("waystones"), screenOnly).isEmpty());
+        assertTrue(NavPresenter.modScreenOf(RouteId.parse("rendering.general"), screenOnly).isEmpty());
+        assertTrue(NavPresenter.modScreenOf(RouteId.parse("mods.waystones"), List.of()).isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> NavPresenter.modScreenOf(null, screenOnly));
+        assertThrows(IllegalArgumentException.class,
+                () -> NavPresenter.modScreenOf(RouteId.parse("mods.waystones"), null));
+    }
+
+    @Test
     void startsOnTheFirstSidebarRow() {
         NavPresenter presenter = new NavPresenter();
         assertEquals(RouteId.parse("overview"), presenter.stack().current());

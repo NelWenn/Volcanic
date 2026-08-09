@@ -175,6 +175,9 @@
   "vulkanmod.ui.page.developer": "Developer",
 
   "vulkanmod.ui.favorites.empty": "No favorites yet — click the star beside a setting to keep it here.",
+  "vulkanmod.ui.mods.empty": "No installed mod exposes visual settings, and none has a settings screen of its own.",
+  "vulkanmod.ui.mods.open": "Open this mod's own settings",
+  "vulkanmod.ui.mods.passthrough": "Volcanic found no visual settings to show for this mod.",
   "vulkanmod.ui.search.hint": "Search settings",
   "vulkanmod.ui.search.prompt": "Type to find a setting",
   "vulkanmod.ui.search.empty": "No setting matches \"%s\"",

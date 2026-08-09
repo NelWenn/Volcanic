@@ -18,6 +18,7 @@ import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.SliderGeometry;
 import net.vulkanmod.config.ui.core.TabStripModel;
 import net.vulkanmod.config.ui.core.Theme;
+import net.vulkanmod.config.ui.mods.ModScreens;
 import net.vulkanmod.config.ui.render.SurfacePainter;
 import net.vulkanmod.config.ui.settings.SettingBinding;
 
@@ -125,7 +126,7 @@ public class VolcanicScreen extends Screen {
             return true;
         }
         if (clickApplyBar(x, y) || clickTabStrip(x, y) || clickBreadcrumb(x, y)
-                || clickProfileChip(x, y) || clickSettingRow(x, y)) {
+                || clickProfileChip(x, y) || clickModScreen(x, y) || clickSettingRow(x, y)) {
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -213,6 +214,10 @@ public class VolcanicScreen extends Screen {
                 RouteId route = presenter.focusedRoute();
                 if (route != null) {
                     select(route, presenter.focus().activeRegion());
+                    return true;
+                }
+                if (presenter.modScreenFocused()) {
+                    openModScreen();
                     return true;
                 }
                 SettingMeta focused = presenter.focusedSetting();
@@ -363,6 +368,23 @@ public class VolcanicScreen extends Screen {
             presenter.applyProfile(chip.key());
         }
         return true;
+    }
+
+    private boolean clickModScreen(int mouseX, int mouseY) {
+        if (!renderer.modScreenButton(this.font, layout, presenter).contains(mouseX, mouseY)) {
+            return false;
+        }
+        openModScreen();
+        return true;
+    }
+
+    private void openModScreen() {
+        if (this.minecraft == null) {
+            return;
+        }
+        presenter.modScreen()
+                .flatMap(modId -> ModScreens.screenOf(modId, this))
+                .ifPresent(this.minecraft::setScreen);
     }
 
     private boolean clickSettingRow(int mouseX, int mouseY) {

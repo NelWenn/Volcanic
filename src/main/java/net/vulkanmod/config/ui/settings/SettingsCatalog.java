@@ -30,6 +30,8 @@ import net.vulkanmod.config.ui.core.OverviewModel;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRegistry;
+import net.vulkanmod.config.ui.mods.ModConfigReader;
+import net.vulkanmod.config.ui.mods.ModSettings;
 import net.vulkanmod.config.video.VideoModeManager;
 import net.vulkanmod.config.video.VideoModeSet;
 import net.vulkanmod.config.video.WindowMode;
@@ -37,10 +39,12 @@ import net.vulkanmod.config.video.WindowMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 // Choice labels are translation keys; Minecraft renders an unknown key as itself, so plain
 // values such as "1920 x 1080" or "144" pass through untranslated.
@@ -75,6 +79,7 @@ public final class SettingsCatalog {
 
     private final SettingRegistry registry = new SettingRegistry();
     private final Map<SettingId, SettingBinding> bindings = new LinkedHashMap<>();
+    private final List<String> modIds = new ArrayList<>();
 
     public SettingsCatalog() {
         bindDisplayGeneral();
@@ -116,6 +121,8 @@ public final class SettingsCatalog {
         registerAll(SettingsDefinitions.advancedRenderer());
         registerAll(SettingsDefinitions.advancedSynchronization());
         registerAll(SettingsDefinitions.advancedCompatibility());
+
+        registerMods();
     }
 
     private void registerAll(List<SettingMeta> definitions) {
@@ -127,8 +134,46 @@ public final class SettingsCatalog {
         }
     }
 
+    private void registerMods() {
+        List<ModSettings> mods;
+        try {
+            mods = ModConfigReader.readAll();
+        } catch (Throwable t) {
+            return;
+        }
+        for (ModSettings mod : mods) {
+            try {
+                registerMod(mod);
+            } catch (RuntimeException e) {
+                Initializer.LOGGER.warn("Left {} out of the mods list: its settings could not be registered",
+                        mod.modId(), e);
+            }
+        }
+    }
+
+    private void registerMod(ModSettings mod) {
+        Set<SettingId> ids = new LinkedHashSet<>();
+        for (SettingMeta meta : mod.metas()) {
+            if (registry.contains(meta.id()) || !ids.add(meta.id())) {
+                throw new IllegalArgumentException("duplicate setting id " + meta.id());
+            }
+            if (!mod.bindings().containsKey(meta.id())) {
+                throw new IllegalArgumentException("no binding for setting id " + meta.id());
+            }
+        }
+        for (SettingMeta meta : mod.metas()) {
+            registry.register(meta);
+        }
+        bindings.putAll(mod.bindings());
+        modIds.add(mod.modId());
+    }
+
     public SettingRegistry registry() {
         return registry;
+    }
+
+    public List<String> modIds() {
+        return List.copyOf(modIds);
     }
 
     public SettingBinding binding(SettingId id) {
