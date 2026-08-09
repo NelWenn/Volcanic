@@ -10,6 +10,10 @@ import net.vulkanmod.config.ui.core.SettingType;
 import java.util.List;
 
 public final class SettingsDefinitions {
+    public static final RouteId SHADERS_CURRENT = RouteId.parse("shaders.current");
+    public static final SettingId SHADERS_ENABLED = SettingId.parse("vulkanmod:shaders.enabled");
+    public static final SettingId SHADERS_SELECTED_PACK = SettingId.parse("vulkanmod:shaders.selected_pack");
+
     public static final RouteId DISPLAY_GENERAL = RouteId.parse("display.general");
     public static final RouteId DISPLAY_INTERFACE = RouteId.parse("display.interface");
     public static final RouteId DISPLAY_ADVANCED = RouteId.parse("display.advanced");
@@ -174,6 +178,16 @@ public final class SettingsDefinitions {
                         .scope(ApplyScope.INSTANT).build(),
                 new SettingMeta.Builder(FOV_EFFECTS, DISPLAY_INTERFACE, "options.fovEffectScale",
                         SettingType.INT, SettingSource.MINECRAFT)
+                        .scope(ApplyScope.INSTANT).build());
+    }
+
+    public static List<SettingMeta> shadersCurrent() {
+        return List.of(
+                new SettingMeta.Builder(SHADERS_ENABLED, SHADERS_CURRENT, "vulkanmod.options.shadersEnabled",
+                        SettingType.BOOL, SettingSource.SHADERS)
+                        .scope(ApplyScope.INSTANT).build(),
+                new SettingMeta.Builder(SHADERS_SELECTED_PACK, SHADERS_CURRENT, "vulkanmod.options.selectedShader",
+                        SettingType.ENUM, SettingSource.SHADERS)
                         .scope(ApplyScope.INSTANT).build());
     }
 

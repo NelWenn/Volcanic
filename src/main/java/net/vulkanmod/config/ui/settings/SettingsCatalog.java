@@ -35,12 +35,14 @@ import net.vulkanmod.config.ui.mods.ModSettings;
 import net.vulkanmod.config.video.VideoModeManager;
 import net.vulkanmod.config.video.VideoModeSet;
 import net.vulkanmod.config.video.WindowMode;
+import net.vulkanmod.render.sodium.SodiumShaderBridge;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.ServiceLoader;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -101,6 +103,7 @@ public final class SettingsCatalog {
         bindAdvancedRenderer();
         bindAdvancedSynchronization();
         bindAdvancedCompatibility();
+        bindShadersCurrent();
 
         registerAll(SettingsDefinitions.displayGeneral());
         registerAll(SettingsDefinitions.displayInterface());
@@ -121,6 +124,7 @@ public final class SettingsCatalog {
         registerAll(SettingsDefinitions.advancedRenderer());
         registerAll(SettingsDefinitions.advancedSynchronization());
         registerAll(SettingsDefinitions.advancedCompatibility());
+        registerAll(SettingsDefinitions.shadersCurrent());
 
         registerMods();
     }
@@ -193,6 +197,9 @@ public final class SettingsCatalog {
         }
         if (!bindings.containsKey(id)) {
             throw new IllegalArgumentException("no binding for setting id " + id);
+        }
+        if (SettingsDefinitions.SHADERS_SELECTED_PACK.equals(id)) {
+            return !SodiumShaderBridge.isActive();
         }
         if (SettingsDefinitions.RESOLUTION.equals(id) || SettingsDefinitions.REFRESH_RATE.equals(id)) {
             return windowMode() == WindowMode.EXCLUSIVE_FULLSCREEN;
@@ -991,6 +998,51 @@ public final class SettingsCatalog {
             lodCullingAvailable = LodCulling.isAvailable();
         }
         return lodCullingAvailable;
+    }
+
+    private static final String PLUGIN_SPI = "net.vulkanmod.render.plugin.RenderPipelinePlugin";
+
+    private void bindShadersCurrent() {
+        bindings.put(SettingsDefinitions.SHADERS_ENABLED, SettingBinding.of(
+                        () -> Initializer.CONFIG.shadersEnabled,
+                        value -> Initializer.CONFIG.shadersEnabled = boolValue(value))
+                .withDefault(() -> Boolean.FALSE));
+
+        bindings.put(SettingsDefinitions.SHADERS_SELECTED_PACK, SettingBinding.choosing(
+                        () -> Initializer.CONFIG.selectedShader,
+                        value -> Initializer.CONFIG.selectedShader = label(value),
+                        SettingsCatalog::availableShaders)
+                .withDefault(() -> "off"));
+    }
+
+    private static List<String> availableShaders() {
+        List<String> ids = new ArrayList<>();
+        ids.add("off");
+        ids.addAll(discoveredPluginIds());
+        String selected = Initializer.CONFIG.selectedShader;
+        if (selected != null && !ids.contains(selected)) {
+            ids.add(selected);
+        }
+        return List.copyOf(ids);
+    }
+
+    private static List<String> discoveredPluginIds() {
+        try {
+            Class<?> spi = Class.forName(PLUGIN_SPI);
+            List<String> ids = new ArrayList<>();
+            for (Object plugin : ServiceLoader.load(spi)) {
+                Object id = spi.getMethod("id").invoke(plugin);
+                if (id instanceof String text && !text.isBlank()) {
+                    ids.add(text);
+                }
+            }
+            return ids;
+        } catch (ClassNotFoundException absent) {
+            return List.of();
+        } catch (Throwable failure) {
+            Initializer.LOGGER.warn("Shader plugin discovery unavailable: {}", failure.toString());
+            return List.of();
+        }
     }
 
     private static WindowMode windowMode() {
