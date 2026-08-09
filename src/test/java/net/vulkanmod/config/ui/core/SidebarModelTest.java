@@ -1,5 +1,6 @@
 package net.vulkanmod.config.ui.core;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -160,5 +161,100 @@ class SidebarModelTest {
         assertNull(model.entryAt(-1));
         assertNull(model.entryAt(model.entryCount()));
         assertThrows(IllegalArgumentException.class, () -> new SidebarModel(tree(), null));
+    }
+
+    private static final RouteId PLUGINS = RouteId.parse("plugins");
+
+    private static SidebarModel withPlugins() {
+        return new SidebarModel(new NavTree.Builder()
+                .add(new NavNode(OVERVIEW, "k.overview", "k.section.volcanic", true))
+                .add(new NavNode(PLUGINS, "k.plugins", null, true))
+                .add(new NavNode(RouteId.parse("plugins.caldera"), "Caldera", null, true))
+                .add(new NavNode(RouteId.parse("plugins.other"), "Other", null, true))
+                .add(new NavNode(MODS, "k.mods", SidebarModel.SECTION_SYSTEM, true))
+                .build());
+    }
+
+    @Test
+    @DisplayName("the rail runs from the category down to its last child and ticks each one")
+    void railTiesEachPluginToItsCategory() {
+        SidebarModel model = withPlugins();
+        Rect sidebar = new Rect(0, 0, 132, 400);
+        SidebarModel.Rail rail = model.rail(sidebar, 0, PLUGINS);
+
+        assertEquals(2, rail.ticks().size(), "one tick per plugin row");
+        assertFalse(rail.stem().isEmpty());
+        assertEquals(1, rail.stem().width(), "the stem is a hairline, not a bar");
+        for (Rect tick : rail.ticks()) {
+            assertTrue(tick.y() >= rail.stem().y() && tick.y() <= rail.stem().bottom(),
+                    "a tick hangs off the stem");
+            assertTrue(tick.x() >= rail.stem().x(), "a tick starts left of its stem");
+        }
+        assertEquals(rail.ticks().get(rail.ticks().size() - 1).y(), rail.stem().bottom(),
+                "the stem must stop at the last child, never dangle past it");
+    }
+
+    @Test
+    @DisplayName("the rail sits in the gutter, clear of the child card and its label")
+    void railSitsInTheGutter() {
+        Rect sidebar = new Rect(40, 0, 132, 400);
+        SidebarModel model = withPlugins();
+        SidebarModel.Rail rail = model.rail(sidebar, 0, PLUGINS);
+        Rect childCard = SidebarModel.rowBox(sidebar, model.offsetOf(2), model.heightOf(2), 2);
+
+        assertTrue(rail.stem().right() <= childCard.x(),
+                "the stem would be drawn inside the child card");
+        for (Rect tick : rail.ticks()) {
+            assertTrue(tick.right() < childCard.x(), "a tick would touch the child card");
+            assertTrue(tick.x() >= sidebar.x(), "a tick escapes the sidebar on the left");
+        }
+    }
+
+    @Test
+    @DisplayName("a child card is indented so the gutter exists at all")
+    void childCardsAreIndented() {
+        Rect sidebar = new Rect(0, 0, 132, 400);
+        Rect parent = SidebarModel.rowBox(sidebar, 0, 25, 1);
+        Rect child = SidebarModel.rowBox(sidebar, 25, 25, 2);
+
+        assertEquals(SidebarModel.ROW_INDENT, child.x() - parent.x(),
+                "a child card must step in by exactly one indent");
+        assertEquals(parent.right(), child.right(), "both cards must end on the same right edge");
+        assertTrue(child.x() > SidebarModel.STEM_X, "the rail would have no gutter to live in");
+    }
+
+    @Test
+    @DisplayName("the rail is clipped to the sidebar rather than bleeding out when scrolled")
+    void railIsClippedToTheSidebar() {
+        SidebarModel model = withPlugins();
+        Rect sidebar = new Rect(0, 100, 132, 60);
+        SidebarModel.Rail rail = model.rail(sidebar, 0, PLUGINS);
+
+        assertTrue(rail.stem().isEmpty() || rail.stem().y() >= sidebar.y(), "stem starts above the sidebar");
+        assertTrue(rail.stem().isEmpty() || rail.stem().bottom() <= sidebar.bottom(),
+                "stem runs past the sidebar");
+        for (Rect tick : rail.ticks()) {
+            assertTrue(tick.y() >= sidebar.y() && tick.y() < sidebar.bottom(), "a tick escaped the sidebar");
+        }
+    }
+
+    @Test
+    @DisplayName("a category with no children, or no category at all, draws nothing")
+    void railIsEmptyWithoutChildren() {
+        SidebarModel.Rail none = model().rail(new Rect(0, 0, 132, 400), 0, PLUGINS);
+        assertTrue(none.stem().isEmpty());
+        assertTrue(none.ticks().isEmpty());
+
+        SidebarModel.Rail childless = withPlugins().rail(new Rect(0, 0, 132, 400), 0, OVERVIEW);
+        assertTrue(childless.stem().isEmpty());
+        assertTrue(childless.ticks().isEmpty());
+    }
+
+    @Test
+    @DisplayName("the rail rejects a null sidebar or category rather than painting nowhere")
+    void railRejectsNulls() {
+        SidebarModel model = withPlugins();
+        assertThrows(IllegalArgumentException.class, () -> model.rail(null, 0, PLUGINS));
+        assertThrows(IllegalArgumentException.class, () -> model.rail(new Rect(0, 0, 10, 10), 0, null));
     }
 }
