@@ -10,84 +10,79 @@ class LavaBedTest {
     private static final Rect AREA = new Rect(30, 40, 480, 300);
 
     @Test
-    void theCrustCoversTheWholeWidthWithoutOverrunningIt() {
+    void everyPatchIsWiderThanItIsTallSoTheBedNeverReadsAsBars() {
         LavaBed bed = new LavaBed(1L);
-        for (int width : new int[] {1, 4, 5, 6, 100, 481}) {
-            int cells = bed.cells(width);
-            assertTrue((cells - 1) * LavaBed.CELL_W < width, "width " + width + " grew a cell too many");
-            assertTrue(cells * LavaBed.CELL_W >= width, "width " + width + " left a gap at the right edge");
+        for (int patch = 0; patch < LavaBed.PATCHES; patch++) {
+            assertTrue(bed.widthOf(patch) > bed.heightOf(patch) * 2,
+                    "patch " + patch + " is " + bed.widthOf(patch) + "x" + bed.heightOf(patch)
+                            + ", tall enough to draw a column");
         }
-        assertEquals(0, bed.cells(0));
-        assertEquals(0, bed.cells(-20));
     }
 
     @Test
-    void neighbouringCellsDifferSoTheCrustNeverReadsAsAFlatBar() {
-        LavaBed bed = new LavaBed(99L);
-        int sameHeight = 0;
-        int sameColour = 0;
-        for (int cell = 1; cell < 80; cell++) {
-            if (bed.heightOf(cell) == bed.heightOf(cell - 1)) {
-                sameHeight++;
-            }
-            if (bed.colorOf(cell) == bed.colorOf(cell - 1)) {
-                sameColour++;
-            }
-        }
-        assertTrue(sameHeight < 30, "the crust height repeats too often: " + sameHeight + "/79");
-        assertTrue(sameColour < 8, "the crust colour repeats too often: " + sameColour + "/79");
+    void patchesSitAtDifferentHeightsSoTheTopEdgeIsNotAStraightLine() {
+        LavaBed bed = new LavaBed(21L);
+        int distinct = (int) java.util.stream.IntStream.range(0, LavaBed.PATCHES)
+                .map(patch -> bed.yOf(patch, AREA)).distinct().count();
+        assertTrue(distinct >= 5, "only " + distinct + " distinct tops, the bed would look like a bar");
     }
 
     @Test
-    void everyCellStaysInsideTheBandSoNothingClimbsOverTheSettings() {
+    void everyPatchStaysInsideTheBandAtTheBottomOfTheArea() {
         LavaBed bed = new LavaBed(4L);
-        for (int cell = 0; cell < 200; cell++) {
-            int tall = bed.heightOf(cell);
-            assertTrue(tall >= 1 && tall <= LavaBed.BAND_H, "cell " + cell + " is " + tall + " px tall");
+        for (int patch = 0; patch < LavaBed.PATCHES; patch++) {
+            int top = bed.yOf(patch, AREA);
+            int bottom = top + bed.heightOf(patch);
+            assertTrue(bottom <= AREA.bottom(), "patch " + patch + " hangs below the area");
+            assertTrue(top >= AREA.bottom() - LavaBed.BAND_H,
+                    "patch " + patch + " climbed " + (AREA.bottom() - top) + "px, past the band");
         }
     }
 
     @Test
-    void theCrustBreathesWithoutEverGoingOpaque() {
+    void everyPatchStaysInsideTheAreaHorizontally() {
+        LavaBed bed = new LavaBed(9L);
+        for (Rect area : new Rect[] {AREA, new Rect(0, 0, 40, 60), new Rect(5, 5, 1, 30)}) {
+            for (int patch = 0; patch < LavaBed.PATCHES; patch++) {
+                assertTrue(bed.xOf(patch, area) >= area.x(), "patch " + patch + " started left of the area");
+                assertTrue(bed.xOf(patch, area) <= area.right(), "patch " + patch + " started past the area");
+            }
+        }
+    }
+
+    @Test
+    void theBedBreathesWithoutEverGoingSolid() {
         LavaBed bed = new LavaBed(6L);
         int brightest = 0;
         for (int frame = 0; frame < 600; frame++) {
             bed.advance(16);
-            for (int cell = 0; cell < 60; cell++) {
-                brightest = Math.max(brightest, bed.colorOf(cell) >>> 24);
+            for (int patch = 0; patch < LavaBed.PATCHES; patch++) {
+                brightest = Math.max(brightest, bed.colorOf(patch) >>> 24);
             }
         }
-        assertTrue(brightest > 20, "the crust never lit up at all");
-        assertTrue(brightest <= 130, "the crust reached alpha " + brightest + ", too solid to sit behind text");
+        assertTrue(brightest > 18, "the bed never lit up at all");
+        assertTrue(brightest <= 80, "a patch reached alpha " + brightest + ", too solid to sit under text");
     }
 
     @Test
-    void aCellActuallyChangesOverTimeRatherThanSittingStill() {
+    void patchesPulseOutOfStepSoTheBedNeverFlashesAsOneBlock() {
         LavaBed bed = new LavaBed(8L);
-        int first = bed.colorOf(3);
-        boolean moved = false;
-        for (int frame = 0; frame < 200 && !moved; frame++) {
+        for (int frame = 0; frame < 40; frame++) {
             bed.advance(16);
-            moved = bed.colorOf(3) != first;
         }
-        assertTrue(moved, "cell 3 never pulsed");
+        int distinct = (int) java.util.stream.IntStream.range(0, LavaBed.PATCHES)
+                .map(patch -> bed.colorOf(patch) >>> 24).distinct().count();
+        assertTrue(distinct >= 8, "only " + distinct + " distinct brightnesses, the bed pulses in unison");
     }
 
     @Test
-    void theGlowSitsAtTheBottomAndNeverEscapesTheArea() {
-        LavaBed bed = new LavaBed(2L);
-        assertTrue(bed.glowTop(AREA) >= AREA.y());
-        assertTrue(bed.glowTop(AREA) < AREA.bottom());
-        Rect shallow = new Rect(0, 0, 200, 20);
-        assertEquals(shallow.y(), bed.glowTop(shallow), "a short page clamps the glow to its own top");
-    }
-
-    @Test
-    void theGlowStaysFaintEnoughToReadAsLightRatherThanAPanel() {
+    void theGlowSitsAtTheBottomAndStaysFaintEnoughToReadAsLight() {
         LavaBed bed = new LavaBed(3L);
+        assertTrue(bed.glowTop(AREA) >= AREA.y() && bed.glowTop(AREA) < AREA.bottom());
+        assertEquals(0, bed.glowTop(new Rect(0, 0, 200, 20)), "a short page clamps the glow to its own top");
         for (int frame = 0; frame < 400; frame++) {
             bed.advance(16);
-            assertTrue((bed.glowArgb() >>> 24) <= 48, "the glow became a solid band");
+            assertTrue((bed.glowArgb() >>> 24) <= 46, "the glow became a solid band");
         }
     }
 

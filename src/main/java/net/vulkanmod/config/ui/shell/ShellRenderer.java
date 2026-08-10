@@ -966,16 +966,17 @@ public final class ShellRenderer {
                         content.bottom() - lava.glowTop(content)),
                 lava.glowArgb() & 0x00FFFFFF, lava.glowArgb());
 
-        int cells = lava.cells(content.width());
-        for (int cell = 0; cell < cells; cell++) {
-            int argb = lava.colorOf(cell);
+        for (int patch = 0; patch < LavaBed.PATCHES; patch++) {
+            int argb = lava.colorOf(patch);
             if ((argb >>> 24) == 0) {
                 continue;
             }
-            int tall = lava.heightOf(cell);
-            int left = content.x() + cell * LavaBed.CELL_W;
-            int wide = Math.min(LavaBed.CELL_W, content.right() - left);
-            painter.fill(new Rect(left, content.bottom() - tall, wide, tall), argb);
+            int left = lava.xOf(patch, content);
+            int wide = Math.min(lava.widthOf(patch), content.right() - left);
+            if (wide <= 0) {
+                continue;
+            }
+            painter.fill(new Rect(left, lava.yOf(patch, content), wide, lava.heightOf(patch)), argb);
         }
 
         embers.advance(deltaMs, content.height());
