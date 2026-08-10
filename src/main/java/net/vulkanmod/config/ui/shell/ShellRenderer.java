@@ -263,6 +263,8 @@ public final class ShellRenderer {
     private long pageElapsed = Motion.SEQUENCE_MS;
     private int pageDirection;
     private long rowsElapsed = Motion.SEQUENCE_MS;
+    private long searchElapsed;
+    private boolean searchWasOpen;
     private int rowCount = -1;
 
     public ShellRenderer(Theme theme) {
@@ -293,6 +295,10 @@ public final class ShellRenderer {
             throw new IllegalArgumentException("deltaMs must not be negative: " + deltaMs);
         }
         deltaMs = motionEnabled() ? deltaMs : INSTANT_MS;
+        this.lastCard = Rect.EMPTY;
+        this.searchElapsed = searchFocused == searchWasOpen
+                ? Math.min(this.searchElapsed + deltaMs, Motion.PAGE_MS) : 0L;
+        this.searchWasOpen = searchFocused;
 
         advancePage(presenter, deltaMs);
 
@@ -592,6 +598,20 @@ public final class ShellRenderer {
             throw new IllegalArgumentException("query must not be null; use \"\"");
         }
 
+        float open = Motion.easeOut(searchElapsed, Motion.PAGE_MS);
+        painter.setOffset(0, Motion.slide(open, -1, Motion.ROW_TRAVEL));
+        painter.setAlpha(open);
+        try {
+            paintSearchBody(painter, font, layout, presenter, results, query, selected, mouseX, mouseY);
+        } finally {
+            painter.setOffset(0, 0);
+            painter.setAlpha(1.0f);
+        }
+    }
+
+    private void paintSearchBody(SurfacePainter painter, Font font, ShellLayout layout,
+                                 NavPresenter presenter, SearchResultsModel results, String query,
+                                 int selected, int mouseX, int mouseY) {
         Rect panel = results.panel();
         if (panel.isEmpty()) {
             return;

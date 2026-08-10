@@ -70,7 +70,9 @@ public class VolcanicScreen extends Screen {
     @Override
     protected void init() {
         this.layout = ShellLayout.of(this.width, this.height, presenter.isDeveloper());
-        net.vulkanmod.render.profiling.StackSampler.setRunning(true);
+        if (presenter.isDeveloper()) {
+            net.vulkanmod.render.profiling.StackSampler.setRunning(true);
+        }
         if (!layout.hasDrawer()) {
             this.drawerOpen = false;
         }
