@@ -13,6 +13,7 @@ import net.vulkanmod.config.ui.core.PluginPageLayout;
 import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
 import net.vulkanmod.config.ui.core.PresetCardModel;
+import net.vulkanmod.config.ui.core.Glide;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SearchIndex;
@@ -49,6 +50,10 @@ public class VolcanicScreen extends Screen {
     private SearchField search;
     private int sidebarScroll;
     private int contentScroll;
+    private int contentScrollTarget;
+    private int sidebarScrollTarget;
+    private final Glide contentGlide = new Glide(70.0f);
+    private final Glide sidebarGlide = new Glide(70.0f);
     private RouteId scrolledRoute;
     private SettingId dragged;
     private SettingId pinned;
@@ -95,9 +100,12 @@ public class VolcanicScreen extends Screen {
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         syncContentScroll();
-        this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, navViewport().height());
+        this.sidebarScrollTarget = presenter.sidebar()
+                .clampScroll(this.sidebarScrollTarget, navViewport().height());
         SurfacePainter painter = SurfacePainter.create(guiGraphics, this.font);
         long deltaMs = frameDeltaMs();
+        this.contentScroll = Math.round(contentGlide.advance(contentScrollTarget, deltaMs));
+        this.sidebarScroll = Math.round(sidebarGlide.advance(sidebarScrollTarget, deltaMs));
         guiGraphics.drawManaged(() -> {
             renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, contentScroll,
                     mouseX, mouseY, dragged, drawerOpen, searchFocused(), deltaMs);
@@ -211,12 +219,13 @@ public class VolcanicScreen extends Screen {
 
         Rect nav = layout.sidebarOrDrawer(drawerOpen);
         if (nav.contains((int) mouseX, (int) mouseY)) {
-            this.sidebarScroll = presenter.sidebar()
-                    .clampScroll(this.sidebarScroll - direction * SIDEBAR_SCROLL_STEP, nav.height());
+            this.sidebarScrollTarget = presenter.sidebar()
+                    .clampScroll(this.sidebarScrollTarget - direction * SIDEBAR_SCROLL_STEP, nav.height());
             return true;
         }
         if (!drawerOpen && layout.content().contains((int) mouseX, (int) mouseY)) {
-            this.contentScroll = Math.min(Math.max(0, this.contentScroll - direction * CONTENT_SCROLL_STEP),
+            this.contentScrollTarget = Math.min(
+                    Math.max(0, this.contentScrollTarget - direction * CONTENT_SCROLL_STEP),
                     maxContentScroll());
             return true;
         }
@@ -544,7 +553,7 @@ public class VolcanicScreen extends Screen {
         }
         if (rows.get(index) instanceof NavPresenter.GroupRow group) {
             presenter.toggleGroup(group.key());
-            this.contentScroll = Math.max(0, Math.min(this.contentScroll, maxContentScroll()));
+            this.contentScrollTarget = Math.max(0, Math.min(this.contentScrollTarget, maxContentScroll()));
             return true;
         }
 
@@ -670,8 +679,8 @@ public class VolcanicScreen extends Screen {
                 break;
             }
         }
-        this.contentScroll = SettingRowLayout.scrollToReveal(renderer.contentBody(layout, presenter),
-                rows.size(), index, contentScroll, layout.breakpoint());
+        this.contentScrollTarget = SettingRowLayout.scrollToReveal(renderer.contentBody(layout, presenter),
+                rows.size(), index, contentScrollTarget, layout.breakpoint());
     }
 
     @Override
@@ -684,9 +693,11 @@ public class VolcanicScreen extends Screen {
         RouteId current = presenter.stack().current();
         if (!current.equals(scrolledRoute)) {
             this.scrolledRoute = current;
+            this.contentScrollTarget = 0;
+            this.contentGlide.jumpTo(0.0f);
             this.contentScroll = 0;
         }
-        this.contentScroll = Math.max(0, Math.min(this.contentScroll, maxContentScroll()));
+        this.contentScrollTarget = Math.max(0, Math.min(this.contentScrollTarget, maxContentScroll()));
     }
 
     private Rect navViewport() {

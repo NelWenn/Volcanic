@@ -16,6 +16,10 @@ public interface SurfacePainter {
 
     float smallScale();
 
+    void setOffset(int dx, int dy);
+
+    void setAlpha(float alpha);
+
     void flush();
 
     static SurfacePainter create(GuiGraphics graphics, Font font) {

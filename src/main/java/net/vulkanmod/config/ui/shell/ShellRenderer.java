@@ -35,6 +35,7 @@ import net.vulkanmod.config.ui.core.Recommendation;
 import net.vulkanmod.config.ui.settings.OverviewSignals;
 import net.vulkanmod.vulkan.SessionSamples;
 import net.vulkanmod.config.ui.core.Gradient;
+import net.vulkanmod.config.ui.core.Glide;
 import net.vulkanmod.config.ui.core.HoverState;
 import net.vulkanmod.config.ui.core.ImpactLevel;
 import net.vulkanmod.config.ui.core.Motion;
@@ -205,6 +206,11 @@ public final class ShellRenderer {
     private Rect lastCard = Rect.EMPTY;
     private final HoverState hover = new HoverState(Motion.HOVER_MS);
     private final HoverState focus = new HoverState(Motion.SELECTION_MS);
+    private final Glide applyBarSlide = new Glide(80.0f);
+    private RouteId enteredRoute;
+    private int enteredDepth;
+    private long pageElapsed = Motion.SEQUENCE_MS;
+    private int pageDirection;
 
     public ShellRenderer(Theme theme) {
         if (theme == null) {
@@ -234,6 +240,8 @@ public final class ShellRenderer {
             throw new IllegalArgumentException("deltaMs must not be negative: " + deltaMs);
         }
 
+        advancePage(presenter, deltaMs);
+
         paintChrome(painter, layout, drawerOpen, searchFocused);
         painter.flush();
 
@@ -247,11 +255,16 @@ public final class ShellRenderer {
 
         Rect content = layout.content();
         if (!content.isEmpty()) {
+            float reveal = Motion.easeOut(pageElapsed, Motion.PAGE_MS);
             graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
             try {
+                painter.setOffset(Motion.slide(reveal, pageDirection, Motion.PAGE_TRAVEL), 0);
+                painter.setAlpha(reveal);
                 paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
                 painter.flush();
             } finally {
+                painter.setOffset(0, 0);
+                painter.setAlpha(1.0f);
                 graphics.disableScissor();
             }
         }
@@ -279,11 +292,24 @@ public final class ShellRenderer {
             painter.flush();
         }
 
-        paintApplyBar(painter, font, layout, presenter, mouseX, mouseY);
+        paintApplyBar(painter, font, layout, presenter, mouseX, mouseY, deltaMs);
         painter.flush();
 
         hover.endFrame();
         focus.endFrame();
+    }
+
+    private void advancePage(NavPresenter presenter, long deltaMs) {
+        RouteId current = presenter.stack().current();
+        if (current.equals(enteredRoute)) {
+            this.pageElapsed = Math.min(this.pageElapsed + deltaMs, Motion.SEQUENCE_MS);
+            return;
+        }
+        this.pageDirection = enteredRoute == null ? 0
+                : current.depth() >= enteredDepth ? 1 : -1;
+        this.enteredRoute = current;
+        this.enteredDepth = current.depth();
+        this.pageElapsed = 0L;
     }
 
     private static List<String> wrapped(Font font, String key, int wrapWidth) {
@@ -768,12 +794,28 @@ public final class ShellRenderer {
     }
 
     private void paintApplyBar(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                               int mouseX, int mouseY) {
+                               int mouseX, int mouseY, long deltaMs) {
         ApplyBarModel bar = ApplyBarModel.of(presenter.pending());
         Rect region = layout.bottomBar();
-        if (!bar.visible() || region.isEmpty()) {
+        if (region.isEmpty()) {
             return;
         }
+        int hidden = region.height() + 2;
+        int lift = Math.round(applyBarSlide.advance(bar.visible() ? 0.0f : hidden, deltaMs));
+        if (lift >= hidden) {
+            return;
+        }
+        painter.setOffset(0, lift);
+        try {
+            paintApplyBarBody(painter, font, layout, presenter, bar, region, mouseX, mouseY);
+        } finally {
+            painter.setOffset(0, 0);
+        }
+    }
+
+    private void paintApplyBarBody(SurfacePainter painter, Font font, ShellLayout layout,
+                                   NavPresenter presenter, ApplyBarModel bar, Rect region,
+                                   int mouseX, int mouseY) {
         painter.fill(region, theme.color(ColorToken.SURFACE_CHROME));
         painter.fill(new Rect(region.x(), region.y(), region.width(), 1),
                 theme.color(ColorToken.BORDER_ACCENT));
@@ -1809,6 +1851,7 @@ public final class ShellRenderer {
         SettingMeta pointed = hoveredSetting(layout, presenter, contentScroll, mouseX, mouseY);
         for (int i = 0; i < boxes.size() && i < rows.size(); i++) {
             Rect box = boxes.get(i);
+            painter.setAlpha(Motion.rowReveal(pageElapsed, i));
             if (rows.get(i) instanceof NavPresenter.GroupRow group) {
                 paintGroupRow(painter, font, box, group, mouseX, mouseY);
                 continue;
@@ -1833,6 +1876,7 @@ public final class ShellRenderer {
                         theme.color(ColorToken.ACCENT, focused));
             }
         }
+        painter.setAlpha(Motion.easeOut(pageElapsed, Motion.PAGE_MS));
     }
 
     private boolean paintEmptyPage(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,

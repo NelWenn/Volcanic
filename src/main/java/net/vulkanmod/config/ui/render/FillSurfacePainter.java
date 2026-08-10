@@ -2,6 +2,7 @@ package net.vulkanmod.config.ui.render;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.TextScale;
 
@@ -11,6 +12,9 @@ public final class FillSurfacePainter implements SurfacePainter {
     private final PaintQueue queue = new PaintQueue();
     private final GuiGraphics graphics;
     private final Font font;
+    private int offsetX;
+    private int offsetY;
+    private float alpha = 1.0f;
 
     public FillSurfacePainter(GuiGraphics graphics, Font font) {
         this.graphics = graphics;
@@ -18,23 +22,45 @@ public final class FillSurfacePainter implements SurfacePainter {
     }
 
     @Override
+    public void setOffset(int dx, int dy) {
+        this.offsetX = dx;
+        this.offsetY = dy;
+    }
+
+    @Override
+    public void setAlpha(float alpha) {
+        this.alpha = alpha < 0.0f ? 0.0f : Math.min(alpha, 1.0f);
+    }
+
+    @Override
     public void fill(Rect rect, int argb) {
-        queue.record(PaintOp.Layer.SURFACE, new PaintOp.Fill(rect, argb));
+        queue.record(PaintOp.Layer.SURFACE, new PaintOp.Fill(shift(rect), tint(argb)));
     }
 
     @Override
     public void gradient(Rect rect, int topArgb, int bottomArgb) {
-        queue.record(PaintOp.Layer.SURFACE, new PaintOp.Gradient(rect, topArgb, bottomArgb));
+        queue.record(PaintOp.Layer.SURFACE,
+                new PaintOp.Gradient(shift(rect), tint(topArgb), tint(bottomArgb)));
     }
 
     @Override
     public void text(int x, int y, String value, int argb, boolean shadow) {
-        queue.record(PaintOp.Layer.TEXT, new PaintOp.Text(x, y, value, argb, shadow));
+        queue.record(PaintOp.Layer.TEXT,
+                new PaintOp.Text(x + offsetX, y + offsetY, value, tint(argb), shadow));
     }
 
     @Override
     public void smallText(int x, int y, String value, int argb) {
-        queue.record(PaintOp.Layer.TEXT, new PaintOp.SmallText(x, y, value, argb, smallScale()));
+        queue.record(PaintOp.Layer.TEXT,
+                new PaintOp.SmallText(x + offsetX, y + offsetY, value, tint(argb), smallScale()));
+    }
+
+    private Rect shift(Rect rect) {
+        return offsetX == 0 && offsetY == 0 ? rect : rect.translated(offsetX, offsetY);
+    }
+
+    private int tint(int argb) {
+        return alpha >= 1.0f ? argb : Motion.fade(argb, alpha);
     }
 
     @Override
