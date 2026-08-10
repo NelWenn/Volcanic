@@ -35,7 +35,7 @@ class SettingsDefinitionsTest {
 
     @Test
     void theSettingsThatKeptATooltipAreTheOnesThatDescribeThemselves() {
-        assertEquals(36, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
+        assertEquals(42, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
     }
 
     @Test
@@ -105,6 +105,7 @@ class SettingsDefinitionsTest {
         all.addAll(advancedSettings());
         all.addAll(SettingsDefinitions.shadersCurrent());
         all.addAll(SettingsDefinitions.developerTools());
+        all.addAll(SettingsDefinitions.experimental());
         return all;
     }
 
@@ -189,8 +190,9 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void renderingGeneralHasItsFourSettingsInSpecOrder() {
+    void renderingGeneralHasItsFiveSettingsInSpecOrder() {
         assertEquals(List.of("minecraft:rendering.render_distance", "minecraft:rendering.simulation_distance",
+                        "vulkanmod:rendering.block_entity_distance",
                         "minecraft:rendering.chunk_update_priority", "vulkanmod:rendering.chunk_fade_in"),
                 SettingsDefinitions.renderingGeneral().stream().map(meta -> meta.id().toString()).toList());
     }
@@ -199,12 +201,14 @@ class SettingsDefinitionsTest {
     void renderingGeneralTypesSourcesAndScopesMatchTheSettingsMap() {
         List<SettingMeta> settings = SettingsDefinitions.renderingGeneral();
 
-        assertEquals(List.of(SettingType.INT, SettingType.INT, SettingType.ENUM, SettingType.BOOL),
+        assertEquals(List.of(SettingType.INT, SettingType.INT, SettingType.INT,
+                        SettingType.ENUM, SettingType.BOOL),
                 settings.stream().map(SettingMeta::type).toList());
         assertEquals(List.of(SettingSource.MINECRAFT, SettingSource.MINECRAFT,
-                        SettingSource.MINECRAFT, SettingSource.VOLCANIC),
+                        SettingSource.VOLCANIC, SettingSource.MINECRAFT, SettingSource.VOLCANIC),
                 settings.stream().map(SettingMeta::source).toList());
-        assertEquals(List.of(ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT),
+        assertEquals(List.of(ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT,
+                        ApplyScope.INSTANT, ApplyScope.INSTANT),
                 settings.stream().map(SettingMeta::scope).toList());
     }
 
@@ -307,8 +311,9 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void performanceSynchronizationHoldsOnlyTheFrameQueueSetting() {
-        assertEquals(List.of("vulkanmod:performance.frame_queue"),
+    void performanceSynchronizationHoldsAdaptiveVsyncAndTheFrameQueue() {
+        assertEquals(List.of("vulkanmod:performance.adaptive_vsync",
+                        "vulkanmod:performance.frame_queue"),
                 SettingsDefinitions.performanceSynchronization().stream()
                         .map(meta -> meta.id().toString()).toList());
     }
@@ -318,19 +323,21 @@ class SettingsDefinitionsTest {
         List<SettingMeta> settings = performanceSettings();
 
         assertEquals(List.of(SettingType.INT, SettingType.BOOL, SettingType.BOOL,
-                        SettingType.BOOL, SettingType.INT, SettingType.INT),
+                        SettingType.BOOL, SettingType.INT, SettingType.BOOL, SettingType.INT),
                 settings.stream().map(SettingMeta::type).toList());
         assertEquals(List.of(SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
-                        SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC),
+                        SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
+                        SettingSource.VOLCANIC),
                 settings.stream().map(SettingMeta::source).toList());
         assertEquals(List.of(ApplyScope.RESTART, ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD,
-                        ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.SWAPCHAIN),
+                        ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.SWAPCHAIN,
+                        ApplyScope.SWAPCHAIN),
                 settings.stream().map(SettingMeta::scope).toList());
     }
 
     @Test
     void onlyTheTwoTunablesAreFlaggedAdvancedOnThePerformancePages() {
-        assertEquals(List.of(false, false, false, false, true, true),
+        assertEquals(List.of(false, false, false, false, true, false, true),
                 performanceSettings().stream().map(SettingMeta::advanced).toList());
     }
 
@@ -409,8 +416,9 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void qualityEnvironmentHoldsCloudsAndWind() {
-        assertEquals(List.of("minecraft:quality.clouds", "vulkanmod:environment.wind_strength"),
+    void qualityEnvironmentHoldsCloudsWeatherWindAndHorizonFog() {
+        assertEquals(List.of("minecraft:quality.clouds", "vulkanmod:quality.weather_rendering",
+                        "vulkanmod:environment.wind_strength", "vulkanmod:quality.horizon_fog"),
                 SettingsDefinitions.qualityEnvironment().stream().map(meta -> meta.id().toString()).toList());
     }
 
@@ -433,20 +441,22 @@ class SettingsDefinitionsTest {
 
         assertEquals(List.of(SettingType.ENUM, SettingType.ENUM, SettingType.BOOL, SettingType.BOOL,
                         SettingType.BOOL, SettingType.INT, SettingType.ENUM, SettingType.INT,
-                        SettingType.ENUM, SettingType.INT, SettingType.ENUM, SettingType.BOOL,
-                        SettingType.INT, SettingType.BOOL),
+                        SettingType.ENUM, SettingType.BOOL, SettingType.INT, SettingType.INT,
+                        SettingType.ENUM, SettingType.BOOL, SettingType.INT, SettingType.BOOL),
                 settings.stream().map(SettingMeta::type).toList());
         assertEquals(List.of(SettingSource.MINECRAFT, SettingSource.MINECRAFT, SettingSource.VOLCANIC,
                         SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.MINECRAFT,
                         SettingSource.VOLCANIC, SettingSource.MINECRAFT, SettingSource.MINECRAFT,
-                        SettingSource.VOLCANIC, SettingSource.MINECRAFT, SettingSource.MINECRAFT,
+                        SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
+                        SettingSource.MINECRAFT, SettingSource.MINECRAFT,
                         SettingSource.MINECRAFT, SettingSource.VOLCANIC),
                 settings.stream().map(SettingMeta::source).toList());
         assertEquals(List.of(ApplyScope.INSTANT, ApplyScope.TEXTURE_RELOAD, ApplyScope.INSTANT,
                         ApplyScope.CHUNK_REBUILD, ApplyScope.INSTANT, ApplyScope.INSTANT,
                         ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD, ApplyScope.INSTANT,
                         ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT,
-                        ApplyScope.INSTANT, ApplyScope.INSTANT),
+                        ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT,
+                        ApplyScope.INSTANT),
                 settings.stream().map(SettingMeta::scope).toList());
     }
 
@@ -551,9 +561,10 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void advancedCompatibilityHasItsFourSettingsInSpecOrder() {
+    void advancedCompatibilityHasItsFiveSettingsInSpecOrder() {
         assertEquals(List.of("vulkanmod:advanced.external_lod", "vulkanmod:advanced.external_lod_draw",
-                        "vulkanmod:advanced.gl_legacy_bridge", "vulkanmod:advanced.gl_fbo_viewport"),
+                        "vulkanmod:advanced.gl_legacy_bridge", "vulkanmod:advanced.gl_fbo_viewport",
+                        "vulkanmod:advanced.core_shader_packs"),
                 SettingsDefinitions.advancedCompatibility().stream()
                         .map(meta -> meta.id().toString()).toList());
     }
@@ -563,26 +574,32 @@ class SettingsDefinitionsTest {
         List<SettingMeta> settings = advancedSettings();
 
         assertEquals(List.of(SettingType.BOOL, SettingType.ENUM, SettingType.BOOL,
-                        SettingType.ENUM, SettingType.BOOL, SettingType.BOOL, SettingType.BOOL),
+                        SettingType.ENUM, SettingType.BOOL, SettingType.BOOL, SettingType.BOOL,
+                        SettingType.BOOL),
                 settings.stream().map(SettingMeta::type).toList());
         assertTrue(settings.stream().allMatch(meta -> meta.source() == SettingSource.VOLCANIC));
     }
 
     @Test
-    void everyAdvancedSettingIsReadOnceAtStartupSoItAppliesOnlyAfterRestart() {
-        assertTrue(advancedSettings().stream().allMatch(meta -> meta.scope() == ApplyScope.RESTART),
-                "everything on the advanced pages is read once at startup");
+    void everyAdvancedSettingWaitsForARestartExceptTheOneThatReloadsResources() {
+        assertEquals(List.of("vulkanmod:advanced.core_shader_packs"),
+                advancedSettings().stream().filter(meta -> meta.scope() != ApplyScope.RESTART)
+                        .map(meta -> meta.id().toString()).toList());
+        assertEquals(ApplyScope.TEXTURE_RELOAD, advancedSettings().stream()
+                .filter(meta -> SettingsDefinitions.CORE_SHADER_PACKS.equals(meta.id()))
+                .findFirst().orElseThrow().scope());
     }
 
     @Test
     void everyAdvancedSettingExceptTheDeviceSelectorCarriesTheAdvancedFlag() {
-        assertEquals(List.of(false, false, true, true, true, true, true),
+        assertEquals(List.of(false, false, true, true, true, true, true, true),
                 advancedSettings().stream().map(SettingMeta::advanced).toList());
     }
 
     @Test
-    void theMoltenVkProfileIsTheOnlyExperimentalSettingInTheMenu() {
-        assertEquals(List.of("vulkanmod:advanced.moltenvk_aggressive"),
+    void theExperimentalBadgeIsReservedForTheProfileAndTheSamplerSetting() {
+        assertEquals(List.of("vulkanmod:advanced.moltenvk_aggressive",
+                        "vulkanmod:experimental.anisotropic_filtering"),
                 allSettings().stream().filter(SettingMeta::experimental)
                         .map(meta -> meta.id().toString()).toList());
     }
@@ -600,9 +617,9 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void theTenAdvancedSettingsDoNotAllBecomeBadgedByBeingAdvanced() {
+    void theElevenAdvancedSettingsDoNotAllBecomeBadgedByBeingAdvanced() {
         List<SettingMeta> advanced = allSettings().stream().filter(SettingMeta::advanced).toList();
-        assertEquals(10, advanced.size());
+        assertEquals(11, advanced.size());
         assertTrue(advanced.stream().noneMatch(SettingMeta::recommended));
         assertEquals(1, advanced.stream().filter(SettingMeta::experimental).count());
     }

@@ -1,7 +1,8 @@
 package net.vulkanmod.vulkan.texture;
 
-import it.unimi.dsi.fastutil.shorts.Short2LongMap;
-import it.unimi.dsi.fastutil.shorts.Short2LongOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2LongMap;
+import it.unimi.dsi.fastutil.ints.Int2LongOpenHashMap;
+import net.vulkanmod.Initializer;
 import net.vulkanmod.vulkan.device.DeviceManager;
 import org.apache.commons.lang3.Validate;
 import org.lwjgl.system.MemoryStack;
@@ -19,21 +20,39 @@ import static org.lwjgl.vulkan.VK12.VK_SAMPLER_REDUCTION_MODE_MIN;
 public abstract class SamplerManager {
     static final float MIP_BIAS = -0.5f;
 
-    static final Short2LongMap SAMPLERS = new Short2LongOpenHashMap();
+    static final Int2LongMap SAMPLERS = new Int2LongOpenHashMap();
 
     public static long getTextureSampler(byte maxLod, byte flags) {
-        short key = (short) (flags | (maxLod << 8));
+        int level = anisotropyLevel(flags);
+        int key = (flags & 0xFF) | ((maxLod & 0xFF) << 8) | (level << 16);
         long sampler = SAMPLERS.getOrDefault(key, 0L);
 
         if (sampler == 0L) {
-            sampler = createTextureSampler(maxLod, flags);
+            sampler = createTextureSampler(maxLod, flags, level);
             SAMPLERS.put(key, sampler);
         }
 
         return sampler;
     }
 
-    private static long createTextureSampler(byte maxLod, byte flags) {
+    private static int anisotropyLevel(byte flags) {
+        if ((flags & USE_MIPMAPS_BIT) == 0 || Initializer.CONFIG == null
+                || Initializer.CONFIG.anisotropicFiltering <= 1) {
+            return 1;
+        }
+        try {
+            if (DeviceManager.device == null
+                    || !DeviceManager.device.availableFeatures.features().samplerAnisotropy()) {
+                return 1;
+            }
+            int limit = (int) DeviceManager.deviceProperties.limits().maxSamplerAnisotropy();
+            return Math.max(1, Math.min(Initializer.CONFIG.anisotropicFiltering, limit));
+        } catch (Throwable unavailable) {
+            return 1;
+        }
+    }
+
+    private static long createTextureSampler(byte maxLod, byte flags, int level) {
         Validate.isTrue(
                 (flags & (REDUCTION_MIN_BIT | REDUCTION_MAX_BIT)) != (REDUCTION_MIN_BIT | REDUCTION_MAX_BIT)
         );
@@ -58,8 +77,8 @@ public abstract class SamplerManager {
                 samplerInfo.addressModeW(VK_SAMPLER_ADDRESS_MODE_REPEAT);
             }
 
-            samplerInfo.anisotropyEnable(false);
-            //samplerInfo.maxAnisotropy(16.0f);
+            samplerInfo.anisotropyEnable(level > 1);
+            samplerInfo.maxAnisotropy(level);
             samplerInfo.borderColor(VK_BORDER_COLOR_INT_OPAQUE_WHITE);
             samplerInfo.unnormalizedCoordinates(false);
             samplerInfo.compareEnable(false);

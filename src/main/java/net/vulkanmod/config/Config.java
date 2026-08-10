@@ -18,6 +18,7 @@ public class Config {
     public int configVersion = ConfigVersion.CURRENT;
 
     public int frameQueueSize = 2;
+    public boolean adaptiveVsync = false;
     public VideoModeSet.VideoMode videoMode = VideoModeManager.getFirstAvailable().getVideoMode();
     public boolean windowedFullscreen = false;
     public int performancePreset = PerformancePreset.BALANCED.id;
@@ -41,6 +42,9 @@ public class Config {
     public boolean uniqueOpaqueLayer = true;
     public boolean entityCulling = true;
     public boolean blockEntityCulling = true;
+    public static final int BLOCK_ENTITY_DISTANCE_UNLIMITED = 128;
+
+    public int blockEntityDistance = BLOCK_ENTITY_DISTANCE_UNLIMITED;
     public boolean leavesCulling = true;
     public int particleCulling = 2;
     public int device = -1;
@@ -50,6 +54,7 @@ public class Config {
     public boolean externalLodDraw = true;
     public boolean glLegacyBridge = true;
     public boolean glFboViewport = true;
+    public boolean sodiumCoreShaders = true;
 
     public int ambientOcclusion = 1;
     public boolean textureAnimations = true;
@@ -77,6 +82,7 @@ public class Config {
 
     public float horizonFog = 1.0f;
 
+    public boolean weatherRendering = true;
     public boolean windEnabled = true;
     public float windStrength = 1.0f;
 
@@ -113,6 +119,7 @@ public class Config {
     public boolean showCoordinates = false;
     public boolean perfLog = false;
     public boolean vulkanValidation = false;
+    public int anisotropicFiltering = 1;
 
     private static Path CONFIG_PATH;
     private static boolean warnedNotSaving;

@@ -150,9 +150,9 @@ class NavPresenterTest {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("rendering"));
         assertEquals(5, presenter.subTabs().size());
-        assertEquals(4, presenter.settings().size());
-        assertEquals(10, presenter.focus().ring(NavPresenter.REGION_CONTENT).size(),
-                "five tabs, four settings, plus the favourites button");
+        assertEquals(5, presenter.settings().size());
+        assertEquals(11, presenter.focus().ring(NavPresenter.REGION_CONTENT).size(),
+                "five tabs, five settings, plus the favourites button");
 
         assertTrue(presenter.back());
 

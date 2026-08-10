@@ -32,6 +32,8 @@ public class SwapChain extends Framebuffer {
     private static final int DEFAULT_IMAGE_COUNT = 3;
 
     private static final int defUncappedMode = checkPresentMode(VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_MAILBOX_KHR);
+    private static final boolean fifoRelaxedAvailable =
+            checkPresentMode(VK_PRESENT_MODE_FIFO_RELAXED_KHR) == VK_PRESENT_MODE_FIFO_RELAXED_KHR;
 
     private final Long2ReferenceOpenHashMap<long[]> FBO_map = new Long2ReferenceOpenHashMap<>();
 
@@ -297,8 +299,13 @@ public class SwapChain extends Framebuffer {
     }
 
     private int getPresentMode(IntBuffer availablePresentModes) {
-        int requestedMode = vsync ? VK_PRESENT_MODE_FIFO_KHR : defUncappedMode;
+        if (vsync) {
+            return fifoRelaxedAvailable && Initializer.CONFIG != null
+                    && Initializer.CONFIG.adaptiveVsync
+                    ? VK_PRESENT_MODE_FIFO_RELAXED_KHR : VK_PRESENT_MODE_FIFO_KHR;
+        }
 
+        int requestedMode = defUncappedMode;
         if (requestedMode == VK_PRESENT_MODE_FIFO_KHR)
             return VK_PRESENT_MODE_FIFO_KHR;
 
@@ -368,6 +375,10 @@ public class SwapChain extends Framebuffer {
             }
             return VK_PRESENT_MODE_FIFO_KHR;
         }
+    }
+
+    public static boolean supportsFifoRelaxed() {
+        return fifoRelaxedAvailable;
     }
 
     public boolean isVsync() {

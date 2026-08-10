@@ -406,5 +406,19 @@
   "vulkanmod.overview.hint.far_terrain": "A far-terrain mod is adding work.",
   "vulkanmod.overview.hint.tick_heavy": "Contraption-style mods tick expensively.",
   "vulkanmod.ui.overview.sampling": "sampling %s / %s",
-  "vulkanmod.ui.overview.from_frames": "%s played frames"
+  "vulkanmod.ui.overview.from_frames": "%s played frames",
+  "vulkanmod.options.weatherRendering": "Weather Rendering",
+  "vulkanmod.options.weatherRendering.tooltip": "Draws falling rain and snow. Turning it off skips a per-column biome and heightmap sweep around you plus hundreds of transparent quads every frame during a storm. Rain sounds and ground splashes are unaffected.",
+  "vulkanmod.options.blockEntityDistance": "Block Entity Distance",
+  "vulkanmod.options.blockEntityDistance.tooltip": "How far chests, signs, banners and machines are drawn. Each one costs a pose, a lookup and a pass through its renderer every frame, so cutting this is the strongest lever in a dense base. Minecraft stops at 64 blocks on its own and Block Entity Culling adds a 96-block gate, so this only bites below those.",
+  "vulkanmod.options.blockEntityDistance.unlimited": "Off",
+  "vulkanmod.options.adaptiveVsync": "Adaptive V-Sync",
+  "vulkanmod.options.adaptiveVsync.tooltip": "With plain V-Sync, one late frame costs a whole refresh interval, so 60 fps drops straight to 30. Adaptive V-Sync presents the late frame immediately instead, trading a brief tear for the frames. Only applies while V-Sync is on, and only on drivers that offer it.",
+  "vulkanmod.options.coreShaderPacks": "Sodium Core Shader Packs",
+  "vulkanmod.options.coreShaderPacks.tooltip": "Lets a resource pack replace the terrain and cloud shaders with its own Sodium-style core shaders. Turn it off to ignore those files and keep Volcanic's own shaders when a pack breaks the display.",
+  "vulkanmod.options.anisotropicFiltering": "Anisotropic Filtering",
+  "vulkanmod.options.anisotropicFiltering.tooltip": "Sharpens floors and walls seen at a grazing angle, which mipmaps otherwise blur into mush. On Minecraft's stitched block atlas it can bleed neighbouring sprites into each other at distance, which is why it lives here and not under Quality.",
+  "vulkanmod.ui.disabled.vsync_off": "Needs V-Sync on. Turn V-Sync on under Display to use this.",
+  "vulkanmod.ui.disabled.present_mode": "Your graphics driver does not offer adaptive V-Sync. MoltenVK on macOS never does.",
+  "vulkanmod.ui.disabled.anisotropy": "This GPU does not support anisotropic filtering."
 }

@@ -76,6 +76,7 @@ public final class SettingsCatalog {
             List.of(Vsr.BILINEAR, Vsr.FSR1, Vsr.VTU, Vsr.SHARPEN_ONLY);
 
     private static final List<Integer> MIPMAP_LEVELS = List.of(0, 1, 2, 3, 4);
+    private static final List<Integer> ANISOTROPY_LEVELS = List.of(1, 2, 4, 8, 16);
     private static final int MIPMAP_LEVELS_DEFAULT = 4;
 
     private static final List<Integer> AMBIENT_OCCLUSION_MODES =
@@ -115,6 +116,7 @@ public final class SettingsCatalog {
         bindAdvancedRenderer();
         bindAdvancedSynchronization();
         bindAdvancedCompatibility();
+        bindExperimental();
         bindShadersCurrent();
 
         registerAll(SettingsDefinitions.displayGeneral());
@@ -138,6 +140,7 @@ public final class SettingsCatalog {
         registerAll(SettingsDefinitions.advancedCompatibility());
         registerAll(SettingsDefinitions.shadersCurrent());
         registerAll(SettingsDefinitions.developerTools());
+        registerAll(SettingsDefinitions.experimental());
         registerParticles();
 
         registerPlugins();
@@ -276,6 +279,16 @@ public final class SettingsCatalog {
         return binding;
     }
 
+    private static boolean anisotropySupported() {
+        try {
+            return DeviceManager.device != null
+                    && DeviceManager.device.availableFeatures.features().samplerAnisotropy()
+                    && DeviceManager.deviceProperties.limits().maxSamplerAnisotropy() >= 2.0f;
+        } catch (Throwable failure) {
+            return false;
+        }
+    }
+
     private static boolean camilleActive() {
         try {
             return DefaultMainPass.postShaderActive() && Initializer.CONFIG.isCamille();
@@ -302,6 +315,13 @@ public final class SettingsCatalog {
         }
         if (SettingsDefinitions.VULKAN_VALIDATION.equals(id)) {
             return net.vulkanmod.vulkan.MoltenVKConfig.vulkanSdkPresent();
+        }
+        if (SettingsDefinitions.ANISOTROPIC_FILTERING.equals(id)) {
+            return anisotropySupported();
+        }
+        if (SettingsDefinitions.ADAPTIVE_VSYNC.equals(id)) {
+            return SwapChain.supportsFifoRelaxed()
+                    && Minecraft.getInstance().options.enableVsync().get();
         }
         if (SettingsDefinitions.CAMILLE_ONLY.contains(id)) {
             return camilleActive();
@@ -358,6 +378,11 @@ public final class SettingsCatalog {
         Optional<String> declared = SettingsDefinitions.disabledReasonKey(id);
         if (declared.isPresent()) {
             return declared;
+        }
+        if (SettingsDefinitions.ADAPTIVE_VSYNC.equals(id)) {
+            return Optional.of(SwapChain.supportsFifoRelaxed()
+                    ? SettingsDefinitions.REASON_VSYNC_OFF
+                    : SettingsDefinitions.REASON_PRESENT_MODE);
         }
         if (SettingsDefinitions.MOLTENVK_AGGRESSIVE.equals(id) && !Platform.isMacOS()) {
             return Optional.of(SettingsDefinitions.REASON_MACOS_ONLY);
@@ -642,6 +667,15 @@ public final class SettingsCatalog {
                 SettingsDefinitions.SIMULATION_DISTANCE_STEP)
                 .withDefault(() -> SettingsDefinitions.SIMULATION_DISTANCE_DEFAULT));
 
+        bindings.put(SettingsDefinitions.BLOCK_ENTITY_DISTANCE, SettingBinding.ranged(
+                () -> Initializer.CONFIG.blockEntityDistance,
+                value -> Initializer.CONFIG.blockEntityDistance = intValue(value),
+                SettingsDefinitions.BLOCK_ENTITY_DISTANCE_MIN,
+                SettingsDefinitions.BLOCK_ENTITY_DISTANCE_MAX,
+                SettingsDefinitions.BLOCK_ENTITY_DISTANCE_STEP)
+                .withDefault(() -> SettingsDefinitions.BLOCK_ENTITY_DISTANCE_DEFAULT)
+                .withFormatter(SettingsCatalog::blockEntityDistanceLabel));
+
         bindings.put(SettingsDefinitions.CHUNK_UPDATE_PRIORITY, SettingBinding.choosing(
                 () -> Minecraft.getInstance().options.prioritizeChunkUpdates().get().getKey(),
                 value -> Minecraft.getInstance().options.prioritizeChunkUpdates()
@@ -780,6 +814,14 @@ public final class SettingsCatalog {
     }
 
     private void bindPerformanceSynchronization() {
+        bindings.put(SettingsDefinitions.ADAPTIVE_VSYNC, SettingBinding.of(
+                () -> Initializer.CONFIG.adaptiveVsync,
+                value -> {
+                    Initializer.CONFIG.adaptiveVsync = boolValue(value);
+                    Renderer.scheduleSwapChainUpdate();
+                })
+                .withDefault(() -> Boolean.FALSE));
+
         bindings.put(SettingsDefinitions.FRAME_QUEUE, SettingBinding.ranged(
                 () -> Initializer.CONFIG.frameQueueSize,
                 value -> {
@@ -935,6 +977,19 @@ public final class SettingsCatalog {
                 value -> Minecraft.getInstance().options.cloudStatus().set(cloudStatusFor(label(value))),
                 () -> Arrays.stream(CloudStatus.values()).map(CloudStatus::getKey).toList())
                 .withDefault(() -> CloudStatus.FANCY.getKey()));
+
+        bindings.put(SettingsDefinitions.WEATHER_RENDERING, SettingBinding.of(
+                () -> Initializer.CONFIG.weatherRendering,
+                value -> Initializer.CONFIG.weatherRendering = boolValue(value))
+                .withDefault(() -> Boolean.TRUE));
+
+        bindings.put(SettingsDefinitions.HORIZON_FOG, SettingBinding.scaled(
+                () -> Initializer.CONFIG.horizonFog,
+                value -> Initializer.CONFIG.horizonFog = (float) doubleValue(value),
+                SettingsDefinitions.EFFECT_SCALE_MIN, SettingsDefinitions.EFFECT_SCALE_MAX,
+                SettingsDefinitions.HORIZON_FOG_STEP, SettingsDefinitions.PERCENT_SCALE)
+                .withDefault(() -> SettingsDefinitions.HORIZON_FOG_DEFAULT)
+                .withFormatter(SettingsCatalog::percentLabel));
     }
 
     private void bindRenderingAdvanced() {
@@ -1007,6 +1062,25 @@ public final class SettingsCatalog {
                 GlDrawOptions::fboViewportUsesFboConvention,
                 value -> Initializer.CONFIG.glFboViewport = boolValue(value))
                 .withDefault(() -> Boolean.TRUE));
+
+        bindings.put(SettingsDefinitions.CORE_SHADER_PACKS, SettingBinding.of(
+                () -> Initializer.CONFIG.sodiumCoreShaders,
+                value -> {
+                    Initializer.CONFIG.sodiumCoreShaders = boolValue(value);
+                    Minecraft.getInstance().delayTextureReload();
+                })
+                .withDefault(() -> Boolean.TRUE));
+    }
+
+    private void bindExperimental() {
+        bindings.put(SettingsDefinitions.ANISOTROPIC_FILTERING, SettingBinding.choosing(
+                () -> anisotropyKey(Initializer.CONFIG.anisotropicFiltering),
+                value -> {
+                    Initializer.CONFIG.anisotropicFiltering = anisotropyFor(label(value));
+                    Minecraft.getInstance().delayTextureReload();
+                },
+                () -> ANISOTROPY_LEVELS.stream().map(SettingsCatalog::anisotropyKey).toList())
+                .withDefault(() -> anisotropyKey(1)));
     }
 
     private static List<Device> suitableDevices() {
@@ -1071,6 +1145,26 @@ public final class SettingsCatalog {
             }
         }
         throw new IllegalArgumentException("unknown graphics mode " + key);
+    }
+
+    private static String blockEntityDistanceLabel(Object value) {
+        int distance = intValue(value);
+        return distance >= SettingsDefinitions.BLOCK_ENTITY_DISTANCE_MAX
+                ? I18n.get("vulkanmod.options.blockEntityDistance.unlimited")
+                : Integer.toString(distance);
+    }
+
+    private static String anisotropyKey(int level) {
+        return level <= 1 ? I18n.get("options.off") : level + "x";
+    }
+
+    private static int anisotropyFor(String label) {
+        for (int level : ANISOTROPY_LEVELS) {
+            if (anisotropyKey(level).equals(label)) {
+                return level;
+            }
+        }
+        throw new IllegalArgumentException("unknown anisotropy level " + label);
     }
 
     private static int mipmapLevelFor(String label) {

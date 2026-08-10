@@ -23,8 +23,6 @@ public abstract class FogRendererMixin {
             return;
 
         Config config = Initializer.CONFIG;
-        if (!config.shadersEnabled || !config.isCamille())
-            return;
         if (shouldCreateFog || camera.getFluidInCamera() != FogType.NONE)
             return;
 
@@ -34,6 +32,8 @@ public abstract class FogRendererMixin {
             return;
 
         float strength = config.horizonFog;
+        if (strength >= 1.0f)
+            return;
         if (strength <= 0.004f) {
             RenderSystem.setShaderFogStart(Float.MAX_VALUE);
             RenderSystem.setShaderFogEnd(Float.MAX_VALUE);

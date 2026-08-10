@@ -28,6 +28,10 @@ public final class SodiumShaderBridge {
     }
 
     public static void refresh(ResourceProvider provider) {
+        if (Initializer.CONFIG == null || !Initializer.CONFIG.sodiumCoreShaders) {
+            disable();
+            return;
+        }
         refreshTerrain(provider);
         refreshClouds(provider);
     }
@@ -103,6 +107,7 @@ public final class SodiumShaderBridge {
     private static void disable() {
         cleanup();
         active = false;
+        cloudsFragment = null;
     }
 
     private static void cleanup() {

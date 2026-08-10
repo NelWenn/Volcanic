@@ -24,6 +24,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.config.Config;
 import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.buffer.DrawBuffers;
 import net.vulkanmod.render.chunk.frustum.VFrustum;
@@ -814,17 +815,24 @@ public class WorldRenderer {
                                     Long2ObjectMap<SortedSet<BlockDestructionProgress>> destructionProgress, float gameTime) {
         MultiBufferSource bufferSource = this.renderBuffers.bufferSource();
         VFrustum frustum = this.sectionGraph.getFrustum();
+        int blockEntityDistance = Initializer.CONFIG.blockEntityDistance;
+        final double blockEntityRange = blockEntityDistance >= Config.BLOCK_ENTITY_DISTANCE_UNLIMITED
+                ? Double.MAX_VALUE : (double) blockEntityDistance * blockEntityDistance;
 
         for (RenderSection renderSection : this.sectionGraph.getBlockEntitiesSections()) {
             List<BlockEntity> list = renderSection.getCompiledSection().getBlockEntities();
             if (!list.isEmpty()) {
                 for (BlockEntity blockEntity : list) {
                     BlockPos blockPos = blockEntity.getBlockPos();
+                    double dx = (double) blockPos.getX() + 0.5 - camX;
+                    double dy = (double) blockPos.getY() + 0.5 - camY;
+                    double dz = (double) blockPos.getZ() + 0.5 - camZ;
+                    double squared = dx * dx + dy * dy + dz * dz;
+                    if (squared > blockEntityRange) {
+                        continue;
+                    }
                     if (Initializer.CONFIG.blockEntityCulling) {
-                        double dx = (double) blockPos.getX() + 0.5 - camX;
-                        double dy = (double) blockPos.getY() + 0.5 - camY;
-                        double dz = (double) blockPos.getZ() + 0.5 - camZ;
-                        if (dx * dx + dy * dy + dz * dz > 9216.0) {
+                        if (squared > 9216.0) {
                             continue;
                         }
                         if (frustum != null) {

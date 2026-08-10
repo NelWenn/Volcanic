@@ -147,9 +147,12 @@ public abstract class LevelRendererMixin {
         if (timer != null) timer.addTerrainNanos(System.nanoTime() - t);
     }
 
-    @Inject(method = "renderSnowAndRain", at = @At("HEAD"))
+    @Inject(method = "renderSnowAndRain", at = @At("HEAD"), cancellable = true)
     private void prepareWeatherRenderState(LightTexture lightTexture, float partialTick, double camX, double camY, double camZ, CallbackInfo ci) {
         volcanic$prepareWorldPassRenderState();
+        if (!net.vulkanmod.Initializer.CONFIG.weatherRendering) {
+            ci.cancel();
+        }
     }
 
     @Inject(method = "renderSky", at = @At("HEAD"))
