@@ -1,5 +1,6 @@
 package net.vulkanmod.config.ui.core;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -271,5 +272,41 @@ class ShellLayoutTest {
     @Test
     void theFavouritesButtonRejectsANegativeLabel() {
         assertThrows(IllegalArgumentException.class, () -> ShellLayout.of(854, 480).favoritesButton(-1));
+    }
+
+    @Test
+    @DisplayName("a collapsed shell hands the sidebar's width to the content and shows the burger")
+    void collapsingGivesTheWidthToTheContent() {
+        ShellLayout open = ShellLayout.of(854, 480);
+        ShellLayout collapsed = ShellLayout.of(854, 480, true);
+
+        assertTrue(collapsed.collapsed());
+        assertEquals(0, collapsed.sidebar().width());
+        assertEquals(open.content().width() + open.sidebar().width(), collapsed.content().width(),
+                "every pixel the sidebar gave up must go to the content");
+        assertEquals(0, collapsed.content().x());
+        assertTrue(collapsed.hasDrawer(), "the sidebar must still be reachable");
+        assertFalse(collapsed.menuButton().isEmpty(), "the burger is the way back");
+    }
+
+    @Test
+    @DisplayName("collapsing a wide shell keeps the details panel it had room for")
+    void collapsingKeepsTheDetailsPanel() {
+        ShellLayout collapsed = ShellLayout.of(854, 480, true);
+
+        assertTrue(collapsed.hasDetailsPanel());
+        assertEquals(collapsed.content().right(), collapsed.details().x());
+    }
+
+    @Test
+    @DisplayName("the drawer opens over the content and never off screen")
+    void theDrawerStaysOnScreen() {
+        ShellLayout collapsed = ShellLayout.of(854, 480, true);
+        Rect drawer = collapsed.drawer();
+
+        assertFalse(drawer.isEmpty());
+        assertTrue(drawer.x() >= 0 && drawer.right() <= 854);
+        assertEquals(Rect.EMPTY, collapsed.sidebarOrDrawer(false));
+        assertEquals(drawer, collapsed.sidebarOrDrawer(true));
     }
 }

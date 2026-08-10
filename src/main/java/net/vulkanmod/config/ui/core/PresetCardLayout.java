@@ -12,11 +12,10 @@ public final class PresetCardLayout {
     public static final int CARD_HEIGHT_COMPACT = 74;
     public static final int CARD_PAD = 10;
     public static final int BANNER_HEIGHT = 40;
-    public static final int HEADER_HEIGHT = 36;
-    public static final int HEADER_GAP = 12;
+    public static final int LEGEND_H = 7;
+    public static final int LEGEND_GAP = 10;
     public static final int SUGGEST_GAP = 10;
     public static final int MARGIN = 14;
-    public static final int HEADER_BAR = 3;
     public static final int BANNER_TOP = 6;
     public static final int BOTTOM = 12;
     public static final int BAR_HEIGHT = 3;
@@ -72,7 +71,7 @@ public final class PresetCardLayout {
         return breakpoint == Breakpoint.COMPACT ? CARD_HEIGHT_COMPACT : CARD_HEIGHT;
     }
 
-    public record Page(Rect header, List<Rect> cards, Rect suggestion, int height, boolean centred) {
+    public record Page(Rect legend, List<Rect> cards, Rect suggestion, int height, boolean centred) {
     }
 
     public static Page page(Rect content, int count, int scroll, Breakpoint breakpoint) {
@@ -92,21 +91,21 @@ public final class PresetCardLayout {
 
         int grid = gridHeight(count, breakpoint, usable);
         int block = grid + SUGGEST_GAP + SMALL_LINE;
-        int total = HEADER_HEIGHT + HEADER_GAP + block;
+        int total = LEGEND_H + LEGEND_GAP + block;
         boolean centred = total + OVERVIEW_MARGIN * 2 <= content.height();
 
-        int headerTop = centred
+        int legendTop = centred
                 ? content.y() + OVERVIEW_MARGIN
                 : content.y() + OVERVIEW_MARGIN - scroll;
-        Rect header = new Rect(content.x() + PAD_X, headerTop, usable, HEADER_HEIGHT);
+        Rect legend = new Rect(content.x() + PAD_X, legendTop, usable, LEGEND_H);
 
-        int below = header.bottom() + HEADER_GAP;
+        int below = legend.bottom() + LEGEND_GAP;
         int room = content.bottom() - OVERVIEW_MARGIN - below;
         int gridTop = centred && room > block ? below + (room - block) / 2 : below;
 
         List<Rect> cards = grid(content, count, gridTop, breakpoint);
-        Rect suggestion = new Rect(header.x(), gridTop + grid + SUGGEST_GAP, usable, SMALL_LINE);
-        return new Page(header, cards, suggestion, total + OVERVIEW_MARGIN * 2, centred);
+        Rect suggestion = new Rect(legend.x(), gridTop + grid + SUGGEST_GAP, usable, SMALL_LINE);
+        return new Page(legend, cards, suggestion, total + OVERVIEW_MARGIN * 2, centred);
     }
 
     public static int gridHeight(int count, Breakpoint breakpoint, int usableWidth) {

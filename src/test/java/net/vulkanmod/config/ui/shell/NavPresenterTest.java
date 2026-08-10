@@ -127,7 +127,7 @@ class NavPresenterTest {
     void renderingHasItsSubTabs() {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("rendering"));
-        assertEquals(6, presenter.subTabs().size());
+        assertEquals(5, presenter.subTabs().size());
         assertEquals(RouteId.parse("rendering.general"), presenter.subTabs().get(0).route());
     }
 
@@ -135,7 +135,7 @@ class NavPresenterTest {
     void navigatingToASubTabKeepsTheSameSubTabs() {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("rendering.culling"));
-        assertEquals(6, presenter.subTabs().size());
+        assertEquals(5, presenter.subTabs().size());
     }
 
     @Test
@@ -149,10 +149,10 @@ class NavPresenterTest {
     void backReturnsToThePreviousLeafAndRebuildsTheContentRing() {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("rendering"));
-        assertEquals(6, presenter.subTabs().size());
+        assertEquals(5, presenter.subTabs().size());
         assertEquals(4, presenter.settings().size());
-        assertEquals(11, presenter.focus().ring(NavPresenter.REGION_CONTENT).size(),
-                "six tabs, four settings, plus the favourites button");
+        assertEquals(10, presenter.focus().ring(NavPresenter.REGION_CONTENT).size(),
+                "five tabs, four settings, plus the favourites button");
 
         assertTrue(presenter.back());
 
@@ -340,7 +340,7 @@ class NavPresenterTest {
         assertEquals(5, presenter.settings().size());
 
         presenter.navigate(RouteId.parse("display.interface"));
-        assertEquals(4, presenter.settings().size());
+        assertEquals(6, presenter.settings().size());
 
         presenter.navigate(RouteId.parse("display.advanced"));
         assertEquals(1, presenter.settings().size());

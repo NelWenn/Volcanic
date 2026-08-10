@@ -1,6 +1,6 @@
 package net.vulkanmod.config.ui.core;
 
-public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
+public record ShellLayout(boolean collapsed, Breakpoint breakpoint, Rect topBar, Rect sidebar,
                           Rect content, Rect details, Rect bottomBar) {
     public static final int TOP_BAR_HEIGHT = 32;
     public static final int BOTTOM_BAR_HEIGHT = 34;
@@ -33,6 +33,10 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
     private static final int BAR_BUTTON_MARGIN = 12;
 
     public static ShellLayout of(int guiWidth, int guiHeight) {
+        return of(guiWidth, guiHeight, false);
+    }
+
+    public static ShellLayout of(int guiWidth, int guiHeight, boolean collapsed) {
         int width = Math.max(0, guiWidth);
         int height = Math.max(0, guiHeight);
         Breakpoint breakpoint = Breakpoint.forWidth(width);
@@ -44,7 +48,8 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
         int bodyTop = topBar.height();
         int bodyHeight = Math.max(0, height - topBar.height());
 
-        int sidebarWidth = breakpoint == Breakpoint.COMPACT ? 0 : Math.min(SIDEBAR_WIDTH, width);
+        int sidebarWidth = collapsed || breakpoint == Breakpoint.COMPACT
+                ? 0 : Math.min(SIDEBAR_WIDTH, width);
         int detailsWidth = breakpoint == Breakpoint.WIDE ? Math.min(DETAILS_WIDTH, width - sidebarWidth) : 0;
         int contentWidth = Math.max(0, width - sidebarWidth - detailsWidth);
 
@@ -55,7 +60,7 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
                 ? new Rect(content.right(), bodyTop, detailsWidth, bodyHeight)
                 : Rect.EMPTY;
 
-        return new ShellLayout(breakpoint, topBar, sidebar, content, details, bottomBar);
+        return new ShellLayout(collapsed, breakpoint, topBar, sidebar, content, details, bottomBar);
     }
 
     public Rect screen() {
@@ -71,7 +76,7 @@ public record ShellLayout(Breakpoint breakpoint, Rect topBar, Rect sidebar,
     }
 
     public boolean hasDrawer() {
-        return breakpoint == Breakpoint.COMPACT;
+        return collapsed || breakpoint == Breakpoint.COMPACT;
     }
 
     public Rect drawer() {

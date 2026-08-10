@@ -485,6 +485,7 @@ public class Renderer {
     }
 
     private void resetDescriptors() {
+        net.vulkanmod.render.profiling.RenderCounters.endFrame(usedPipelines.size());
         for (Pipeline pipeline : usedPipelines) {
             pipeline.resetDescriptorPool(currentFrame);
         }

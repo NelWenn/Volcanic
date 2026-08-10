@@ -23,7 +23,6 @@ class PluginPageLayoutTest {
         PluginPageLayout.Page page = page(3, 4);
 
         List<Rect> stack = new java.util.ArrayList<>();
-        stack.add(page.header());
         stack.add(page.plugins().rule());
         stack.addAll(page.plugins().rows());
         stack.add(page.mods().rule());
@@ -94,7 +93,6 @@ class PluginPageLayoutTest {
         PluginPageLayout.Page page = page(0, 0);
 
         assertFalse(page.empty().isEmpty());
-        assertTrue(page.header().isEmpty());
         assertTrue(page.plugins().rows().isEmpty());
         assertTrue(page.mods().rows().isEmpty());
         assertTrue(PluginPageLayout.emptyTitle(page.empty()).y() < PluginPageLayout.emptyBody(page.empty()).y());
@@ -158,7 +156,6 @@ class PluginPageLayoutTest {
         PluginPageLayout.Page resting = page(2, 2);
         PluginPageLayout.Page scrolled = PluginPageLayout.page(CONTENT, 2, 2, 40, Breakpoint.WIDE);
 
-        assertEquals(resting.header().y() - 40, scrolled.header().y());
         assertEquals(resting.plugins().rows().get(0).y() - 40, scrolled.plugins().rows().get(0).y());
         assertEquals(resting.mods().rows().get(1).y() - 40, scrolled.mods().rows().get(1).y());
         assertEquals(resting.height(), scrolled.height(), "scrolling must not change the page height");
@@ -183,7 +180,6 @@ class PluginPageLayoutTest {
                 PluginPageLayout.page(new Rect(0, 0, PluginPageLayout.PAD_X * 2, 100), 2, 2, 0, Breakpoint.WIDE);
 
         assertEquals(0, page.height());
-        assertTrue(page.header().isEmpty());
         assertTrue(page.plugins().rows().isEmpty());
     }
 }

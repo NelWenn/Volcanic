@@ -20,6 +20,13 @@ public record Rect(int x, int y, int width, int height) {
                 Math.max(0, width - amount * 2), Math.max(0, height - amount * 2));
     }
 
+    public Rect dropTop(int amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("amount must not be negative: " + amount);
+        }
+        return new Rect(x, y + amount, width, Math.max(0, height - amount));
+    }
+
     public Rect withHeight(int newHeight) {
         return new Rect(x, y, width, Math.max(0, newHeight));
     }

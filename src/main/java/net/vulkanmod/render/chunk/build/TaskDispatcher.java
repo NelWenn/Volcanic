@@ -36,9 +36,38 @@ public class TaskDispatcher {
         this.stopThreads = true;
     }
 
+    public int idleThreadCount() {
+        return idleThreads;
+    }
+
+    public int threadCount() {
+        return threads == null ? 0 : threads.length;
+    }
+
+    public int pendingUploadCount() {
+        return compileResults.size();
+    }
+
+    public int pendingTaskCount() {
+        return highPriorityTasks.size() + lowPriorityTasks.size();
+    }
+
     public void createThreads() {
-        int n = Math.max((Runtime.getRuntime().availableProcessors() - 1) / 2, 1);
-        createThreads(n);
+        createThreads(threadBudget());
+    }
+
+    public static int autoThreadCount() {
+        return Math.max((Runtime.getRuntime().availableProcessors() - 1) / 2, 1);
+    }
+
+    public static int maxThreadCount() {
+        return Math.max(1, Runtime.getRuntime().availableProcessors() - 1);
+    }
+
+    private static int threadBudget() {
+        int configured = net.vulkanmod.Initializer.CONFIG == null
+                ? 0 : net.vulkanmod.Initializer.CONFIG.chunkBuilderThreads;
+        return configured <= 0 ? autoThreadCount() : Math.min(configured, maxThreadCount());
     }
 
     public void createThreads(int n) {
@@ -174,6 +203,7 @@ public class TaskDispatcher {
             }
         }
 
+        net.vulkanmod.render.profiling.RenderCounters.uploads(uploadsThisFrame);
         return flag;
     }
 

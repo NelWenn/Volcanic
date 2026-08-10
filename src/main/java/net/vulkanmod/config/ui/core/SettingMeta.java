@@ -3,7 +3,7 @@ package net.vulkanmod.config.ui.core;
 public record SettingMeta(SettingId id, RouteId route, String titleKey, String descriptionKey,
                           SettingType type, SettingSource source, ApplyScope scope,
                           boolean advanced, boolean experimental, boolean recommended,
-                          ImpactLevel performance, ImpactLevel visual) {
+                          ImpactLevel performance, ImpactLevel visual, String groupKey) {
 
     public static final class Builder {
         private final SettingId id;
@@ -18,6 +18,7 @@ public record SettingMeta(SettingId id, RouteId route, String titleKey, String d
         private boolean recommended;
         private ImpactLevel performance;
         private ImpactLevel visual;
+        private String groupKey;
 
         public Builder(SettingId id, RouteId route, String titleKey, SettingType type, SettingSource source) {
             if (id == null) {
@@ -40,6 +41,14 @@ public record SettingMeta(SettingId id, RouteId route, String titleKey, String d
             this.titleKey = titleKey;
             this.type = type;
             this.source = source;
+        }
+
+        public Builder group(String key) {
+            if (key == null || key.isBlank()) {
+                throw new IllegalArgumentException("group must not be blank; omit it instead");
+            }
+            this.groupKey = key;
+            return this;
         }
 
         public Builder descriptionKey(String key) {
@@ -91,7 +100,7 @@ public record SettingMeta(SettingId id, RouteId route, String titleKey, String d
 
         public SettingMeta build() {
             return new SettingMeta(id, route, titleKey, descriptionKey, type, source, scope,
-                    advanced, experimental, recommended, performance, visual);
+                    advanced, experimental, recommended, performance, visual, groupKey);
         }
     }
 }

@@ -73,6 +73,7 @@ public class GraphicsPipeline extends Pipeline {
     }
 
     private long createGraphicsPipeline(PipelineState state) {
+        net.vulkanmod.render.profiling.RenderCounters.pipelineBuilt();
         long start = System.nanoTime();
         long handle = buildGraphicsPipeline(state);
         buildNanos += System.nanoTime() - start;

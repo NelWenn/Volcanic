@@ -1,5 +1,6 @@
 package net.vulkanmod.config.ui.settings;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -72,5 +73,33 @@ class LanguageFileTest {
             entries.add(line);
         }
         return entries;
+    }
+
+    @Test
+    @DisplayName("every percent sign is a real specifier, because I18n always runs String.format")
+    void noValueBreaksStringFormat() throws IOException {
+        List<String> broken = new ArrayList<>();
+        for (String line : Files.readAllLines(LANG)) {
+            int split = line.indexOf("\": \"");
+            if (split < 0) {
+                continue;
+            }
+            String key = line.substring(line.indexOf('"') + 1, split);
+            String value = line.substring(split + 4, line.lastIndexOf('"'));
+            for (int index = 0; index < value.length(); index++) {
+                if (value.charAt(index) != '%') {
+                    continue;
+                }
+                char next = index + 1 < value.length() ? value.charAt(index + 1) : ' ';
+                if (next == '%') {
+                    index++;
+                } else if (next != 's' && next != 'd' && next != 'f') {
+                    broken.add(key);
+                    break;
+                }
+            }
+        }
+        assertEquals(List.of(), broken,
+                "a literal percent must be doubled, or I18n renders \"Format error\" instead");
     }
 }

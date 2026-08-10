@@ -176,10 +176,10 @@ class PresetCardLayoutTest {
         PresetCardLayout.Page page = PresetCardLayout.page(content, 5, 0, Breakpoint.WIDE);
 
         assertTrue(page.centred());
-        assertEquals(content.y() + PresetCardLayout.OVERVIEW_MARGIN, page.header().y(),
+        assertEquals(content.y() + PresetCardLayout.OVERVIEW_MARGIN, page.legend().y(),
                 "the title is pinned to the top, not floated with the cards");
 
-        int above = page.cards().get(0).y() - (page.header().bottom() + PresetCardLayout.HEADER_GAP);
+        int above = page.cards().get(0).y() - (page.legend().bottom() + PresetCardLayout.LEGEND_GAP);
         int below = content.bottom() - PresetCardLayout.OVERVIEW_MARGIN - page.suggestion().bottom();
         assertTrue(Math.abs(above - below) <= 2,
                 "the cards centre in what is left: " + above + " vs " + below);
@@ -190,9 +190,9 @@ class PresetCardLayoutTest {
         PresetCardLayout.Page page = PresetCardLayout.page(new Rect(0, 32, 420, 150), 5, 0, Breakpoint.COMPACT);
 
         assertFalse(page.centred());
-        assertEquals(32 + PresetCardLayout.OVERVIEW_MARGIN, page.header().y());
+        assertEquals(32 + PresetCardLayout.OVERVIEW_MARGIN, page.legend().y());
         assertEquals(32 + PresetCardLayout.OVERVIEW_MARGIN - 40,
-                PresetCardLayout.page(new Rect(0, 32, 420, 150), 5, 40, Breakpoint.COMPACT).header().y());
+                PresetCardLayout.page(new Rect(0, 32, 420, 150), 5, 40, Breakpoint.COMPACT).legend().y());
     }
 
     @Test
@@ -200,7 +200,7 @@ class PresetCardLayoutTest {
         for (int height : new int[] {150, 300, 460, 700}) {
             PresetCardLayout.Page page = PresetCardLayout.page(new Rect(132, 32, 700, height), 5, 0,
                     Breakpoint.WIDE);
-            assertTrue(page.cards().get(0).y() >= page.header().bottom(), "height " + height);
+            assertTrue(page.cards().get(0).y() >= page.legend().bottom(), "height " + height);
             Rect last = page.cards().get(page.cards().size() - 1);
             assertTrue(page.suggestion().y() >= last.bottom(), "height " + height);
         }
@@ -209,7 +209,7 @@ class PresetCardLayoutTest {
     @Test
     void anEmptyPageProducesNothing() {
         PresetCardLayout.Page page = PresetCardLayout.page(new Rect(0, 0, 700, 400), 0, 0, Breakpoint.WIDE);
-        assertTrue(page.header().isEmpty() && page.cards().isEmpty() && page.suggestion().isEmpty());
+        assertTrue(page.legend().isEmpty() && page.cards().isEmpty() && page.suggestion().isEmpty());
         assertTrue(PresetCardLayout.page(Rect.EMPTY, 5, 0, Breakpoint.WIDE).cards().isEmpty());
     }
 }

@@ -15,6 +15,7 @@ import net.vulkanmod.config.ui.core.PendingChanges;
 import net.vulkanmod.config.ui.core.PresetCardModel;
 import net.vulkanmod.config.ui.core.ProfileChipRow;
 import net.vulkanmod.config.ui.core.ProfileMatcher;
+import net.vulkanmod.config.ui.core.FrameSamples;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
@@ -336,8 +337,292 @@ public final class NavPresenter {
         }
     }
 
+    public static final RouteId DEVELOPER_INFO = RouteId.parse("developer.info");
+    public static final RouteId DEVELOPER_STATS = RouteId.parse("developer.stats");
+
+    private List<net.vulkanmod.config.ui.settings.SystemReport.Row> infoRows = List.of();
+    private FrameSamples.Summary playSummary = new FrameSamples().summary();
+    private List<net.vulkanmod.config.ui.core.FrameHistory.Bucket> columns = List.of();
+    private List<net.vulkanmod.config.ui.core.FrameHistory.Bucket> stutters = List.of();
+    private List<net.vulkanmod.render.profiling.StackSampler.Frame> stutterProfile = List.of();
+    private int stutterSamples;
+    private List<net.vulkanmod.render.profiling.StackSampler.Frame> allocators = List.of();
+    private int allocatorSamples;
+    private float historyPeak;
+    private float historyMedian = -1.0f;
+    private long captureEndMs;
+    private int selectedStutter;
+    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> fingerprint = List.of();
+    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> sceneRows = List.of();
+    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> terrainRows = List.of();
+    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> memoryRows = List.of();
+    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> machineRows = List.of();
+    private List<net.vulkanmod.config.ui.settings.Diagnosis.Finding> findings = List.of();
+
+    private static final RouteId DEVELOPER = RouteId.parse("developer");
+
+    public boolean isDeveloper() {
+        RouteId current = stack.current();
+        return DEVELOPER.equals(current) || DEVELOPER.isAncestorOf(current);
+    }
+
+    public boolean isDeveloperInfo() {
+        return DEVELOPER_INFO.equals(stack.current());
+    }
+
+    public boolean isDeveloperStats() {
+        return DEVELOPER_STATS.equals(stack.current());
+    }
+
+    public List<net.vulkanmod.config.ui.settings.SystemReport.Row> infoRows() {
+        return infoRows;
+    }
+
+    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> fingerprint() {
+        return fingerprint;
+    }
+
+    public List<net.vulkanmod.config.ui.settings.Diagnosis.Finding> findings() {
+        return findings;
+    }
+
+    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> sceneRows() {
+        return sceneRows;
+    }
+
+    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> terrainRows() {
+        return terrainRows;
+    }
+
+    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> memoryRows() {
+        return memoryRows;
+    }
+
+    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> machineRows() {
+        return machineRows;
+    }
+
+    public List<net.vulkanmod.config.ui.core.FrameHistory.Bucket> columns() {
+        return columns;
+    }
+
+    public List<net.vulkanmod.config.ui.core.FrameHistory.Bucket> stutters() {
+        return stutters;
+    }
+
+    public List<net.vulkanmod.render.profiling.StackSampler.Frame> stutterProfile() {
+        return stutterProfile;
+    }
+
+    public int stutterSamples() {
+        return stutterSamples;
+    }
+
+    public List<net.vulkanmod.render.profiling.StackSampler.Frame> allocators() {
+        return allocators;
+    }
+
+    public int allocatorSamples() {
+        return allocatorSamples;
+    }
+
+    public float historyPeak() {
+        return historyPeak;
+    }
+
+    public float historyMedian() {
+        return historyMedian;
+    }
+
+    public long captureEndMs() {
+        return captureEndMs;
+    }
+
+    public int selectedStutter() {
+        return selectedStutter;
+    }
+
+    public void selectStutter(int index) {
+        this.selectedStutter = index < 0 || index >= stutters.size() ? 0 : index;
+        refreshStutterProfile();
+    }
+
+    private boolean axisInFps = true;
+
+    public boolean axisInFps() {
+        return axisInFps;
+    }
+
+    public void toggleAxisUnit() {
+        this.axisInFps = !axisInFps;
+    }
+
+    public void rebuildWorld() {
+        try {
+            net.vulkanmod.render.chunk.WorldRenderer.getInstance().allChanged();
+        } catch (Throwable unavailable) {
+            net.vulkanmod.Initializer.LOGGER.warn("Could not rebuild the world from the menu");
+        }
+    }
+
+    public void resetHistory() {
+        net.vulkanmod.vulkan.SessionSamples.history().clear();
+        net.vulkanmod.render.profiling.StackSampler.clear();
+        this.columns = List.of();
+        this.stutters = List.of();
+        this.stutterProfile = List.of();
+        this.stutterSamples = 0;
+        this.historyPeak = 0.0f;
+        this.historyMedian = -1.0f;
+    }
+
+    public String report() {
+        return net.vulkanmod.config.ui.settings.DiagnosticsReport.build(
+                new net.vulkanmod.config.ui.settings.DiagnosticsReport.Input(
+                        fingerprint, sceneRows, terrainRows, memoryRows, machineRows,
+                        net.vulkanmod.config.ui.settings.SystemReport.rows(), findings, stutters,
+                        allocators, playSummary, net.vulkanmod.vulkan.SessionSamples.history(),
+                        captureEndMs,
+                        net.vulkanmod.config.ui.settings.OverviewSignals.stickyVerdict().messageKey()));
+    }
+
+    public FrameSamples.Summary playSummary() {
+        return playSummary;
+    }
+
+    public void refreshDiagnostics(int wantedColumns) {
+        if (isDeveloperInfo()) {
+            this.infoRows = net.vulkanmod.config.ui.settings.SystemReport.rows();
+            return;
+        }
+        if (isDeveloperStats()) {
+            net.vulkanmod.render.profiling.StackSampler.setRunning(true);
+            net.vulkanmod.render.profiling.Telemetry.setUnifiedDie(
+                    net.vulkanmod.config.ui.settings.StatsReport.unifiedDie());
+            net.vulkanmod.render.profiling.Telemetry.setRunning(true);
+            net.vulkanmod.config.ui.core.FrameHistory history =
+                    net.vulkanmod.vulkan.SessionSamples.history();
+            this.fingerprint = net.vulkanmod.config.ui.settings.StatsReport.fingerprint();
+            this.sceneRows = net.vulkanmod.config.ui.settings.StatsReport.scene();
+            this.terrainRows = net.vulkanmod.config.ui.settings.StatsReport.terrain();
+            this.memoryRows = net.vulkanmod.config.ui.settings.StatsReport.memory(
+                    history.allocationRateMbPerSecond());
+            this.machineRows = net.vulkanmod.config.ui.settings.StatsReport.machine();
+            this.columns = history.columns(Math.max(1, wantedColumns));
+            this.historyPeak = history.peak();
+            this.historyMedian = history.medianAverage();
+            this.stutters = history.worst(5, FrameSamples.spikeFloor(historyMedian));
+            this.captureEndMs = history.size() == 0 ? System.currentTimeMillis()
+                    : history.at(history.size() - 1).startMs() + net.vulkanmod.config.ui.core.FrameHistory.BUCKET_MS;
+            if (selectedStutter >= stutters.size()) {
+                this.selectedStutter = 0;
+            }
+            this.playSummary = net.vulkanmod.vulkan.SessionSamples.samples().summary();
+            refreshStutterProfile();
+            refreshAllocators(history);
+            this.findings = net.vulkanmod.config.ui.settings.Diagnosis.of(history, playSummary,
+                    stutters, terrainRows, memoryRows, machineRows);
+        }
+    }
+
+    private void refreshAllocators(net.vulkanmod.config.ui.core.FrameHistory history) {
+        net.vulkanmod.config.ui.core.FrameHistory.Bucket busiest = history.busiestAllocator();
+        List<net.vulkanmod.render.profiling.StackSampler.Frame> hot = List.of();
+        if (busiest != null) {
+            hot = net.vulkanmod.render.profiling.StackSampler.profile(busiest.startMs(),
+                    busiest.startMs() + net.vulkanmod.config.ui.core.FrameHistory.BUCKET_MS);
+        }
+        if (hot.isEmpty() && captureEndMs > 0L) {
+            hot = net.vulkanmod.render.profiling.StackSampler.profile(captureEndMs - 30_000L,
+                    captureEndMs);
+        }
+        this.allocators = hot;
+        this.allocatorSamples = net.vulkanmod.render.profiling.StackSampler.recorded();
+    }
+
+    private void refreshStutterProfile() {
+        if (stutters.isEmpty()) {
+            this.stutterProfile = List.of();
+            this.stutterSamples = 0;
+            return;
+        }
+        net.vulkanmod.config.ui.core.FrameHistory.Bucket worst =
+                stutters.get(Math.max(0, Math.min(selectedStutter, stutters.size() - 1)));
+        long span = Math.max(net.vulkanmod.config.ui.core.FrameHistory.BUCKET_MS,
+                Math.round(worst.max()));
+        long from = worst.startMs() - span;
+        long to = worst.startMs() + span;
+        this.stutterProfile = net.vulkanmod.render.profiling.StackSampler.profile(from, to);
+        this.stutterSamples = net.vulkanmod.render.profiling.StackSampler.samplesIn(from, to);
+    }
+
+    public boolean[] infoSections() {
+        boolean[] sections = new boolean[infoRows.size()];
+        for (int index = 0; index < sections.length; index++) {
+            sections[index] = infoRows.get(index).section();
+        }
+        return sections;
+    }
+
     public int contentRowCount() {
-        return isOverview() ? catalog.overview().rows().size() : settings().size();
+        if (isDeveloperInfo()) {
+            return infoRows.size();
+        }
+        return isOverview() ? catalog.overview().rows().size() : contentRows().size();
+    }
+
+    public sealed interface ContentRow permits GroupRow, SettingRow {
+    }
+
+    public record GroupRow(String key, boolean collapsed, int count) implements ContentRow {
+    }
+
+    public record SettingRow(SettingMeta meta) implements ContentRow {
+    }
+
+    public List<ContentRow> contentRows() {
+        List<ContentRow> rows = new ArrayList<>();
+        List<SettingMeta> all = settings();
+        for (int index = 0; index < all.size(); index++) {
+            SettingMeta meta = all.get(index);
+            String group = meta.groupKey();
+            if (group == null) {
+                rows.add(new SettingRow(meta));
+                continue;
+            }
+            int end = index;
+            while (end < all.size() && group.equals(all.get(end).groupKey())) {
+                end++;
+            }
+            boolean folded = groupCollapsed(group);
+            rows.add(new GroupRow(group, folded, end - index));
+            if (!folded) {
+                for (int member = index; member < end; member++) {
+                    rows.add(new SettingRow(all.get(member)));
+                }
+            }
+            index = end - 1;
+        }
+        return List.copyOf(rows);
+    }
+
+    private static final String EXPANDED = "expanded/";
+
+    public boolean groupCollapsed(String groupKey) {
+        ensureCollapsedLoaded();
+        return !collapsed.contains(EXPANDED + groupKey);
+    }
+
+    public void toggleGroup(String groupKey) {
+        if (groupKey == null || groupKey.isBlank()) {
+            throw new IllegalArgumentException("groupKey must not be blank");
+        }
+        ensureCollapsedLoaded();
+        String marker = EXPANDED + groupKey;
+        if (!collapsed.remove(marker)) {
+            collapsed.add(marker);
+        }
+        UiState.save(UiState.PATH, favorites(), collapsed);
     }
 
     public boolean isOverview() {
@@ -643,7 +928,6 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("display.advanced"), "vulkanmod.ui.page.display.advanced", null, false))
                 .add(new NavNode(RouteId.parse("rendering"), "vulkanmod.ui.page.rendering", null, true))
                 .add(new NavNode(RouteId.parse("rendering.general"), "vulkanmod.ui.page.rendering.general", null, false))
-                .add(new NavNode(RouteId.parse("rendering.distance"), "vulkanmod.ui.page.rendering.distance", null, false))
                 .add(new NavNode(RouteId.parse("rendering.resolution"), "vulkanmod.ui.page.rendering.resolution", null, false))
                 .add(new NavNode(RouteId.parse("rendering.culling"), "vulkanmod.ui.page.rendering.culling", null, false))
                 .add(new NavNode(RouteId.parse("rendering.entities"), "vulkanmod.ui.page.rendering.entities", null, false))
@@ -658,8 +942,6 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("quality.textures"), "vulkanmod.ui.page.quality.textures", null, false))
                 .add(new NavNode(RouteId.parse("quality.lighting"), "vulkanmod.ui.page.quality.lighting", null, false))
                 .add(new NavNode(RouteId.parse("quality.environment"), "vulkanmod.ui.page.quality.environment", null, false))
-                .add(new NavNode(RouteId.parse("quality.particles"), "vulkanmod.ui.page.quality.particles", null, false))
-                .add(new NavNode(RouteId.parse("quality.entities"), "vulkanmod.ui.page.quality.entities", null, false))
                 .add(new NavNode(RouteId.parse("shaders"), "vulkanmod.ui.page.shaders", null, true))
                 .add(new NavNode(RouteId.parse("shaders.current"), "vulkanmod.ui.page.shaders.current", null, false))
                 .add(new NavNode(RouteId.parse("shaders.packs"), "vulkanmod.ui.page.shaders.packs", null, false))
@@ -682,7 +964,10 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("advanced.synchronization"), "vulkanmod.ui.page.advanced.synchronization", null, false))
                 .add(new NavNode(RouteId.parse("advanced.compatibility"), "vulkanmod.ui.page.advanced.compatibility", null, false))
                 .add(new NavNode(RouteId.parse("experimental"), "vulkanmod.ui.page.experimental", null, true))
-                .add(new NavNode(RouteId.parse("developer"), "vulkanmod.ui.page.developer", null, true));
+                .add(new NavNode(RouteId.parse("developer"), "vulkanmod.ui.page.developer", null, true))
+                .add(new NavNode(RouteId.parse("developer.tools"), "vulkanmod.ui.page.developer.tools", null, false))
+                .add(new NavNode(RouteId.parse("developer.info"), "vulkanmod.ui.page.developer.info", null, false))
+                .add(new NavNode(RouteId.parse("developer.stats"), "vulkanmod.ui.page.developer.stats", null, false));
 
         for (String modId : modIds) {
             builder.add(new NavNode(ModSettings.routeOf(modId), modName(modId), null, false));

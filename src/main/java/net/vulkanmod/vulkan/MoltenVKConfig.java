@@ -80,8 +80,13 @@ public final class MoltenVKConfig {
 
     // Vulkan validation toggle: -Dvulkanmod.validation=true or a vulkan-validation marker file.
     // Routes LWJGL through the loader SDK so the validation layer can be inserted.
+    public static boolean vulkanSdkPresent() {
+        return findVulkanSdk() != null;
+    }
+
     public static boolean validationEnabled() {
         if (Boolean.getBoolean("vulkanmod.validation")) return true;
+        if (net.vulkanmod.Initializer.CONFIG != null && net.vulkanmod.Initializer.CONFIG.vulkanValidation) return true;
         try {
             return java.nio.file.Files.exists(net.neoforged.fml.loading.FMLPaths.GAMEDIR.get().resolve("vulkan-validation"));
         } catch (Throwable t) {

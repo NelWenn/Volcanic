@@ -184,6 +184,7 @@ public class DrawBuffers {
 
             indirectBuffer.recordCopyCmd(byteBuffer.position(0));
 
+            net.vulkanmod.render.profiling.RenderCounters.terrainDraw(drawCount);
             vkCmdDrawIndexedIndirect(Renderer.getCommandBuffer(), indirectBuffer.getId(), indirectBuffer.getOffset(), drawCount, 20);
         }
 
@@ -233,6 +234,7 @@ public class DrawBuffers {
             }
 
             final int firstIndex = drawParameters.firstIndex == -1 ? 0 : drawParameters.firstIndex;
+            net.vulkanmod.render.profiling.RenderCounters.terrainDraw(1);
             vkCmdDrawIndexed(commandBuffer, drawParameters.indexCount, 1, firstIndex, drawParameters.vertexOffset, baseInstance);
         }
 
@@ -245,6 +247,7 @@ public class DrawBuffers {
         if (drawParameters.indexCount <= 0)
             return;
         final int firstIndex = drawParameters.firstIndex == -1 ? 0 : drawParameters.firstIndex;
+        net.vulkanmod.render.profiling.RenderCounters.terrainDraw(1);
         vkCmdDrawIndexed(Renderer.getCommandBuffer(), drawParameters.indexCount, 1, firstIndex,
                 drawParameters.vertexOffset, drawParameters.baseInstance);
     }

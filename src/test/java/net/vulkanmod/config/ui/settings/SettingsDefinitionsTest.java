@@ -34,8 +34,8 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void theTwentySixSettingsThatKeptATooltipAreTheOnesThatDescribeThemselves() {
-        assertEquals(26, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
+    void theSettingsThatKeptATooltipAreTheOnesThatDescribeThemselves() {
+        assertEquals(36, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
     }
 
     @Test
@@ -104,6 +104,7 @@ class SettingsDefinitionsTest {
         all.addAll(qualitySettings());
         all.addAll(advancedSettings());
         all.addAll(SettingsDefinitions.shadersCurrent());
+        all.addAll(SettingsDefinitions.developerTools());
         return all;
     }
 
@@ -140,9 +141,10 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void displayInterfaceHasItsFourSettingsInSpecOrder() {
+    void displayInterfaceHasItsSettingsInSpecOrder() {
         assertEquals(List.of("minecraft:display.gui_scale", "minecraft:display.brightness",
-                        "minecraft:display.distortion_effects", "minecraft:display.fov_effects"),
+                        "minecraft:display.distortion_effects", "minecraft:display.fov_effects",
+                        "minecraft:display.view_bobbing", "minecraft:display.damage_tilt"),
                 SettingsDefinitions.displayInterface().stream().map(meta -> meta.id().toString()).toList());
     }
 
@@ -156,13 +158,11 @@ class SettingsDefinitionsTest {
     void displayInterfaceTypesSourcesAndScopesMatchTheSettingsMap() {
         List<SettingMeta> settings = SettingsDefinitions.displayInterface();
 
-        assertEquals(List.of(SettingType.INT, SettingType.INT, SettingType.INT, SettingType.INT),
+        assertEquals(List.of(SettingType.INT, SettingType.INT, SettingType.INT, SettingType.INT,
+                        SettingType.BOOL, SettingType.INT),
                 settings.stream().map(SettingMeta::type).toList());
-        assertEquals(List.of(SettingSource.MINECRAFT, SettingSource.MINECRAFT,
-                SettingSource.MINECRAFT, SettingSource.MINECRAFT),
-                settings.stream().map(SettingMeta::source).toList());
-        assertEquals(List.of(ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT),
-                settings.stream().map(SettingMeta::scope).toList());
+        assertTrue(settings.stream().allMatch(meta -> meta.source() == SettingSource.MINECRAFT));
+        assertTrue(settings.stream().allMatch(meta -> meta.scope() == ApplyScope.INSTANT));
     }
 
     @Test
@@ -287,8 +287,8 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void performanceGeneralHoldsOnlyTheProfileSetting() {
-        assertEquals(List.of("vulkanmod:performance.profile"),
+    void performanceGeneralHoldsOnlyTheBuilderThreads() {
+        assertEquals(List.of("vulkanmod:performance.builder_threads"),
                 SettingsDefinitions.performanceGeneral().stream().map(meta -> meta.id().toString()).toList());
     }
 
@@ -317,13 +317,13 @@ class SettingsDefinitionsTest {
     void performanceTypesSourcesAndScopesMatchTheSettingsMap() {
         List<SettingMeta> settings = performanceSettings();
 
-        assertEquals(List.of(SettingType.ENUM, SettingType.BOOL, SettingType.BOOL,
+        assertEquals(List.of(SettingType.INT, SettingType.BOOL, SettingType.BOOL,
                         SettingType.BOOL, SettingType.INT, SettingType.INT),
                 settings.stream().map(SettingMeta::type).toList());
         assertEquals(List.of(SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
                         SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC),
                 settings.stream().map(SettingMeta::source).toList());
-        assertEquals(List.of(ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD,
+        assertEquals(List.of(ApplyScope.RESTART, ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD,
                         ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.SWAPCHAIN),
                 settings.stream().map(SettingMeta::scope).toList());
     }
@@ -395,61 +395,57 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void qualityTexturesHasItsFourSettingsInSpecOrder() {
+    void qualityTexturesHasItsSettingsInSpecOrder() {
         assertEquals(List.of("minecraft:quality.mipmap_levels", "vulkanmod:quality.texture_animations",
-                        "vulkanmod:quality.connected_textures", "vulkanmod:quality.custom_item_textures"),
+                        "vulkanmod:quality.connected_textures", "vulkanmod:quality.custom_item_textures",
+                        "minecraft:quality.glint_strength"),
                 SettingsDefinitions.qualityTextures().stream().map(meta -> meta.id().toString()).toList());
     }
 
     @Test
-    void qualityLightingHasItsTwoSettingsInSpecOrder() {
+    void qualityLightingHasItsSettingsInSpecOrder() {
         assertEquals(List.of("vulkanmod:quality.ambient_occlusion", "minecraft:quality.biome_blend"),
                 SettingsDefinitions.qualityLighting().stream().map(meta -> meta.id().toString()).toList());
     }
 
     @Test
-    void qualityEnvironmentHoldsOnlyTheCloudSetting() {
-        assertEquals(List.of("minecraft:quality.clouds"),
+    void qualityEnvironmentHoldsCloudsAndWind() {
+        assertEquals(List.of("minecraft:quality.clouds", "vulkanmod:environment.wind_strength"),
                 SettingsDefinitions.qualityEnvironment().stream().map(meta -> meta.id().toString()).toList());
     }
 
     @Test
-    void qualityParticlesHoldsOnlyTheParticleLevel() {
+    void renderingAdvancedHoldsOnlyTheParticleLevel() {
         assertEquals(List.of("minecraft:quality.particles"),
-                SettingsDefinitions.qualityParticles().stream().map(meta -> meta.id().toString()).toList());
+                SettingsDefinitions.renderingAdvanced().stream().map(meta -> meta.id().toString()).toList());
     }
 
     @Test
-    void qualityEntitiesHasItsTwoSettingsInSpecOrder() {
-        assertEquals(List.of("minecraft:quality.entity_shadows", "minecraft:quality.entity_distance"),
-                SettingsDefinitions.qualityEntities().stream().map(meta -> meta.id().toString()).toList());
+    void renderingEntitiesHasItsSettingsInSpecOrder() {
+        assertEquals(List.of("minecraft:quality.entity_shadows", "minecraft:quality.entity_distance",
+                        "vulkanmod:entities.shadow_casters"),
+                SettingsDefinitions.renderingEntities().stream().map(meta -> meta.id().toString()).toList());
     }
 
     @Test
     void qualityTypesSourcesAndScopesMatchTheSettingsMap() {
         List<SettingMeta> settings = qualitySettings();
 
-        assertEquals(List.of(SettingType.ENUM,
-                        SettingType.ENUM, SettingType.BOOL, SettingType.BOOL, SettingType.BOOL,
-                        SettingType.ENUM, SettingType.INT,
-                        SettingType.ENUM,
-                        SettingType.ENUM,
-                        SettingType.BOOL, SettingType.INT),
+        assertEquals(List.of(SettingType.ENUM, SettingType.ENUM, SettingType.BOOL, SettingType.BOOL,
+                        SettingType.BOOL, SettingType.INT, SettingType.ENUM, SettingType.INT,
+                        SettingType.ENUM, SettingType.INT, SettingType.ENUM, SettingType.BOOL,
+                        SettingType.INT, SettingType.BOOL),
                 settings.stream().map(SettingMeta::type).toList());
-        assertEquals(List.of(SettingSource.MINECRAFT,
-                        SettingSource.MINECRAFT, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
-                        SettingSource.VOLCANIC,
-                        SettingSource.VOLCANIC, SettingSource.MINECRAFT,
-                        SettingSource.MINECRAFT,
-                        SettingSource.MINECRAFT,
-                        SettingSource.MINECRAFT, SettingSource.MINECRAFT),
+        assertEquals(List.of(SettingSource.MINECRAFT, SettingSource.MINECRAFT, SettingSource.VOLCANIC,
+                        SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.MINECRAFT,
+                        SettingSource.VOLCANIC, SettingSource.MINECRAFT, SettingSource.MINECRAFT,
+                        SettingSource.VOLCANIC, SettingSource.MINECRAFT, SettingSource.MINECRAFT,
+                        SettingSource.MINECRAFT, SettingSource.VOLCANIC),
                 settings.stream().map(SettingMeta::source).toList());
-        assertEquals(List.of(ApplyScope.INSTANT,
-                        ApplyScope.TEXTURE_RELOAD, ApplyScope.INSTANT, ApplyScope.CHUNK_REBUILD,
-                        ApplyScope.INSTANT,
-                        ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD,
-                        ApplyScope.INSTANT,
-                        ApplyScope.INSTANT,
+        assertEquals(List.of(ApplyScope.INSTANT, ApplyScope.TEXTURE_RELOAD, ApplyScope.INSTANT,
+                        ApplyScope.CHUNK_REBUILD, ApplyScope.INSTANT, ApplyScope.INSTANT,
+                        ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD, ApplyScope.INSTANT,
+                        ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT,
                         ApplyScope.INSTANT, ApplyScope.INSTANT),
                 settings.stream().map(SettingMeta::scope).toList());
     }
@@ -479,10 +475,10 @@ class SettingsDefinitionsTest {
                 .allMatch(meta -> RouteId.parse("quality.lighting").equals(meta.route())));
         assertTrue(SettingsDefinitions.qualityEnvironment().stream()
                 .allMatch(meta -> RouteId.parse("quality.environment").equals(meta.route())));
-        assertTrue(SettingsDefinitions.qualityParticles().stream()
-                .allMatch(meta -> RouteId.parse("quality.particles").equals(meta.route())));
-        assertTrue(SettingsDefinitions.qualityEntities().stream()
-                .allMatch(meta -> RouteId.parse("quality.entities").equals(meta.route())));
+        assertTrue(SettingsDefinitions.renderingAdvanced().stream()
+                .allMatch(meta -> RouteId.parse("rendering.advanced").equals(meta.route())));
+        assertTrue(SettingsDefinitions.renderingEntities().stream()
+                .allMatch(meta -> RouteId.parse("rendering.entities").equals(meta.route())));
     }
 
     @Test
@@ -536,14 +532,14 @@ class SettingsDefinitionsTest {
         all.addAll(SettingsDefinitions.qualityTextures());
         all.addAll(SettingsDefinitions.qualityLighting());
         all.addAll(SettingsDefinitions.qualityEnvironment());
-        all.addAll(SettingsDefinitions.qualityParticles());
-        all.addAll(SettingsDefinitions.qualityEntities());
+        all.addAll(SettingsDefinitions.renderingAdvanced());
+        all.addAll(SettingsDefinitions.renderingEntities());
         return all;
     }
 
     @Test
-    void advancedRendererHoldsOnlyTheGraphicsDevice() {
-        assertEquals(List.of("vulkanmod:advanced.gpu_device"),
+    void advancedRendererHoldsValidationAndTheGraphicsDevice() {
+        assertEquals(List.of("vulkanmod:advanced.vulkan_validation", "vulkanmod:advanced.gpu_device"),
                 SettingsDefinitions.advancedRenderer().stream().map(meta -> meta.id().toString()).toList());
     }
 
@@ -566,24 +562,21 @@ class SettingsDefinitionsTest {
     void advancedTypesAndSourcesMatchTheSettingsMap() {
         List<SettingMeta> settings = advancedSettings();
 
-        assertEquals(List.of(SettingType.ENUM, SettingType.BOOL,
+        assertEquals(List.of(SettingType.BOOL, SettingType.ENUM, SettingType.BOOL,
                         SettingType.ENUM, SettingType.BOOL, SettingType.BOOL, SettingType.BOOL),
                 settings.stream().map(SettingMeta::type).toList());
-        assertEquals(List.of(SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
-                        SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC),
-                settings.stream().map(SettingMeta::source).toList());
+        assertTrue(settings.stream().allMatch(meta -> meta.source() == SettingSource.VOLCANIC));
     }
 
     @Test
     void everyAdvancedSettingIsReadOnceAtStartupSoItAppliesOnlyAfterRestart() {
-        assertEquals(List.of(ApplyScope.RESTART, ApplyScope.RESTART, ApplyScope.RESTART,
-                        ApplyScope.RESTART, ApplyScope.RESTART, ApplyScope.RESTART),
-                advancedSettings().stream().map(SettingMeta::scope).toList());
+        assertTrue(advancedSettings().stream().allMatch(meta -> meta.scope() == ApplyScope.RESTART),
+                "everything on the advanced pages is read once at startup");
     }
 
     @Test
     void everyAdvancedSettingExceptTheDeviceSelectorCarriesTheAdvancedFlag() {
-        assertEquals(List.of(false, true, true, true, true, true),
+        assertEquals(List.of(false, false, true, true, true, true, true),
                 advancedSettings().stream().map(SettingMeta::advanced).toList());
     }
 

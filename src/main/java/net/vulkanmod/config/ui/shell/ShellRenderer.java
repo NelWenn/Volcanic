@@ -4,6 +4,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.resources.language.I18n;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.Style;
@@ -16,6 +17,15 @@ import net.vulkanmod.config.ui.core.DetailsContent;
 import net.vulkanmod.config.ui.core.DetailsItem;
 import net.vulkanmod.config.ui.core.DetailsLayout;
 import net.vulkanmod.config.ui.core.FrameSamples;
+import net.vulkanmod.config.ui.core.FrameGraphLayout;
+import net.vulkanmod.config.ui.core.InfoRowLayout;
+import net.vulkanmod.config.ui.settings.SystemReport;
+import net.vulkanmod.config.ui.core.FrameHistory;
+import net.vulkanmod.render.profiling.StackSampler;
+import net.vulkanmod.config.ui.settings.Diagnosis;
+import net.vulkanmod.config.ui.settings.StatsReport;
+import net.vulkanmod.vulkan.FrameTimer;
+import net.vulkanmod.config.ui.core.PageHeader;
 import net.vulkanmod.config.ui.core.PluginPageLayout;
 import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
@@ -70,10 +80,6 @@ public final class ShellRenderer {
     static final int CARD_PAD_X = SettingRowLayout.CARD_PAD_X;
     static final int SLIDER_TRACK_WIDTH = 56;
 
-    private static final int CONTENT_PAD_X = 14;
-    private static final int BREADCRUMB_Y = 12;
-    private static final int TITLE_Y = 30;
-    private static final int TAB_STRIP_Y = 48;
 
     private static final float SCRIM_ALPHA = 0.72f;
     private static final int BAR_BUTTON_RADIUS = 5;
@@ -124,6 +130,58 @@ public final class ShellRenderer {
     private static final String KEY_PLUGIN_SETTINGS = "vulkanmod.ui.plugins.groups";
     private static final String KEY_PLUGIN_NO_SETTINGS = "vulkanmod.ui.plugins.nogroups";
     private static final String KEY_PLUGINS_INTRO = "vulkanmod.ui.plugins.intro";
+    private static final String KEY_STATS_WAITING = "vulkanmod.ui.stats.waiting";
+    private static final String KEY_STATS_UNIT_FPS = "vulkanmod.ui.stats.unit.fps";
+    private static final String KEY_STATS_UNIT_MS = "vulkanmod.ui.stats.unit.ms";
+    private static final String KEY_STATS_PROFILE = "vulkanmod.ui.stats.profile";
+    private static final String KEY_STATS_CAUSE_GC = "vulkanmod.ui.stats.cause.gc";
+    private static final String KEY_STATS_CAUSE_UPLOAD = "vulkanmod.ui.stats.cause.upload";
+    private static final String KEY_STATS_CAUSE_NONE = "vulkanmod.ui.stats.cause.none";
+    private static final String KEY_STATS_SCALE = "vulkanmod.ui.stats.scale";
+    private static final String KEY_STATS_GROUP_FINGERPRINT = "vulkanmod.ui.stats.group.fingerprint";
+    private static final String KEY_STATS_GROUP_SCENE = "vulkanmod.ui.stats.group.scene";
+    private static final String KEY_STATS_GROUP_TERRAIN = "vulkanmod.ui.stats.group.terrain";
+    private static final String KEY_STATS_GROUP_MEMORY = "vulkanmod.ui.stats.group.memory";
+    private static final String KEY_STATS_GROUP_MACHINE = "vulkanmod.ui.stats.group.machine";
+    private static final String KEY_STATS_GROUP_STUTTERS = "vulkanmod.ui.stats.group.stutters";
+    private static final String KEY_STATS_NOTE_TERRAIN = "vulkanmod.ui.stats.note.terrain";
+    private static final String KEY_STATS_NOTE_MEMORY = "vulkanmod.ui.stats.note.memory";
+    private static final String KEY_STATS_NOTE_MACHINE = "vulkanmod.ui.stats.note.machine";
+    private static final String KEY_STATS_COL_WHEN = "vulkanmod.ui.stats.col.when";
+    private static final String KEY_STATS_COL_WORST = "vulkanmod.ui.stats.col.worst";
+    private static final String KEY_STATS_COL_GC = "vulkanmod.ui.stats.col.gc";
+    private static final String KEY_STATS_COL_UPLOADS = "vulkanmod.ui.stats.col.uploads";
+    private static final String KEY_STATS_COL_CAUSE = "vulkanmod.ui.stats.col.cause";
+    private static final String KEY_STATS_TAG_GC = "vulkanmod.ui.stats.tag.gc";
+    private static final String KEY_STATS_TAG_UPLOAD = "vulkanmod.ui.stats.tag.upload";
+    private static final String KEY_STATS_KEY_AVERAGE = "vulkanmod.ui.stats.key.average";
+    private static final String KEY_STATS_KEY_RANGE = "vulkanmod.ui.stats.key.range";
+    private static final String KEY_STATS_KEY_SPIKE = "vulkanmod.ui.stats.key.spike";
+    private static final String KEY_STATS_KEY_TARGET = "vulkanmod.ui.stats.key.target";
+    private static final String KEY_STATS_KEY_GC = "vulkanmod.ui.stats.key.gc";
+    private static final String KEY_STATS_COPY = "vulkanmod.ui.stats.copy";
+    private static final String KEY_STATS_RESET = "vulkanmod.ui.stats.reset";
+    private static final String KEY_STATS_REBUILD = "vulkanmod.ui.stats.rebuild";
+    private static final String KEY_STATS_GROUP_TIME = "vulkanmod.ui.stats.group.time";
+    private static final String KEY_STATS_ADVICE = "vulkanmod.ui.stats.advice";
+    private static final String KEY_STATS_BAR_FRAME = "vulkanmod.ui.stats.bar.frame";
+    private static final String KEY_STATS_BAR_THREAD = "vulkanmod.ui.stats.bar.thread";
+    private static final String KEY_STATS_STUTTER_CAPTION = "vulkanmod.ui.stats.stutter.caption";
+    private static final String KEY_STATS_COL_BUILDS = "vulkanmod.ui.stats.col.builds";
+    private static final String KEY_STATS_SAMPLES = "vulkanmod.ui.stats.samples";
+    private static final String KEY_STATS_NOW = "vulkanmod.ui.stats.now";
+    private static final String KEY_STATS_ALLOCATING = "vulkanmod.ui.stats.allocating";
+    private static final String KEY_STATS_NO_SAMPLES = "vulkanmod.ui.stats.nosamples";
+    private static final String KEY_STATS_GROUP_FINDINGS = "vulkanmod.ui.stats.group.findings";
+    private static final String KEY_STATS_LEGEND = "vulkanmod.ui.stats.legend";
+    private static final String DASH = "—";
+    private static final String[] STAT_TILES = {
+            "vulkanmod.ui.stats.average", "vulkanmod.ui.stats.median", "vulkanmod.ui.stats.low1",
+            "vulkanmod.ui.stats.low01", "vulkanmod.ui.stats.p95", "vulkanmod.ui.stats.spikes"};
+    private static final String KEY_EXPERIMENTAL_INTRO = "vulkanmod.ui.experimental.intro";
+    private static final String KEY_DEVELOPER_INTRO = "vulkanmod.ui.developer.intro";
+    private static final RouteId EXPERIMENTAL = RouteId.parse("experimental");
+    private static final RouteId DEVELOPER = RouteId.parse("developer");
     private static final String KEY_PLUGINS_OPEN = "vulkanmod.ui.plugins.open";
     private static final String KEY_PLUGINS_NONE = "vulkanmod.ui.plugins.none";
     private static final String KEY_PLUGINS_EMPTY_HINT = "vulkanmod.ui.plugins.empty.hint";
@@ -135,7 +193,6 @@ public final class ShellRenderer {
     private static final String KEY_PENDING = "vulkanmod.overview.pending";
     private static final String KEY_NOT_TRIED = "vulkanmod.overview.not_tried";
     private static final int ICON_RISE = -1;
-    private static final String KEY_PROFILES = "vulkanmod.overview.profiles";
     private static final String KEY_PROFILES_INTRO = "vulkanmod.overview.profiles_intro";
     private static final String KEY_PROFILES_LEGEND = "vulkanmod.overview.profiles_legend";
     private static final String KEY_FRAMES = "vulkanmod.overview.frames";
@@ -282,11 +339,12 @@ public final class ShellRenderer {
         if (!layout.content().contains(mouseX, mouseY)) {
             return null;
         }
-        List<SettingMeta> settings = presenter.settings();
+        List<NavPresenter.ContentRow> rows = presenter.contentRows();
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
-        for (int i = 0; i < settings.size() && i < boxes.size(); i++) {
-            if (boxes.get(i).contains(mouseX, mouseY)) {
-                return settings.get(i);
+        for (int i = 0; i < rows.size() && i < boxes.size(); i++) {
+            if (boxes.get(i).contains(mouseX, mouseY)
+                    && rows.get(i) instanceof NavPresenter.SettingRow row) {
+                return row.meta();
             }
         }
         return null;
@@ -305,10 +363,11 @@ public final class ShellRenderer {
     }
 
     private Rect anchorOf(ShellLayout layout, NavPresenter presenter, int contentScroll, SettingMeta meta) {
-        List<SettingMeta> settings = presenter.settings();
+        List<NavPresenter.ContentRow> rows = presenter.contentRows();
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
-        for (int i = 0; i < settings.size() && i < boxes.size(); i++) {
-            if (settings.get(i).id().equals(meta.id())) {
+        for (int i = 0; i < rows.size() && i < boxes.size(); i++) {
+            if (rows.get(i) instanceof NavPresenter.SettingRow row
+                    && row.meta().id().equals(meta.id())) {
                 return boxes.get(i);
             }
         }
@@ -515,23 +574,10 @@ public final class ShellRenderer {
         return viewport.contains(mouseX, mouseY) ? model.entryIndexAt(viewport.contentY(mouseY)) : -1;
     }
 
-    public List<Rect> breadcrumbBoxes(Font font, ShellLayout layout, NavPresenter presenter) {
-        requireInputs(font, layout, presenter);
-        List<RouteId> trail = presenter.stack().trail();
-        if (trail.size() < 2) {
-            return List.of();
-        }
-        int[] widths = new int[trail.size()];
-        for (int i = 0; i < trail.size(); i++) {
-            widths[i] = font.width(label(presenter, trail.get(i)));
-        }
-        return BreadcrumbModel.layout(widths,
-                layout.content().x() + CONTENT_PAD_X, layout.content().y() + BREADCRUMB_Y);
-    }
-
     public List<Rect> tabStripBoxes(Font font, ShellLayout layout, NavPresenter presenter) {
         requireInputs(font, layout, presenter);
-        if (PluginSettings.ROOT.equals(presenter.stack().current())) {
+        Rect strip = headerBand(layout, presenter).tabs();
+        if (strip.isEmpty()) {
             return List.of();
         }
         List<NavNode> tabs = presenter.subTabs();
@@ -540,12 +586,15 @@ public final class ShellRenderer {
             widths[i] = font.width(I18n.get(tabs.get(i).titleKey()));
         }
 
-        Rect content = layout.content();
-        int left = content.x() + CONTENT_PAD_X;
-        int right = Math.max(left, content.right() - CONTENT_PAD_X);
-        List<Rect> boxes = TabStripModel.layout(widths, left, content.y() + TAB_STRIP_Y);
+        int left = strip.x();
+        int right = Math.max(left, strip.right());
+        List<Rect> boxes = TabStripModel.layout(widths, left, strip.y());
         return TabStripModel.shifted(boxes,
                 TabStripModel.scrollToReveal(boxes, revealIndex(presenter, tabs), left, right));
+    }
+
+    public int statsColumns(ShellLayout layout, NavPresenter presenter) {
+        return statsPage(layout, presenter, 0).plot().width();
     }
 
     public List<Rect> settingRowBoxes(ShellLayout layout, NavPresenter presenter, int scroll) {
@@ -555,7 +604,8 @@ public final class ShellRenderer {
         if (presenter == null) {
             throw new IllegalArgumentException("presenter must not be null");
         }
-        return SettingRowLayout.rows(layout.content(), presenter.contentRowCount(), scroll, layout.breakpoint());
+        return SettingRowLayout.rows(contentBody(layout, presenter), presenter.contentRowCount(), scroll,
+                layout.breakpoint());
     }
 
     public static Rect sliderTrack(Rect row) {
@@ -570,7 +620,7 @@ public final class ShellRenderer {
         if (presenter.modScreen().isEmpty()) {
             return Rect.EMPTY;
         }
-        List<Rect> rows = SettingRowLayout.rows(layout.content(), 1, 0, layout.breakpoint());
+        List<Rect> rows = SettingRowLayout.rows(contentBody(layout, presenter), 1, 0, layout.breakpoint());
         if (rows.isEmpty()) {
             return Rect.EMPTY;
         }
@@ -586,12 +636,24 @@ public final class ShellRenderer {
         if (presenter == null) {
             throw new IllegalArgumentException("presenter must not be null");
         }
-        if (PluginSettings.ROOT.equals(presenter.stack().current())) {
-            return ScrollIndicator.of(layout.content(),
-                    PluginPageLayout.contentHeight(presenter.pluginPages().size(),
-                            presenter.catalog().modIds().size(), layout.breakpoint()), scroll);
+        Rect body = contentBody(layout, presenter);
+        RouteId current = presenter.stack().current();
+        if (presenter.isDeveloperInfo()) {
+            return ScrollIndicator.of(body, InfoRowLayout.contentHeight(presenter.infoSections()), scroll);
         }
-        return ScrollIndicator.of(layout.content(),
+        if (presenter.isDeveloperStats()) {
+            return ScrollIndicator.of(body,
+                    FrameGraphLayout.contentHeight(statsCounts(presenter), layout.breakpoint()), scroll);
+        }
+        if (PluginSettings.ROOT.equals(current)) {
+            return ScrollIndicator.of(body, PluginPageLayout.contentHeight(presenter.pluginPages().size(),
+                    presenter.catalog().modIds().size(), layout.breakpoint()), scroll);
+        }
+        if (OVERVIEW.equals(current)) {
+            return ScrollIndicator.of(body, PresetCardLayout.page(body, presenter.presetCards().size(),
+                    0, layout.breakpoint()).height(), scroll);
+        }
+        return ScrollIndicator.of(body,
                 SettingRowLayout.contentHeight(presenter.contentRowCount(), layout.breakpoint()), scroll);
     }
 
@@ -716,7 +778,7 @@ public final class ShellRenderer {
         painter.fill(new Rect(region.x(), region.y(), region.width(), 1),
                 theme.color(ColorToken.BORDER_ACCENT));
         ColorToken token = bar.scope() == ApplyScope.RESTART ? ColorToken.WARNING : ColorToken.TEXT_SECONDARY;
-        painter.text(region.x() + CONTENT_PAD_X, region.y() + (region.height() - TEXT_HEIGHT) / 2,
+        painter.text(region.x() + PageHeader.PAD_X, region.y() + (region.height() - TEXT_HEIGHT) / 2,
                 I18n.get(bar.messageKey(), bar.count()), theme.color(token), false);
 
         paintBarButton(painter, font, applyButton(layout, presenter), I18n.get(KEY_APPLY),
@@ -841,32 +903,68 @@ public final class ShellRenderer {
             return;
         }
 
-        if (OVERVIEW.equals(presenter.stack().current())) {
+        if (presenter.isDeveloperInfo()) {
+            paintInfoPage(painter, font, layout, presenter, contentScroll);
+        } else if (presenter.isDeveloperStats()) {
+            paintStatsPage(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
+        } else if (OVERVIEW.equals(presenter.stack().current())) {
             paintOverview(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
         } else {
-            paintBreadcrumbs(painter, font, layout, presenter);
-            painter.text(content.x() + CONTENT_PAD_X, content.y() + TITLE_Y,
-                    I18n.get(presenter.currentTitleKey()), theme.color(ColorToken.TEXT_PRIMARY), false);
-            paintTabStrip(painter, font, layout, presenter);
             paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
         }
+        painter.flush();
+        paintBand(painter, font, layout, presenter);
         paintScrollIndicator(painter, layout, presenter, contentScroll);
+    }
+
+    public PageHeader.Band headerBand(ShellLayout layout, NavPresenter presenter) {
+        if (layout == null || presenter == null) {
+            throw new IllegalArgumentException("layout and presenter must not be null");
+        }
+        return PageHeader.of(layout.content(), hasCrumbs(presenter), hasTabs(presenter),
+                subtitleKey(presenter) != null, layout.breakpoint());
+    }
+
+    public Rect contentBody(ShellLayout layout, NavPresenter presenter) {
+        return layout.content().dropTop(headerBand(layout, presenter).height());
+    }
+
+    private static boolean hasCrumbs(NavPresenter presenter) {
+        return presenter.stack().trail().size() >= 2;
+    }
+
+    private static boolean hasTabs(NavPresenter presenter) {
+        return !PluginSettings.ROOT.equals(presenter.stack().current()) && !presenter.subTabs().isEmpty();
+    }
+
+    private static String subtitleKey(NavPresenter presenter) {
+        RouteId current = presenter.stack().current();
+        if (OVERVIEW.equals(current)) {
+            return KEY_PROFILES_INTRO;
+        }
+        if (PluginSettings.ROOT.equals(current)) {
+            return KEY_PLUGINS_INTRO;
+        }
+        if (EXPERIMENTAL.equals(current)) {
+            return KEY_EXPERIMENTAL_INTRO;
+        }
+        return DEVELOPER.equals(current) || DEVELOPER.isAncestorOf(current) ? KEY_DEVELOPER_INTRO : null;
     }
 
     public List<Rect> presetCardBoxes(ShellLayout layout, NavPresenter presenter, int scroll) {
         if (layout == null || presenter == null) {
             throw new IllegalArgumentException("layout and presenter must not be null");
         }
-        return PresetCardLayout.page(layout.content(), presenter.presetCards().size(), scroll,
+        return PresetCardLayout.page(contentBody(layout, presenter), presenter.presetCards().size(), scroll,
                 layout.breakpoint()).cards();
     }
 
     private void paintOverview(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
                                int contentScroll, int mouseX, int mouseY) {
         List<PresetCardModel.Card> cards = presenter.presetCards();
-        PresetCardLayout.Page page = PresetCardLayout.page(layout.content(), cards.size(),
+        PresetCardLayout.Page page = PresetCardLayout.page(contentBody(layout, presenter), cards.size(),
                 contentScroll, layout.breakpoint());
-        paintProfilesHeader(painter, font, page.header());
+        paintProfilesLegend(painter, font, page.legend());
         for (int i = 0; i < cards.size() && i < page.cards().size(); i++) {
             paintPresetCard(painter, font, page.cards().get(i), cards.get(i),
                     page.cards().get(i).contains(mouseX, mouseY));
@@ -874,22 +972,13 @@ public final class ShellRenderer {
         paintSuggestionLine(painter, font, page.suggestion(), presenter);
     }
 
-    private void paintProfilesHeader(SurfacePainter painter, Font font, Rect header) {
-        if (header.isEmpty()) {
+    private void paintProfilesLegend(SurfacePainter painter, Font font, Rect legend) {
+        if (legend.isEmpty()) {
             return;
         }
-        painter.gradient(new Rect(header.x(), header.y(), PresetCardLayout.HEADER_BAR, header.height()),
-                theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
-
-        int left = header.x() + PresetCardLayout.HEADER_BAR + 9;
-        int width = header.right() - left;
-        painter.text(left, header.y(), I18n.get(KEY_PROFILES), theme.color(ColorToken.TEXT_PRIMARY), false);
-        paintSmallLines(painter, font,
-                new Rect(left, header.y() + 12, width, PresetCardLayout.SMALL_LINE * 2),
-                I18n.get(KEY_PROFILES_INTRO), ColorToken.TEXT_MUTED);
-        paintSmallLines(painter, font,
-                new Rect(left, header.y() + 29, width, PresetCardLayout.SMALL_LINE),
-                I18n.get(KEY_PROFILES_LEGEND), ColorToken.TEXT_FAINT);
+        painter.smallText(legend.x(), legend.y(),
+                smallTrim(painter, font, I18n.get(KEY_PROFILES_LEGEND), legend.width()),
+                theme.color(ColorToken.TEXT_FAINT));
     }
 
     private void paintSuggestionLine(SurfacePainter painter, Font font, Rect box, NavPresenter presenter) {
@@ -999,6 +1088,658 @@ public final class ShellRenderer {
         }
     }
 
+    private void paintGroupRow(SurfacePainter painter, Font font, Rect row,
+                               NavPresenter.GroupRow group, int mouseX, int mouseY) {
+        if (row.isEmpty()) {
+            return;
+        }
+        boolean lit = row.contains(mouseX, mouseY);
+        Rect chevron = SettingRowLayout.groupChevron(row);
+        SettingRowRenderer.paintGlyph(painter, chevron,
+                group.collapsed() ? CHEVRON_RIGHT : CHEVRON_DOWN,
+                theme.color(lit ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY), true);
+
+        Rect label = SettingRowLayout.groupLabel(row);
+        painter.text(label.x(), label.y(),
+                trimToWidth(font, I18n.get(group.key()).toUpperCase(Locale.ROOT), label.width()),
+                theme.color(lit ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY), false);
+
+        String tally = Integer.toString(group.count());
+        Rect slot = SettingRowLayout.groupCount(row);
+        painter.smallText(slot.right() - smallWidth(painter, font, tally), slot.y(), tally,
+                theme.color(ColorToken.TEXT_FAINT));
+        painter.fill(SettingRowLayout.groupRule(row), theme.color(ColorToken.BORDER_SUBTLE));
+    }
+
+    private void paintInfoPage(SurfacePainter painter, Font font, ShellLayout layout,
+                               NavPresenter presenter, int scroll) {
+        List<SystemReport.Row> rows = presenter.infoRows();
+        List<Rect> boxes = InfoRowLayout.rows(contentBody(layout, presenter),
+                presenter.infoSections(), scroll);
+        for (int index = 0; index < boxes.size() && index < rows.size(); index++) {
+            Rect box = boxes.get(index);
+            SystemReport.Row row = rows.get(index);
+            if (row.section()) {
+                painter.gradient(InfoRowLayout.sectionAccent(box),
+                        theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
+                Rect label = InfoRowLayout.sectionLabel(box);
+                painter.smallText(label.x(), label.y(),
+                        smallTrim(painter, font, I18n.get(row.labelKey()).toUpperCase(Locale.ROOT),
+                                label.width()),
+                        theme.color(ColorToken.TEXT_SECONDARY));
+                painter.fill(InfoRowLayout.sectionRule(box), theme.color(ColorToken.BORDER_SUBTLE));
+                continue;
+            }
+            Rect label = InfoRowLayout.label(box);
+            if (!label.isEmpty()) {
+                painter.text(label.x(), label.y(),
+                        trimToWidth(font, I18n.get(row.labelKey()), label.width()),
+                        theme.color(ColorToken.TEXT_MUTED), false);
+            }
+            Rect value = InfoRowLayout.value(box);
+            if (!value.isEmpty()) {
+                String text = trimToWidth(font, row.value(), value.width());
+                painter.text(value.right() - font.width(text), value.y(), text,
+                        theme.color(ColorToken.TEXT_PRIMARY), false);
+            }
+        }
+    }
+
+    private static FrameGraphLayout.Counts statsCounts(NavPresenter presenter) {
+        return new FrameGraphLayout.Counts(presenter.fingerprint().size(), 0,
+                presenter.findings().size(),
+                presenter.stutters().size(), presenter.stutterProfile().size(),
+                presenter.sceneRows().size(), presenter.terrainRows().size(),
+                presenter.memoryRows().size(), presenter.machineRows().size(),
+                presenter.allocators().size());
+    }
+
+    private FrameGraphLayout.Page statsPage(ShellLayout layout, NavPresenter presenter, int scroll) {
+        return FrameGraphLayout.page(contentBody(layout, presenter), statsCounts(presenter), scroll,
+                layout.breakpoint());
+    }
+
+    public int statsMaxScroll(Rect body, NavPresenter presenter, Breakpoint breakpoint) {
+        return FrameGraphLayout.maxScroll(body, statsCounts(presenter), breakpoint);
+    }
+
+    public Rect statsPauseButton(ShellLayout layout, NavPresenter presenter, int scroll) {
+        return statsPage(layout, presenter, scroll).pause();
+    }
+
+    public List<Rect> statsStutterRows(ShellLayout layout, NavPresenter presenter, int scroll) {
+        return statsPage(layout, presenter, scroll).stutters();
+    }
+
+    public List<Rect> statsActions(ShellLayout layout, NavPresenter presenter, int scroll) {
+        return statsPage(layout, presenter, scroll).actions();
+    }
+
+    private void paintStatsPage(SurfacePainter painter, Font font, ShellLayout layout,
+                                NavPresenter presenter, int scroll, int mouseX, int mouseY) {
+        FrameGraphLayout.Page page = statsPage(layout, presenter, scroll);
+        if (page.plot().isEmpty()) {
+            return;
+        }
+        List<FrameHistory.Bucket> columns = presenter.columns();
+
+        float target = targetFrameMs();
+        float ceiling = FrameGraphLayout.ceilingFor(presenter.historyMedian(), target);
+        float spikeFloor = FrameSamples.spikeFloor(presenter.historyMedian());
+
+        paintCellGroup(painter, font, page.fingerprint(), presenter.fingerprint(),
+                KEY_STATS_GROUP_FINGERPRINT, null);
+        paintUnitButton(painter, font, page.pause(), presenter.axisInFps(), mouseX, mouseY);
+
+        paintRoundedFill(painter, page.plot(), 0, theme.color(ColorToken.SURFACE_SUNKEN));
+        for (Rect line : FrameGraphLayout.gridlines(page.plot(),
+                page.plot().height() >= 140 ? 4 : 2)) {
+            painter.fill(line, theme.color(ColorToken.BORDER_SUBTLE));
+        }
+
+        int range = theme.color(ColorToken.BORDER_ACCENT);
+        int spikeRange = theme.color(ColorToken.BORDER_STRONG);
+        float worstGc = 1.0f;
+        for (FrameHistory.Bucket bucket : columns) {
+            worstGc = Math.max(worstGc, bucket.gcMs());
+        }
+        for (int index = 0; index < columns.size(); index++) {
+            FrameHistory.Bucket bucket = columns.get(index);
+            if (bucket.empty()) {
+                continue;
+            }
+            boolean spike = spikeFloor > 0.0f && bucket.max() >= spikeFloor;
+            Rect band = FrameGraphLayout.column(page.plot(), index, columns.size(),
+                    bucket.min(), bucket.max(), ceiling);
+            if (band.isEmpty()) {
+                continue;
+            }
+            painter.fill(band, spike ? spikeRange : range);
+            if (bucket.max() > ceiling) {
+                painter.fill(new Rect(band.x(), page.plot().y(), band.width(), 1),
+                        theme.color(ColorToken.TEXT_PRIMARY));
+            }
+            Rect mean = FrameGraphLayout.column(page.plot(), index, columns.size(),
+                    0.0f, bucket.average(), ceiling);
+            painter.fill(mean, theme.color(spike ? ColorToken.WARNING : ColorToken.ACCENT));
+            if (spike) {
+                painter.fill(FrameGraphLayout.marker(page.markers(), band),
+                        theme.color(ColorToken.WARNING));
+            }
+            painter.fill(FrameGraphLayout.gcColumn(page.gcBand(), band, bucket.gcMs(), worstGc),
+                    theme.color(ColorToken.WARNING));
+        }
+        painter.fill(FrameGraphLayout.baseline(page.plot(), target, ceiling),
+                theme.color(ColorToken.SUCCESS));
+        paintRoundedOutline(painter, page.plot(), 0, theme.color(ColorToken.BORDER_DEFAULT));
+        painter.fill(new Rect(page.gcBand().x(), page.gcBand().bottom(), page.gcBand().width(), 1),
+                theme.color(ColorToken.BORDER_SUBTLE));
+
+        if (columns.isEmpty()) {
+            paintCentredNotice(painter, font, page.plot(), I18n.get(KEY_STATS_WAITING));
+        }
+        paintGraphAxis(painter, font, page, ceiling, target, presenter.axisInFps());
+        paintTimeAxis(painter, font, page.timeAxis());
+        paintLegendKeys(painter, font, page.legendKeys());
+        paintSmallLines(painter, font, page.legendLine(), I18n.get(KEY_STATS_SCALE,
+                Math.round(FrameHistory.WINDOW_MS / 1000), Math.round(ceiling)),
+                ColorToken.TEXT_FAINT);
+        paintHoverReadout(painter, font, page, columns, presenter.captureEndMs(), mouseX, mouseY);
+        paintVerdictBars(painter, font, page);
+        paintFindings(painter, font, page, presenter);
+        paintStutters(painter, font, page, presenter, mouseX, mouseY);
+        paintStutterProfile(painter, font, page, presenter);
+        paintCellGroup(painter, font, page.scene(), presenter.sceneRows(), KEY_STATS_GROUP_SCENE, null);
+        paintCellGroup(painter, font, page.terrain(), presenter.terrainRows(),
+                KEY_STATS_GROUP_TERRAIN, KEY_STATS_NOTE_TERRAIN);
+        paintCellGroup(painter, font, page.memory(), presenter.memoryRows(),
+                KEY_STATS_GROUP_MEMORY, KEY_STATS_NOTE_MEMORY);
+        if (presenter.allocators().isEmpty() && !page.allocators().isEmpty()) {
+            Rect row = page.allocators().get(0);
+            painter.fill(row, theme.color(ColorToken.SURFACE_SUNKEN));
+            painter.smallText(row.x() + 8, row.y() + (row.height() - PresetCardLayout.SMALL_LINE) / 2,
+                    smallTrim(painter, font,
+                            I18n.get(KEY_STATS_NO_SAMPLES, presenter.allocatorSamples()),
+                            row.width() - 16),
+                    theme.color(ColorToken.TEXT_FAINT));
+        } else {
+            paintProfileRows(painter, font, page.allocators(), presenter.allocators(),
+                    KEY_STATS_ALLOCATING);
+        }
+        paintCellGroup(painter, font, page.machine(), presenter.machineRows(),
+                KEY_STATS_GROUP_MACHINE, KEY_STATS_NOTE_MACHINE);
+        paintStatsActions(painter, font, page, mouseX, mouseY);
+
+        painter.smallText(page.bottleneck().x(), page.bottleneck().y(),
+                smallTrim(painter, font, I18n.get(OverviewSignals.stickyVerdict().messageKey()),
+                        page.bottleneck().width()),
+                theme.color(ColorToken.TEXT_SECONDARY));
+        painter.smallText(page.sampling().x(), page.sampling().y(),
+                smallTrim(painter, font, samplingLine(presenter.playSummary()),
+                        page.sampling().width()),
+                theme.color(ColorToken.TEXT_FAINT));
+        paintSmallLines(painter, font, page.legend(), I18n.get(KEY_STATS_LEGEND), ColorToken.TEXT_FAINT);
+    }
+
+    private void paintCellGroup(SurfacePainter painter, Font font, FrameGraphLayout.Group group,
+                                List<StatsReport.Cell> cells, String titleKey, String noteKey) {
+        if (group.heading().isEmpty()) {
+            return;
+        }
+        paintSectionHeading(painter, font, group.heading(), titleKey, titleKey + ".note");
+        if (noteKey != null && !group.note().isEmpty()) {
+            painter.fill(new Rect(group.note().x(), group.note().y(), 2, group.note().height()),
+                    theme.color(ColorToken.BORDER_STRONG));
+            paintSmallLines(painter, font,
+                    new Rect(group.note().x() + 8, group.note().y() + 2,
+                            group.note().width() - 10, group.note().height() - 2),
+                    I18n.get(noteKey), ColorToken.TEXT_MUTED);
+        }
+
+        for (int index = 0; index < group.cells().size() && index < cells.size(); index++) {
+            Rect box = group.cells().get(index);
+            StatsReport.Cell cell = cells.get(index);
+            painter.fill(box, theme.color(ColorToken.SURFACE_CARD));
+            if (cell.alert()) {
+                painter.fill(FrameGraphLayout.cellAccent(box), theme.color(ColorToken.WARNING));
+            }
+            Rect label = FrameGraphLayout.cellLabel(box);
+            painter.smallText(label.x(), label.y(),
+                    smallTrim(painter, font, I18n.get(cell.labelKey()).toUpperCase(Locale.ROOT),
+                            label.width()), theme.color(ColorToken.TEXT_FAINT));
+            Rect value = FrameGraphLayout.cellValue(box);
+            painter.text(value.x(), value.y(), trimToWidth(font, cell.value(), value.width()),
+                    theme.color(cell.alert() ? ColorToken.WARNING : ColorToken.TEXT_PRIMARY), false);
+            Rect meta = FrameGraphLayout.cellMeta(box);
+            if (!meta.isEmpty() && cell.note() != null && !cell.note().isBlank()) {
+                painter.smallText(meta.x(), meta.y(),
+                        smallTrim(painter, font, cell.note(), meta.width()),
+                        theme.color(ColorToken.TEXT_FAINT));
+            }
+        }
+    }
+
+    private void paintSectionHeading(SurfacePainter painter, Font font, Rect heading,
+                                     String titleKey, String noteKey) {
+        String title = I18n.get(titleKey).toUpperCase(Locale.ROOT);
+        painter.fill(new Rect(heading.x(), heading.y() + 1, 2, PresetCardLayout.SMALL_LINE),
+                theme.color(ColorToken.ACCENT));
+        painter.smallText(heading.x() + 6, heading.y() + 1, title,
+                theme.color(ColorToken.TEXT_SECONDARY));
+        int after = heading.x() + 6 + smallWidth(painter, font, title) + 7;
+        if (I18n.exists(noteKey) && after < heading.right() - 20) {
+            painter.smallText(after, heading.y() + 1,
+                    smallTrim(painter, font, I18n.get(noteKey), heading.right() - after),
+                    theme.color(ColorToken.TEXT_FAINT));
+        }
+        painter.fill(new Rect(heading.x(), heading.bottom() - 1, heading.width(), 1),
+                theme.color(ColorToken.BORDER_SUBTLE));
+    }
+
+    private void paintTimeAxis(SurfacePainter painter, Font font, Rect axis) {
+        if (axis.isEmpty()) {
+            return;
+        }
+        int seconds = FrameHistory.WINDOW_MS / 1000;
+        String[] marks = {"-" + seconds + " s", "-" + seconds * 2 / 3 + " s",
+                "-" + seconds / 3 + " s", I18n.get(KEY_STATS_NOW)};
+        for (int index = 0; index < marks.length; index++) {
+            int x = axis.x() + index * (axis.width() - 1) / (marks.length - 1);
+            int width = smallWidth(painter, font, marks[index]);
+            painter.smallText(index == 0 ? x : Math.min(x - width / 2, axis.right() - width),
+                    axis.y(), marks[index], theme.color(ColorToken.TEXT_FAINT));
+        }
+    }
+
+    private void paintLegendKeys(SurfacePainter painter, Font font, Rect legend) {
+        ColorToken[] tokens = {ColorToken.ACCENT, ColorToken.BORDER_ACCENT, ColorToken.WARNING,
+                ColorToken.SUCCESS, ColorToken.WARNING};
+        String[] keys = {KEY_STATS_KEY_AVERAGE, KEY_STATS_KEY_RANGE, KEY_STATS_KEY_SPIKE,
+                KEY_STATS_KEY_TARGET, KEY_STATS_KEY_GC};
+        for (int index = 0; index < tokens.length; index++) {
+            Rect mark = FrameGraphLayout.swatch(legend, index);
+            Rect label = FrameGraphLayout.swatchLabel(legend, index);
+            if (mark.isEmpty() || label.isEmpty()) {
+                return;
+            }
+            painter.fill(mark, theme.color(tokens[index]));
+            painter.smallText(label.x(), label.y(),
+                    smallTrim(painter, font, I18n.get(keys[index]), label.width()),
+                    theme.color(ColorToken.TEXT_FAINT));
+        }
+    }
+
+    private void paintStatsActions(SurfacePainter painter, Font font, FrameGraphLayout.Page page,
+                                   int mouseX, int mouseY) {
+        String[] keys = {KEY_STATS_COPY, KEY_STATS_RESET, KEY_STATS_REBUILD};
+        for (int index = 0; index < page.actions().size() && index < keys.length; index++) {
+            Rect box = page.actions().get(index);
+            boolean lit = box.contains(mouseX, mouseY);
+            paintRoundedFill(painter, box, SettingRowLayout.CARD_RADIUS,
+                    theme.color(lit ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD));
+            paintRoundedOutline(painter, box, SettingRowLayout.CARD_RADIUS,
+                    theme.color(ColorToken.BORDER_STRONG));
+            String text = I18n.get(keys[index]);
+            painter.smallText(box.x() + (box.width() - smallWidth(painter, font, text)) / 2,
+                    box.y() + (box.height() - PresetCardLayout.SMALL_LINE) / 2, text,
+                    theme.color(lit ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY));
+        }
+    }
+
+    private static float age(long endMs, FrameHistory.Bucket bucket) {
+        return Math.max(0.0f, (endMs - bucket.startMs()) / 1000.0f);
+    }
+
+    private void paintHoverReadout(SurfacePainter painter, Font font, FrameGraphLayout.Page page,
+                                   List<FrameHistory.Bucket> columns, long presenterEnd,
+                                   int mouseX, int mouseY) {
+        if (columns.isEmpty() || !page.plot().contains(mouseX, mouseY)) {
+            return;
+        }
+        int index = FrameGraphLayout.columnAt(page.plot(), columns.size(), mouseX);
+        if (index < 0) {
+            return;
+        }
+        FrameHistory.Bucket bucket = columns.get(index);
+        Rect column = FrameGraphLayout.column(page.plot(), index, columns.size(),
+                bucket.min(), bucket.max(), 1.0f);
+        Rect box = FrameGraphLayout.readout(page.plot(), column);
+        if (box.isEmpty()) {
+            return;
+        }
+        paintRoundedFill(painter, box, SettingRowLayout.CARD_RADIUS,
+                theme.color(ColorToken.SURFACE_CARD_HOVER));
+        paintRoundedOutline(painter, box, SettingRowLayout.CARD_RADIUS,
+                theme.color(ColorToken.BORDER_STRONG));
+        painter.fill(new Rect(column.x(), page.plot().y(), 1, page.plot().height()),
+                theme.color(ColorToken.BORDER_ACCENT));
+        painter.smallText(box.x() + 7, box.y() + 4, String.format(Locale.ROOT,
+                "-%.1f s   worst %.1f ms", age(presenterEnd, bucket), bucket.max()),
+                theme.color(ColorToken.TEXT_FAINT));
+        painter.smallText(box.x() + 7, box.y() + 13, String.format(Locale.ROOT,
+                "%.1f ms  %.0f fps", bucket.average(), 1000.0f / bucket.average()),
+                theme.color(ColorToken.TEXT_PRIMARY));
+        painter.smallText(box.x() + 7, box.y() + 22, bucket.gcMs() >= 1.0f
+                        ? String.format(Locale.ROOT, "gc %.0f ms", bucket.gcMs())
+                        : bucket.uploads() + " uploads",
+                theme.color(ColorToken.TEXT_MUTED));
+    }
+
+    private void paintVerdictBars(SurfacePainter painter, Font font, FrameGraphLayout.Page page) {
+        paintSectionHeading(painter, font, new Rect(page.verdict().x(),
+                        page.verdict().y() - FrameGraphLayout.HEADING_H - 6,
+                        page.verdict().width(), FrameGraphLayout.HEADING_H),
+                KEY_STATS_GROUP_TIME, KEY_STATS_GROUP_TIME + ".note");
+        painter.fill(page.verdict(), theme.color(ColorToken.SURFACE_CARD));
+        painter.fill(new Rect(page.verdict().x(), page.verdict().y(), 2, page.verdict().height()),
+                theme.color(ColorToken.WARNING));
+        String verdict = I18n.get(OverviewSignals.stickyVerdict().messageKey());
+        painter.text(page.verdict().x() + 9, page.verdict().y() + 5,
+                trimToWidth(font, verdict, page.verdict().width() - 18),
+                theme.color(ColorToken.WARNING), false);
+        int after = page.verdict().x() + 9 + font.width(verdict) + 8;
+        if (I18n.exists(KEY_STATS_ADVICE) && after < page.verdict().right() - 30) {
+            painter.smallText(after, page.verdict().y() + 6,
+                    smallTrim(painter, font, I18n.get(KEY_STATS_ADVICE),
+                            page.verdict().right() - after - 6),
+                    theme.color(ColorToken.TEXT_MUTED));
+        }
+
+        double frame = FrameTimer.frameMs();
+        double gpu = FrameTimer.gpuMs();
+        double cpu = FrameTimer.cpuBusyMs();
+        if (frame > 0.0) {
+            painter.smallText(page.frameLabel().x(), page.frameLabel().y(),
+                    I18n.get(KEY_STATS_BAR_FRAME, String.format(Locale.ROOT, "%.1f", frame)),
+                    theme.color(ColorToken.TEXT_FAINT));
+            paintSplitBar(painter, font, page.frameBar(),
+                    new double[] {Math.max(0.0, cpu), Math.max(0.0, gpu),
+                            Math.max(0.0, frame - Math.max(0.0, cpu) - Math.max(0.0, gpu))},
+                    new ColorToken[] {ColorToken.ACCENT_DEEP, ColorToken.ACCENT, ColorToken.IMPACT_TRACK},
+                    new String[] {"cpu", "gpu", "wait"});
+        }
+        double upload = FrameTimer.uploadMs();
+        double setup = FrameTimer.setupMs();
+        double terrain = FrameTimer.terrainMs();
+        if (upload + setup + terrain > 0.0) {
+            painter.smallText(page.threadLabel().x(), page.threadLabel().y(),
+                    I18n.get(KEY_STATS_BAR_THREAD,
+                            String.format(Locale.ROOT, "%.1f", upload + setup + terrain)),
+                    theme.color(ColorToken.TEXT_FAINT));
+            paintSplitBar(painter, font, page.threadBar(),
+                    new double[] {upload, setup, terrain},
+                    new ColorToken[] {ColorToken.ACCENT_BRIGHT, ColorToken.ACCENT_DEEP, ColorToken.BORDER_ACCENT},
+                    new String[] {"upload", "setup", "terrain"});
+        }
+    }
+
+    private void paintSplitBar(SurfacePainter painter, Font font, Rect bar, double[] parts,
+                               ColorToken[] tokens, String[] labels) {
+        if (bar.isEmpty()) {
+            return;
+        }
+        double total = 0.0;
+        for (double part : parts) {
+            total += Math.max(0.0, part);
+        }
+        painter.fill(bar, theme.color(ColorToken.SURFACE_SUNKEN));
+        if (total <= 0.0) {
+            return;
+        }
+        int x = bar.x();
+        for (int index = 0; index < parts.length; index++) {
+            int width = index == parts.length - 1 ? bar.right() - x
+                    : (int) Math.round(bar.width() * Math.max(0.0, parts[index]) / total);
+            if (width <= 0) {
+                continue;
+            }
+            Rect slice = new Rect(x, bar.y(), width, bar.height());
+            painter.fill(slice, theme.color(tokens[index]));
+            String text = String.format(Locale.ROOT, "%s %.1f", labels[index], Math.max(0.0, parts[index]));
+            int textWidth = smallWidth(painter, font, text);
+            if (textWidth < width - 6) {
+                painter.smallText(x + (width - textWidth) / 2, bar.y() + 4, text,
+                        theme.color(ColorToken.SURFACE_BASE));
+            }
+            x += width;
+        }
+    }
+
+    private void paintUnitButton(SurfacePainter painter, Font font, Rect box, boolean fps,
+                                 int mouseX, int mouseY) {
+        if (box.isEmpty()) {
+            return;
+        }
+        boolean lit = box.contains(mouseX, mouseY);
+        paintRoundedFill(painter, box, SettingRowLayout.CARD_RADIUS,
+                theme.color(lit ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD));
+        paintRoundedOutline(painter, box, SettingRowLayout.CARD_RADIUS,
+                theme.color(ColorToken.BORDER_STRONG));
+        String text = I18n.get(fps ? KEY_STATS_UNIT_FPS : KEY_STATS_UNIT_MS);
+        painter.smallText(box.x() + (box.width() - smallWidth(painter, font, text)) / 2,
+                box.y() + (box.height() - PresetCardLayout.SMALL_LINE) / 2, text,
+                theme.color(lit ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY));
+    }
+
+    private void paintFindings(SurfacePainter painter, Font font, FrameGraphLayout.Page page,
+                               NavPresenter presenter) {
+        if (page.findingHeading().isEmpty()) {
+            return;
+        }
+        paintSectionHeading(painter, font, page.findingHeading(),
+                KEY_STATS_GROUP_FINDINGS, KEY_STATS_GROUP_FINDINGS + ".note");
+        List<Diagnosis.Finding> findings = presenter.findings();
+        for (int index = 0; index < page.findings().size() && index < findings.size(); index++) {
+            Rect box = page.findings().get(index);
+            Diagnosis.Finding finding = findings.get(index);
+            ColorToken tone = finding.severe() ? ColorToken.WARNING : ColorToken.ACCENT;
+            painter.fill(box, theme.color(ColorToken.SURFACE_CARD));
+            painter.fill(new Rect(box.x(), box.y(), 2, box.height()), theme.color(tone));
+            painter.text(box.x() + 9, box.y() + 4,
+                    trimToWidth(font, I18n.get(finding.titleKey()), box.width() - 18),
+                    theme.color(tone), false);
+            paintSmallLines(painter, font,
+                    new Rect(box.x() + 9, box.y() + 15, box.width() - 18, PresetCardLayout.SMALL_LINE * 2),
+                    finding.detail(), ColorToken.TEXT_MUTED);
+        }
+    }
+
+    private void paintStutters(SurfacePainter painter, Font font, FrameGraphLayout.Page page,
+                               NavPresenter presenter, int mouseX, int mouseY) {
+        List<FrameHistory.Bucket> stutters = presenter.stutters();
+        if (!page.stutterHead().isEmpty()) {
+            paintSectionHeading(painter, font, page.stutterHeading(),
+                    KEY_STATS_GROUP_STUTTERS, KEY_STATS_GROUP_STUTTERS + ".note");
+            paintSmallLines(painter, font, page.stutterCaption(),
+                    I18n.get(KEY_STATS_STUTTER_CAPTION), ColorToken.TEXT_FAINT);
+            String[] heads = {KEY_STATS_COL_WHEN, KEY_STATS_COL_WORST, KEY_STATS_COL_GC,
+                    KEY_STATS_COL_UPLOADS, KEY_STATS_COL_BUILDS, KEY_STATS_COL_CAUSE};
+            for (int index = 0; index < heads.length; index++) {
+                Rect slot = FrameGraphLayout.stutterColumn(page.stutterHead(), index);
+                painter.smallText(slot.x(), slot.y(),
+                        smallTrim(painter, font, I18n.get(heads[index]).toUpperCase(Locale.ROOT),
+                                slot.width() - 4),
+                        theme.color(ColorToken.TEXT_FAINT));
+            }
+        }
+        for (int index = 0; index < page.stutters().size() && index < stutters.size(); index++) {
+            Rect row = page.stutters().get(index);
+            FrameHistory.Bucket bucket = stutters.get(index);
+            boolean picked = index == presenter.selectedStutter();
+            boolean lit = row.contains(mouseX, mouseY);
+            painter.fill(row, theme.color(picked ? ColorToken.SURFACE_NAV_ACTIVE
+                    : lit ? ColorToken.SURFACE_CARD_HOVER
+                    : index % 2 == 0 ? ColorToken.SURFACE_CARD : ColorToken.SURFACE_SUNKEN));
+            if (picked) {
+                painter.fill(new Rect(row.x(), row.y(), 2, row.height()),
+                        theme.color(ColorToken.ACCENT));
+            }
+            int top = row.y() + (row.height() - PresetCardLayout.SMALL_LINE) / 2;
+
+            cell(painter, font, FrameGraphLayout.stutterColumn(row, 0), top,
+                    String.format(Locale.ROOT, "-%.1f s", age(presenter.captureEndMs(), bucket)),
+                    picked ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_MUTED);
+            cell(painter, font, FrameGraphLayout.stutterColumn(row, 1), top,
+                    String.format(Locale.ROOT, "%.1f ms", bucket.max()), ColorToken.WARNING);
+            cell(painter, font, FrameGraphLayout.stutterColumn(row, 2), top,
+                    bucket.gcMs() >= 1.0f ? Math.round(bucket.gcMs()) + " ms" : "-",
+                    bucket.gcMs() >= 1.0f ? ColorToken.WARNING : ColorToken.TEXT_FAINT);
+            cell(painter, font, FrameGraphLayout.stutterColumn(row, 3), top,
+                    bucket.uploads() > 0 ? Integer.toString(bucket.uploads()) : "-",
+                    bucket.uploads() > 0 ? ColorToken.ACCENT_BRIGHT : ColorToken.TEXT_FAINT);
+
+            cell(painter, font, FrameGraphLayout.stutterColumn(row, 4), top,
+                    bucket.builds() > 0 ? Integer.toString(bucket.builds()) : "-",
+                    bucket.builds() > 0 ? ColorToken.SUCCESS : ColorToken.TEXT_FAINT);
+
+            Rect causeSlot = FrameGraphLayout.stutterColumn(row, 5);
+            String cause = bucket.gcMs() >= 1.0f ? I18n.get(KEY_STATS_TAG_GC)
+                    : bucket.uploads() > 0 ? I18n.get(KEY_STATS_TAG_UPLOAD)
+                    : I18n.get(KEY_STATS_CAUSE_NONE);
+            ColorToken tone = bucket.gcMs() >= 1.0f ? ColorToken.WARNING
+                    : bucket.uploads() > 0 ? ColorToken.ACCENT_BRIGHT : ColorToken.TEXT_FAINT;
+            int width = smallWidth(painter, font, cause) + 8;
+            if (width < causeSlot.width()) {
+                paintRoundedOutline(painter, new Rect(causeSlot.x(), row.y() + 1, width,
+                        row.height() - 2), 2, theme.color(tone));
+            }
+            cell(painter, font, new Rect(causeSlot.x() + 4, causeSlot.y(),
+                    causeSlot.width() - 4, causeSlot.height()), top, cause, tone);
+        }
+    }
+
+    private void cell(SurfacePainter painter, Font font, Rect slot, int top, String text,
+                      ColorToken token) {
+        if (slot.isEmpty()) {
+            return;
+        }
+        painter.smallText(slot.x(), top, smallTrim(painter, font, text, slot.width() - 4),
+                theme.color(token));
+    }
+
+    private void paintProfileRows(SurfacePainter painter, Font font, List<Rect> boxes,
+                                  List<StackSampler.Frame> frames, String tailKey) {
+        for (int index = 0; index < boxes.size() && index < frames.size(); index++) {
+            Rect row = boxes.get(index);
+            StackSampler.Frame frame = frames.get(index);
+            painter.fill(row, theme.color(ColorToken.SURFACE_CARD));
+            painter.fill(new Rect(row.x(), row.y(), Math.round(row.width() * frame.share()),
+                    row.height()), theme.color(ColorToken.IMPACT_TRACK));
+            int top = row.y() + (row.height() - TEXT_HEIGHT) / 2;
+            painter.text(row.x() + 8, top, Math.round(frame.share() * 100) + "%",
+                    theme.color(ColorToken.ACCENT_BRIGHT), false);
+            String tail = I18n.get(tailKey);
+            int width = smallWidth(painter, font, tail);
+            painter.text(row.x() + 46, top,
+                    trimToWidth(font, frame.name(), row.width() - 60 - width),
+                    theme.color(ColorToken.TEXT_PRIMARY), false);
+            painter.smallText(row.right() - width - 7, top + 1, tail,
+                    theme.color(ColorToken.TEXT_FAINT));
+        }
+    }
+
+    private void paintStutterProfile(SurfacePainter painter, Font font, FrameGraphLayout.Page page,
+                                     NavPresenter presenter) {
+        if (page.profileHead().isEmpty()) {
+            return;
+        }
+        painter.smallText(page.profileHead().x(), page.profileHead().y(),
+                smallTrim(painter, font, I18n.get(KEY_STATS_PROFILE, presenter.stutterSamples()),
+                        page.profileHead().width()),
+                theme.color(ColorToken.TEXT_FAINT));
+        List<StackSampler.Frame> frames = presenter.stutterProfile();
+        for (int index = 0; index < page.profile().size() && index < frames.size(); index++) {
+            Rect row = page.profile().get(index);
+            StackSampler.Frame frame = frames.get(index);
+            painter.fill(row, theme.color(ColorToken.SURFACE_CARD));
+            painter.fill(new Rect(row.x(), row.y(), Math.round(row.width() * frame.share()),
+                    row.height()), theme.color(ColorToken.IMPACT_TRACK));
+            int top = row.y() + (row.height() - TEXT_HEIGHT) / 2;
+            painter.text(row.x() + 8, top, Math.round(frame.share() * 100) + "%",
+                    theme.color(ColorToken.ACCENT_BRIGHT), false);
+            String samples = I18n.get(KEY_STATS_SAMPLES, frame.samples());
+            int tail = smallWidth(painter, font, samples);
+            painter.text(row.x() + 46, top,
+                    trimToWidth(font, frame.name(), row.width() - 60 - tail),
+                    theme.color(ColorToken.TEXT_PRIMARY), false);
+            painter.smallText(row.right() - tail - 7, top + 1, samples,
+                    theme.color(ColorToken.TEXT_FAINT));
+        }
+    }
+
+    private void paintGraphAxis(SurfacePainter painter, Font font, FrameGraphLayout.Page page,
+                                float ceiling, float target, boolean fpsAxis) {
+        int divisions = page.plot().height() >= 140 ? 4 : 2;
+        for (int index = 0; index <= divisions; index++) {
+            Rect slot = FrameGraphLayout.axisLabel(page.axis(), index, divisions);
+            if (slot.isEmpty()) {
+                continue;
+            }
+            float ms = ceiling * index / divisions;
+            String text = index == 0 ? "0"
+                    : fpsAxis ? String.format(Locale.ROOT, "%.0f fps", 1000.0f / ms)
+                    : String.format(Locale.ROOT, "%.1f ms", ms);
+            painter.smallText(slot.right() - smallWidth(painter, font, text), slot.y(), text,
+                    theme.color(ColorToken.TEXT_FAINT));
+        }
+        Rect line = FrameGraphLayout.baseline(page.plot(), target, ceiling);
+        if (!line.isEmpty()) {
+            String text = String.format(Locale.ROOT, "%.0f fps", 1000.0f / target);
+            painter.smallText(line.right() - smallWidth(painter, font, text) - 3, line.y() - 8, text,
+                    theme.color(ColorToken.SUCCESS));
+        }
+    }
+
+    private void paintStatTiles(SurfacePainter painter, Font font, FrameGraphLayout.Page page,
+                                FrameSamples.Summary play) {
+        for (int index = 0; index < page.tiles().size() && index < STAT_TILES.length; index++) {
+            Rect tile = page.tiles().get(index);
+            paintRoundedFill(painter, tile, SettingRowLayout.CARD_RADIUS,
+                    theme.color(ColorToken.SURFACE_CARD));
+            Rect label = FrameGraphLayout.tileLabel(tile);
+            painter.smallText(label.x() + 6, label.y(),
+                    smallTrim(painter, font, I18n.get(STAT_TILES[index]), label.width() - 12),
+                    theme.color(ColorToken.TEXT_FAINT));
+            Rect value = FrameGraphLayout.tileValue(tile);
+            String text = statValue(index, play);
+            painter.text(value.x() + 6, value.y(), trimToWidth(font, text, value.width() - 12),
+                    theme.color(text.equals(DASH) ? ColorToken.TEXT_MUTED : ColorToken.TEXT_PRIMARY), false);
+        }
+    }
+
+    private static String statValue(int index, FrameSamples.Summary play) {
+        if (play.count() < FrameSamples.READY_AT) {
+            return DASH;
+        }
+        return switch (index) {
+            case 0 -> String.format(Locale.ROOT, "%.0f fps", 1000.0f / play.average());
+            case 1 -> String.format(Locale.ROOT, "%.1f ms", play.median());
+            case 2 -> play.low1() < 0 ? DASH : String.format(Locale.ROOT, "%.0f fps", 1000.0f / play.low1());
+            case 3 -> play.low01() < 0 ? DASH : String.format(Locale.ROOT, "%.0f fps", 1000.0f / play.low01());
+            case 4 -> String.format(Locale.ROOT, "%.1f ms", play.p95());
+            default -> Integer.toString(play.spikes());
+        };
+    }
+
+    private static String samplingLine(FrameSamples.Summary play) {
+        return play.count() < FrameSamples.READY_AT
+                ? I18n.get("vulkanmod.ui.overview.sampling", play.count(), FrameSamples.READY_AT)
+                : I18n.get("vulkanmod.ui.overview.from_frames", play.count());
+    }
+
+    private static float targetFrameMs() {
+        try {
+            int limit = Minecraft.getInstance().options.framerateLimit().get();
+            if (limit > 0 && limit < 260) {
+                return 1000.0f / limit;
+            }
+            int refresh = Minecraft.getInstance().getWindow().getRefreshRate();
+            return refresh > 0 ? 1000.0f / refresh : 16.7f;
+        } catch (Throwable unavailable) {
+            return 16.7f;
+        }
+    }
+
     private void paintRatingBar(SurfacePainter painter, Font font, Rect track, String labelKey,
                                 int level, boolean accent) {
         if (track.isEmpty()) {
@@ -1062,12 +1803,17 @@ public final class ShellRenderer {
         }
 
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
+        List<NavPresenter.ContentRow> rows = presenter.contentRows();
         SettingsCatalog catalog = presenter.catalog();
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
         SettingMeta pointed = hoveredSetting(layout, presenter, contentScroll, mouseX, mouseY);
-        for (int i = 0; i < boxes.size(); i++) {
+        for (int i = 0; i < boxes.size() && i < rows.size(); i++) {
             Rect box = boxes.get(i);
-            SettingMeta meta = settings.get(i);
+            if (rows.get(i) instanceof NavPresenter.GroupRow group) {
+                paintGroupRow(painter, font, box, group, mouseX, mouseY);
+                continue;
+            }
+            SettingMeta meta = ((NavPresenter.SettingRow) rows.get(i)).meta();
             SettingBinding binding = catalog.binding(meta.id());
             String key = meta.id().toString();
             boolean onRow = meta.equals(pointed);
@@ -1093,11 +1839,11 @@ public final class ShellRenderer {
                                    int contentScroll, int mouseX, int mouseY) {
         RouteId current = presenter.stack().current();
         if (FAVORITES.equals(current)) {
-            paintCentredNotice(painter, font, layout.content(), I18n.get(KEY_FAVORITES_EMPTY));
+            paintCentredNotice(painter, font, contentBody(layout, presenter), I18n.get(KEY_FAVORITES_EMPTY));
             return true;
         }
         if (MODS.equals(current)) {
-            paintCentredNotice(painter, font, layout.content(), I18n.get(KEY_MODS_EMPTY));
+            paintCentredNotice(painter, font, contentBody(layout, presenter), I18n.get(KEY_MODS_EMPTY));
             return true;
         }
         if (PLUGINS.equals(current)) {
@@ -1105,7 +1851,7 @@ public final class ShellRenderer {
             return true;
         }
         if (PLUGINS.equals(current.parent())) {
-            paintCentredNotice(painter, font, layout.content(), I18n.get(KEY_PLUGIN_EMPTY));
+            paintCentredNotice(painter, font, contentBody(layout, presenter), I18n.get(KEY_PLUGIN_EMPTY));
             return true;
         }
 
@@ -1128,7 +1874,7 @@ public final class ShellRenderer {
     }
 
     private PluginPageLayout.Page pluginPage(ShellLayout layout, NavPresenter presenter, int scroll) {
-        return PluginPageLayout.page(layout.content(), presenter.pluginPages().size(),
+        return PluginPageLayout.page(contentBody(layout, presenter), presenter.pluginPages().size(),
                 presenter.catalog().modIds().size(), scroll, layout.breakpoint());
     }
 
@@ -1139,7 +1885,6 @@ public final class ShellRenderer {
             paintPluginEmptyCard(painter, font, page.empty());
             return;
         }
-        paintPluginIntro(painter, font, page.header());
 
         List<NavPresenter.PluginPage> plugins = presenter.pluginPages();
         PluginPageLayout.Block block = page.plugins();
@@ -1166,16 +1911,6 @@ public final class ShellRenderer {
             paintPluginNote(painter, font, modBlock.rows().get(index),
                     NavPresenter.modName(mods.get(index)));
         }
-    }
-
-    private void paintPluginIntro(SurfacePainter painter, Font font, Rect header) {
-        if (header.isEmpty()) {
-            return;
-        }
-        painter.gradient(PluginPageLayout.bar(header),
-                theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
-        paintSmallLines(painter, font, PluginPageLayout.intro(header), I18n.get(KEY_PLUGINS_INTRO),
-                ColorToken.TEXT_MUTED);
     }
 
     private void paintPluginHeading(SurfacePainter painter, Font font, PluginPageLayout.Block block,
@@ -1289,21 +2024,69 @@ public final class ShellRenderer {
                 theme.color(ColorToken.TEXT_MUTED), false);
     }
 
-    private void paintBreadcrumbs(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
-        List<RouteId> trail = presenter.stack().trail();
-        List<Rect> boxes = breadcrumbBoxes(font, layout, presenter);
-        int separatorWidth = font.width(BREADCRUMB_SEPARATOR);
-        int faint = theme.color(ColorToken.TEXT_FAINT);
+    public record Crumbs(List<Rect> boxes, List<String> labels) {
+    }
 
-        for (int i = 0; i < boxes.size(); i++) {
-            Rect box = boxes.get(i);
-            boolean last = i == boxes.size() - 1;
-            painter.text(box.x(), box.y(), label(presenter, trail.get(i)),
-                    theme.color(last ? ColorToken.TEXT_DEFAULT : ColorToken.TEXT_FAINT), false);
-            if (!last) {
-                int gap = boxes.get(i + 1).x() - box.right();
-                painter.text(box.right() + (gap - separatorWidth) / 2, box.y(), BREADCRUMB_SEPARATOR, faint, false);
-            }
+    public Crumbs crumbs(Font font, float smallScale, ShellLayout layout, NavPresenter presenter) {
+        requireInputs(font, layout, presenter);
+        Rect box = headerBand(layout, presenter).crumbs();
+        List<RouteId> trail = presenter.stack().trail();
+        if (box.isEmpty() || trail.size() < 2) {
+            return new Crumbs(List.of(), List.of());
+        }
+
+        List<String> labels = new ArrayList<>();
+        int[] widths = new int[trail.size() - 1];
+        int room = box.width() - Math.round(font.width(BREADCRUMB_SEPARATOR) * smallScale);
+        for (int i = 0; i < trail.size() - 1; i++) {
+            String label = trimToWidth(font, label(presenter, trail.get(i)),
+                    Math.max(0, Math.round(room / smallScale)));
+            labels.add(label);
+            widths[i] = Math.round(font.width(label) * smallScale);
+            room -= widths[i] + BreadcrumbModel.SEPARATOR_ADVANCE;
+        }
+        return new Crumbs(BreadcrumbModel.layout(widths, box.x(), box.y()), List.copyOf(labels));
+    }
+
+    private void paintBand(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
+        PageHeader.Band band = headerBand(layout, presenter);
+        if (band.bounds().isEmpty()) {
+            return;
+        }
+        painter.fill(band.bounds(), theme.color(ColorToken.SURFACE_BASE));
+        painter.gradient(band.bar(), theme.color(ColorToken.ACCENT_BRIGHT),
+                theme.color(ColorToken.ACCENT_DEEP));
+
+        paintCrumbs(painter, font, layout, presenter, band);
+        if (!band.title().isEmpty()) {
+            painter.text(band.title().x(), band.title().y(),
+                    trimToWidth(font, I18n.get(presenter.currentTitleKey()), band.title().width()),
+                    theme.color(ColorToken.TEXT_PRIMARY), false);
+        }
+        String subtitle = subtitleKey(presenter);
+        if (subtitle != null) {
+            paintSmallLines(painter, font, band.subtitle(), I18n.get(subtitle), ColorToken.TEXT_MUTED);
+        }
+        paintTabStrip(painter, font, layout, presenter);
+        painter.fill(band.rule(), theme.color(ColorToken.BORDER_SUBTLE));
+    }
+
+    private void paintCrumbs(SurfacePainter painter, Font font, ShellLayout layout,
+                             NavPresenter presenter, PageHeader.Band band) {
+        Crumbs crumbs = crumbs(font, painter.smallScale(), layout, presenter);
+        if (crumbs.boxes().isEmpty()) {
+            return;
+        }
+        int faint = theme.color(ColorToken.TEXT_FAINT);
+        int separator = Math.round(font.width(BREADCRUMB_SEPARATOR) * painter.smallScale());
+        int last = crumbs.boxes().size() - 1;
+        for (int i = 0; i <= last && i < crumbs.labels().size(); i++) {
+            Rect box = crumbs.boxes().get(i);
+            painter.smallText(box.x(), box.y() + PageHeader.CRUMB_TEXT_DY, crumbs.labels().get(i),
+                    theme.color(i == last ? ColorToken.TEXT_MUTED : ColorToken.TEXT_FAINT));
+            int gap = BreadcrumbModel.SEPARATOR_ADVANCE;
+            painter.smallText(box.right() + (gap - separator) / 2, box.y() + PageHeader.CRUMB_TEXT_DY,
+                    BREADCRUMB_SEPARATOR, faint);
         }
     }
 

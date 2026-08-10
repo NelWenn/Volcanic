@@ -5,14 +5,21 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
 import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.render.particle.ParticleToggles;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Map;
 import java.util.Queue;
@@ -21,6 +28,29 @@ import java.util.Queue;
 public class ParticleEngineMixin {
 
     @Shadow @Final private Map<ParticleRenderType, Queue<Particle>> particles;
+
+    @Inject(method = "createParticle", at = @At("HEAD"), cancellable = true)
+    private <T extends ParticleOptions> void onCreateParticle(T options, double x, double y, double z,
+                                                              double xSpeed, double ySpeed, double zSpeed,
+                                                              CallbackInfoReturnable<Particle> cir) {
+        if (ParticleToggles.blocked(options.getType())) {
+            cir.setReturnValue(null);
+        }
+    }
+
+    @Inject(method = "destroy", at = @At("HEAD"), cancellable = true)
+    private void onDestroy(BlockPos pos, BlockState state, CallbackInfo ci) {
+        if (ParticleToggles.blocked(ParticleTypes.BLOCK)) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "crack", at = @At("HEAD"), cancellable = true)
+    private void onCrack(BlockPos pos, Direction side, CallbackInfo ci) {
+        if (ParticleToggles.blocked(ParticleTypes.BLOCK)) {
+            ci.cancel();
+        }
+    }
 
     @Inject(method = "add", at = @At("HEAD"), cancellable = true)
     private void onAdd(Particle particle, CallbackInfo ci) {

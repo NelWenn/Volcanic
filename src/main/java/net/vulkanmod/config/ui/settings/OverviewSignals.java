@@ -16,6 +16,34 @@ import net.vulkanmod.vulkan.SessionSamples;
 import java.util.List;
 
 public final class OverviewSignals {
+    private static net.vulkanmod.config.ui.core.BoundVerdict held;
+    private static net.vulkanmod.config.ui.core.BoundVerdict pending;
+    private static int agreed;
+
+    public static net.vulkanmod.config.ui.core.BoundVerdict stickyVerdict() {
+        net.vulkanmod.config.ui.core.BoundVerdict now = verdict();
+        if (held == null) {
+            held = now;
+            return held;
+        }
+        if (now == held) {
+            pending = null;
+            agreed = 0;
+            return held;
+        }
+        if (now != pending) {
+            pending = now;
+            agreed = 1;
+            return held;
+        }
+        if (++agreed >= 20) {
+            held = pending;
+            pending = null;
+            agreed = 0;
+        }
+        return held;
+    }
+
     private static final String PRESET = "vulkanmod.options.performancePreset.";
     private static final int UNLIMITED_FPS = 260;
     private static final List<String> FAR_TERRAIN = List.of("caldera", "distanthorizons");

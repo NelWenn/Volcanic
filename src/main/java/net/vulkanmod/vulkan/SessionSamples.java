@@ -9,6 +9,9 @@ import java.util.Objects;
 
 public final class SessionSamples {
     private static final FrameSamples SAMPLES = new FrameSamples();
+    private static final net.vulkanmod.config.ui.core.FrameHistory HISTORY =
+            new net.vulkanmod.config.ui.core.FrameHistory();
+    private static long lastGcMs;
     private static long lastNanos;
 
     private SessionSamples() {
@@ -40,13 +43,61 @@ public final class SessionSamples {
         long previous = lastNanos;
         lastNanos = now;
 
-        if (!counts()) {
-            return;
-        }
         if (previous == 0L || now <= previous) {
             return;
         }
-        SAMPLES.record(fingerprint(), (float) ((now - previous) / 1.0e6));
+        float frameMs = (float) ((now - previous) / 1.0e6);
+        boolean playing = counts();
+        net.vulkanmod.render.profiling.StackSampler.setGameplay(playing);
+        net.vulkanmod.render.profiling.StackSampler.watch(Thread.currentThread().threadId());
+        if (!playing) {
+            return;
+        }
+        SAMPLES.record(fingerprint(), frameMs);
+        long nowMs = System.currentTimeMillis();
+        long gcMs = totalGcMillis();
+        Runtime runtime = Runtime.getRuntime();
+        HISTORY.record(nowMs, frameMs, gcMs - lastGcMs,
+                net.vulkanmod.render.profiling.RenderCounters.uploadsLastFrame(),
+                net.vulkanmod.render.profiling.RenderCounters.pipelineBuilds(),
+                (runtime.totalMemory() - runtime.freeMemory()) / 1048576.0f);
+        lastGcMs = gcMs;
+        snapshotTerrain();
+    }
+
+    public static net.vulkanmod.config.ui.core.FrameHistory history() {
+        return HISTORY;
+    }
+
+    private static long totalGcMillis() {
+        long total = 0L;
+        for (java.lang.management.GarbageCollectorMXBean bean
+                : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            long collected = bean.getCollectionTime();
+            if (collected > 0L) {
+                total += collected;
+            }
+        }
+        return total;
+    }
+
+    private static void snapshotTerrain() {
+        try {
+            net.vulkanmod.render.chunk.WorldRenderer renderer =
+                    net.vulkanmod.render.chunk.WorldRenderer.getInstance();
+            if (renderer == null) {
+                return;
+            }
+            net.vulkanmod.render.chunk.build.TaskDispatcher dispatcher = renderer.getTaskDispatcher();
+            net.vulkanmod.render.profiling.RenderCounters.snapshotTerrain(
+                    dispatcher == null ? -1 : dispatcher.pendingTaskCount(),
+                    dispatcher == null ? -1 : dispatcher.pendingUploadCount(),
+                    dispatcher == null ? -1 : dispatcher.idleThreadCount(),
+                    dispatcher == null ? -1 : dispatcher.threadCount(),
+                    renderer.getVisibleSectionsCount());
+        } catch (Throwable unavailable) {
+            // the counters simply stay at their previous value
+        }
     }
 
     private static boolean counts() {

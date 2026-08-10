@@ -30,6 +30,28 @@ public final class FrameTimer {
         return INSTANCE != null ? INSTANCE.smoothWallMs : -1.0;
     }
 
+    public static void setLogging(boolean enabled) {
+        if (INSTANCE != null) {
+            INSTANCE.logging = enabled;
+        }
+    }
+
+    public static boolean logging() {
+        return INSTANCE != null && INSTANCE.logging;
+    }
+
+    public static double uploadMs() {
+        return INSTANCE != null ? INSTANCE.smoothUploadMs : -1.0;
+    }
+
+    public static double terrainMs() {
+        return INSTANCE != null ? INSTANCE.smoothTerrainMs : -1.0;
+    }
+
+    public static double setupMs() {
+        return INSTANCE != null ? INSTANCE.smoothSetupMs : -1.0;
+    }
+
     public static double cpuBusyMs() {
         return INSTANCE != null ? INSTANCE.smoothCpuBusyMs : -1.0;
     }
@@ -38,7 +60,8 @@ public final class FrameTimer {
         if (INSTANCE != null) return;
         try {
             INSTANCE = new FrameTimer(framesNum);
-            INSTANCE.logging = MoltenVKConfig.perfDiagEnabled();
+            INSTANCE.logging = MoltenVKConfig.perfDiagEnabled()
+                    || (Initializer.CONFIG != null && Initializer.CONFIG.perfLog);
             Initializer.LOGGER.info("FrameTimer: {} ({} frames, timestampPeriod={} ns, logging={})",
                     GPU_TIMESTAMPS ? "wall + GPU timestamps" : "wall only, GPU timestamps off",
                     framesNum, INSTANCE.timestampPeriod, INSTANCE.logging);
@@ -75,10 +98,12 @@ public final class FrameTimer {
     // accumulators for the periodic report
     private double accWallMs, accCpuMs, accGpuMs;
     private double accUploadMs, accTerrainMs, accSetupMs;
+    private double smoothUploadMs, smoothTerrainMs, smoothSetupMs;
+    private double frameUploadMs, frameTerrainMs, frameSetupMs;
     private int samples;
     private long lastReportNanos = 0;
     private boolean anyGpuSample = false;
-    private boolean logging = false;
+    private volatile boolean logging = false;
     private double smoothGpuMs = -1.0;
     private double smoothWallMs = -1.0;
     private double smoothCpuBusyMs = -1.0;
@@ -130,6 +155,10 @@ public final class FrameTimer {
                 accGpuMs += gpuMs;
                 anyGpuSample = true;
                 smoothGpuMs = smoothGpuMs < 0 ? gpuMs : smoothGpuMs * 0.9 + gpuMs * 0.1;
+                smoothUploadMs = smoothUploadMs * 0.9 + frameUploadMs * 0.1;
+                smoothTerrainMs = smoothTerrainMs * 0.9 + frameTerrainMs * 0.1;
+                smoothSetupMs = smoothSetupMs * 0.9 + frameSetupMs * 0.1;
+                frameUploadMs = frameTerrainMs = frameSetupMs = 0;
             }
             // cpuMs is added at endFrame, paired with this wall sample
             pendingWall = true;
@@ -155,13 +184,13 @@ public final class FrameTimer {
     }
 
     /** Chunk upload phase time (runs in preInitFrame). */
-    public void addUploadNanos(long nanos) { accUploadMs += nanos / 1.0e6; }
+    public void addUploadNanos(long nanos) { accUploadMs += nanos / 1.0e6; frameUploadMs += nanos / 1.0e6; }
 
     /** Terrain draw-recording phase time. */
-    public void addTerrainNanos(long nanos) { accTerrainMs += nanos / 1.0e6; }
+    public void addTerrainNanos(long nanos) { accTerrainMs += nanos / 1.0e6; frameTerrainMs += nanos / 1.0e6; }
 
     /** Visibility/culling build time (WorldRenderer.setupRenderer). */
-    public void addSetupNanos(long nanos) { accSetupMs += nanos / 1.0e6; }
+    public void addSetupNanos(long nanos) { accSetupMs += nanos / 1.0e6; frameSetupMs += nanos / 1.0e6; }
 
     /** Reset this slot's queries and write the frame-start timestamp. Must NOT be inside a render pass. */
     public void cmdBeginTimestamp(org.lwjgl.vulkan.VkCommandBuffer cmd, int frame) {

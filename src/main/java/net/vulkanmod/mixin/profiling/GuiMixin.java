@@ -28,5 +28,7 @@ public class GuiMixin {
     private void renderProfilerOverlay(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         if(ProfilerOverlay.shouldRender && !this.debugOverlay.showDebugScreen())
             ProfilerOverlay.INSTANCE.render(guiGraphics);
+        if (!this.debugOverlay.showDebugScreen())
+            net.vulkanmod.render.profiling.FpsOverlay.render(guiGraphics);
     }
 }

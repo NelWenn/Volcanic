@@ -5,9 +5,6 @@ import java.util.List;
 
 public final class PluginPageLayout {
     public static final int PAD_X = 14;
-    public static final int TOP = 48;
-    public static final int HEADER_H = 18;
-    public static final int HEADER_GAP = 10;
     public static final int HEADING_H = 12;
     public static final int HEADING_GAP = 6;
     public static final int BLOCK_GAP = 14;
@@ -38,14 +35,14 @@ public final class PluginPageLayout {
         }
     }
 
-    public record Page(Rect header, Block plugins, Block mods, Rect empty, int height) {
+    public record Page(Block plugins, Block mods, Rect empty, int height) {
     }
 
     public record Slots(Rect accent, Rect name, Rect note, Rect state, Rect toggle) {
     }
 
     private static final Block NO_BLOCK = new Block(Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, List.of(), false);
-    private static final Page NO_PAGE = new Page(Rect.EMPTY, NO_BLOCK, NO_BLOCK, Rect.EMPTY, 0);
+    private static final Page NO_PAGE = new Page(NO_BLOCK, NO_BLOCK, Rect.EMPTY, 0);
     private static final Slots NO_SLOTS =
             new Slots(Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, Rect.EMPTY);
 
@@ -70,16 +67,13 @@ public final class PluginPageLayout {
 
         if (pluginCount == 0 && modCount == 0) {
             int cardWidth = Math.min(EMPTY_W, usable);
-            int free = content.height() - TOP - BOTTOM - EMPTY_H;
+            int free = content.height() - BOTTOM - EMPTY_H;
             Rect empty = new Rect(x + Math.max(0, (usable - cardWidth) / 2),
-                    base + TOP + Math.max(0, free / 2), cardWidth, EMPTY_H);
-            return new Page(Rect.EMPTY, NO_BLOCK, NO_BLOCK, empty, height);
+                    base + Math.max(0, free / 2), cardWidth, EMPTY_H);
+            return new Page(NO_BLOCK, NO_BLOCK, empty, height);
         }
 
-        int offset = TOP;
-        Rect header = new Rect(x, base + offset, usable, HEADER_H);
-        offset += HEADER_H + HEADER_GAP;
-
+        int offset = 0;
         boolean placeholder = pluginCount == 0;
         int shown = placeholder ? 1 : pluginCount;
         int rowHeight = placeholder ? MOD_ROW_H : SettingRowLayout.rowHeight(breakpoint);
@@ -92,7 +86,7 @@ public final class PluginPageLayout {
             offset += BLOCK_GAP;
             mods = block(x, base, offset, usable, modCount, MOD_ROW_H, MOD_ROW_GAP, false);
         }
-        return new Page(header, plugins, mods, Rect.EMPTY, height);
+        return new Page(plugins, mods, Rect.EMPTY, height);
     }
 
     public static Slots slots(Rect row, boolean toggleable) {
@@ -134,16 +128,6 @@ public final class PluginPageLayout {
         return new Slots(accent, name, note, state, toggle);
     }
 
-    public static Rect bar(Rect header) {
-        return header.isEmpty() ? Rect.EMPTY
-                : new Rect(header.x(), header.y(), Math.min(ACCENT_W, header.width()), header.height());
-    }
-
-    public static Rect intro(Rect header) {
-        return header.isEmpty() || header.width() <= TEXT_X ? Rect.EMPTY
-                : new Rect(header.x() + TEXT_X, header.y() + 2, header.width() - TEXT_X, SMALL_LINE * 2);
-    }
-
     public static Rect ruleLead(Rect rule) {
         return rule.isEmpty() ? Rect.EMPTY
                 : new Rect(rule.x(), rule.y(), Math.min(RULE_LEAD, rule.width()), rule.height());
@@ -175,14 +159,14 @@ public final class PluginPageLayout {
             throw new IllegalArgumentException("counts must not be negative");
         }
         if (pluginCount == 0 && modCount == 0) {
-            return TOP + EMPTY_H + BOTTOM;
+            return EMPTY_H + BOTTOM;
         }
         boolean placeholder = pluginCount == 0;
         int shown = placeholder ? 1 : pluginCount;
         int rowHeight = placeholder ? MOD_ROW_H : SettingRowLayout.rowHeight(breakpoint);
         int rowGap = placeholder ? MOD_ROW_GAP : SettingRowLayout.rowGap(breakpoint);
 
-        int total = TOP + HEADER_H + HEADER_GAP + blockHeight(shown, rowHeight, rowGap);
+        int total = blockHeight(shown, rowHeight, rowGap);
         if (modCount > 0) {
             total += BLOCK_GAP + blockHeight(modCount, MOD_ROW_H, MOD_ROW_GAP);
         }

@@ -7,6 +7,8 @@ import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
 import net.vulkanmod.config.ui.core.ProfileChipRow;
+import net.vulkanmod.config.ui.core.FrameGraphLayout;
+import net.vulkanmod.config.ui.core.InfoRowLayout;
 import net.vulkanmod.config.ui.core.PluginPageLayout;
 import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
@@ -19,6 +21,7 @@ import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingType;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
+import net.vulkanmod.config.ui.core.TextScale;
 import net.vulkanmod.config.ui.core.ShellLayout;
 import net.vulkanmod.config.ui.core.SidebarModel;
 import net.vulkanmod.config.ui.core.SliderGeometry;
@@ -60,7 +63,8 @@ public class VolcanicScreen extends Screen {
 
     @Override
     protected void init() {
-        this.layout = ShellLayout.of(this.width, this.height);
+        this.layout = ShellLayout.of(this.width, this.height, presenter.isDeveloper());
+        net.vulkanmod.render.profiling.StackSampler.setRunning(true);
         if (!layout.hasDrawer()) {
             this.drawerOpen = false;
         }
@@ -160,6 +164,9 @@ public class VolcanicScreen extends Screen {
         }
         if (drawerOpen) {
             setDrawerOpen(false);
+            return true;
+        }
+        if (presenter.isDeveloperStats() && clickStatsControls(x, y)) {
             return true;
         }
         if (renderer.lastCard().contains(x, y)) {
@@ -365,6 +372,34 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public boolean isPauseScreen() {
+        return true;
+    }
+
+    private boolean clickStatsControls(int mouseX, int mouseY) {
+        if (renderer.statsPauseButton(layout, presenter, contentScroll).contains(mouseX, mouseY)) {
+            presenter.toggleAxisUnit();
+            return true;
+        }
+        List<Rect> rows = renderer.statsStutterRows(layout, presenter, contentScroll);
+        for (int index = 0; index < rows.size(); index++) {
+            if (rows.get(index).contains(mouseX, mouseY)) {
+                presenter.selectStutter(index);
+                return true;
+            }
+        }
+        List<Rect> actions = renderer.statsActions(layout, presenter, contentScroll);
+        if (!actions.isEmpty() && actions.get(0).contains(mouseX, mouseY)) {
+            this.minecraft.keyboardHandler.setClipboard(presenter.report());
+            return true;
+        }
+        if (actions.size() > 1 && actions.get(1).contains(mouseX, mouseY)) {
+            presenter.resetHistory();
+            return true;
+        }
+        if (actions.size() > 2 && actions.get(2).contains(mouseX, mouseY)) {
+            presenter.rebuildWorld();
+            return true;
+        }
         return false;
     }
 
@@ -442,7 +477,7 @@ public class VolcanicScreen extends Screen {
     }
 
     private int maxContentScroll() {
-        Rect content = layout.content();
+        Rect content = renderer.contentBody(layout, presenter);
         int reserve = presenter.pending().isEmpty() ? 0 : layout.overlayReserve();
         if (presenter.isOverview()) {
             PresetCardLayout.Page page = PresetCardLayout.page(content, presenter.presetCards().size(),
@@ -450,6 +485,12 @@ public class VolcanicScreen extends Screen {
             return page.centred() || content.isEmpty()
                     ? 0
                     : Math.max(0, page.height() + reserve - content.height());
+        }
+        if (presenter.isDeveloperInfo()) {
+            return InfoRowLayout.maxScroll(content, presenter.infoSections()) + reserve;
+        }
+        if (presenter.isDeveloperStats()) {
+            return renderer.statsMaxScroll(content, presenter, layout.breakpoint()) + reserve;
         }
         if (PluginSettings.ROOT.equals(presenter.stack().current())) {
             return PluginPageLayout.maxScroll(content, presenter.pluginPages().size(),
@@ -496,12 +537,18 @@ public class VolcanicScreen extends Screen {
 
     private boolean clickSettingRow(int mouseX, int mouseY) {
         List<Rect> boxes = renderer.settingRowBoxes(layout, presenter, contentScroll);
+        List<NavPresenter.ContentRow> rows = presenter.contentRows();
         int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
-        if (index < 0 || index >= presenter.settings().size()) {
+        if (index < 0 || index >= rows.size()) {
             return false;
         }
+        if (rows.get(index) instanceof NavPresenter.GroupRow group) {
+            presenter.toggleGroup(group.key());
+            this.contentScroll = Math.max(0, Math.min(this.contentScroll, maxContentScroll()));
+            return true;
+        }
 
-        SettingMeta meta = presenter.settings().get(index);
+        SettingMeta meta = ((NavPresenter.SettingRow) rows.get(index)).meta();
         presenter.focus().focusRegion(NavPresenter.REGION_CONTENT);
         presenter.focus().ring(NavPresenter.REGION_CONTENT).focus(meta.id().toString());
         this.pinned = meta.id();
@@ -542,12 +589,12 @@ public class VolcanicScreen extends Screen {
             return false;
         }
 
-        List<SettingMeta> settings = presenter.settings();
+        List<NavPresenter.ContentRow> rows = presenter.contentRows();
         List<Rect> boxes = renderer.settingRowBoxes(layout, presenter, contentScroll);
-        for (int index = 0; index < settings.size() && index < boxes.size(); index++) {
-            SettingMeta meta = settings.get(index);
-            if (meta.id().equals(dragged)) {
-                applySlider(meta, ShellRenderer.sliderTrack(boxes.get(index)), mouseX);
+        for (int index = 0; index < rows.size() && index < boxes.size(); index++) {
+            if (rows.get(index) instanceof NavPresenter.SettingRow row
+                    && row.meta().id().equals(dragged)) {
+                applySlider(row.meta(), ShellRenderer.sliderTrack(boxes.get(index)), mouseX);
                 return true;
             }
         }
@@ -566,8 +613,9 @@ public class VolcanicScreen extends Screen {
     }
 
     private boolean clickBreadcrumb(int mouseX, int mouseY) {
-        List<Rect> segments = renderer.breadcrumbBoxes(this.font, layout, presenter);
-        int index = BreadcrumbModel.indexAt(segments, mouseX, mouseY);
+        ShellRenderer.Crumbs crumbs = renderer.crumbs(this.font,
+                TextScale.small(this.minecraft.getWindow().getGuiScale()), layout, presenter);
+        int index = BreadcrumbModel.indexAt(crumbs.boxes(), mouseX, mouseY);
         if (index < 0) {
             return false;
         }
@@ -582,9 +630,15 @@ public class VolcanicScreen extends Screen {
     }
 
     private void select(RouteId route, String regionId) {
+        boolean wasCollapsed = layout.collapsed();
         presenter.navigate(route);
+        if (wasCollapsed != presenter.isDeveloper()) {
+            setDrawerOpen(false);
+            rebuildWidgets();
+        }
         presenter.focus().focusRegion(regionId);
         presenter.focus().ring(regionId).focus(route.toString());
+        presenter.refreshDiagnostics(renderer.statsColumns(layout, presenter));
     }
 
     private void setDrawerOpen(boolean open) {
@@ -607,9 +661,23 @@ public class VolcanicScreen extends Screen {
         if (focused == null) {
             return;
         }
-        List<SettingMeta> settings = presenter.settings();
-        this.contentScroll = SettingRowLayout.scrollToReveal(layout.content(), settings.size(),
-                settings.indexOf(focused), contentScroll, layout.breakpoint());
+        List<NavPresenter.ContentRow> rows = presenter.contentRows();
+        int index = -1;
+        for (int row = 0; row < rows.size(); row++) {
+            if (rows.get(row) instanceof NavPresenter.SettingRow candidate
+                    && candidate.meta().id().equals(focused.id())) {
+                index = row;
+                break;
+            }
+        }
+        this.contentScroll = SettingRowLayout.scrollToReveal(renderer.contentBody(layout, presenter),
+                rows.size(), index, contentScroll, layout.breakpoint());
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        presenter.refreshDiagnostics(renderer.statsColumns(layout, presenter));
     }
 
     private void syncContentScroll() {
@@ -618,8 +686,7 @@ public class VolcanicScreen extends Screen {
             this.scrolledRoute = current;
             this.contentScroll = 0;
         }
-        this.contentScroll = SettingRowLayout.clampScroll(this.contentScroll, layout.content(),
-                presenter.contentRowCount(), layout.breakpoint());
+        this.contentScroll = Math.max(0, Math.min(this.contentScroll, maxContentScroll()));
     }
 
     private Rect navViewport() {

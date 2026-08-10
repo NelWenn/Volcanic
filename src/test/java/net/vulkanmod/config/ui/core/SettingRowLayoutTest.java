@@ -1,5 +1,6 @@
 package net.vulkanmod.config.ui.core;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
@@ -516,5 +517,41 @@ class SettingRowLayoutTest {
         assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.cyclerPrevBox(null));
         assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.cyclerValueBox(null));
         assertThrows(IllegalArgumentException.class, () -> SettingRowLayout.cyclerNextBox(null));
+    }
+
+    @Test
+    @DisplayName("a group header keeps its parts inside the row and clear of each other")
+    void groupHeaderPartsStayInsideTheRow() {
+        Rect row = SettingRowLayout.rows(new Rect(132, 32, 388, 300), 1, 0, Breakpoint.WIDE).get(0);
+
+        Rect chevron = SettingRowLayout.groupChevron(row);
+        Rect label = SettingRowLayout.groupLabel(row);
+        Rect count = SettingRowLayout.groupCount(row);
+        Rect rule = SettingRowLayout.groupRule(row);
+
+        for (Rect part : new Rect[] {chevron, label, count, rule}) {
+            assertTrue(part.x() >= row.x() && part.right() <= row.right(), "a part escapes sideways");
+            assertTrue(part.y() >= row.y() && part.bottom() <= row.bottom(), "a part escapes vertically");
+        }
+        assertTrue(label.x() >= chevron.right(), "the label would sit on the chevron");
+        assertTrue(label.right() <= count.x(), "the label would run under the count");
+    }
+
+    @Test
+    @DisplayName("a row too narrow for a group header gives up the label rather than inverting it")
+    void narrowGroupHeaderDropsItsLabel() {
+        Rect narrow = new Rect(0, 0, SettingRowLayout.GROUP_CHEVRON + SettingRowLayout.GROUP_COUNT_W, 27);
+
+        assertTrue(SettingRowLayout.groupLabel(narrow).isEmpty());
+        assertFalse(SettingRowLayout.groupChevron(narrow).isEmpty());
+    }
+
+    @Test
+    @DisplayName("an empty row yields no group parts at all")
+    void emptyRowHasNoGroupParts() {
+        assertTrue(SettingRowLayout.groupChevron(Rect.EMPTY).isEmpty());
+        assertTrue(SettingRowLayout.groupLabel(Rect.EMPTY).isEmpty());
+        assertTrue(SettingRowLayout.groupCount(Rect.EMPTY).isEmpty());
+        assertTrue(SettingRowLayout.groupRule(Rect.EMPTY).isEmpty());
     }
 }

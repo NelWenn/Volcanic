@@ -6,7 +6,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.ParticleStatus;
 import net.minecraft.client.PrioritizeChunkUpdates;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.resources.ResourceLocation;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.render.particle.ParticleToggles;
+import net.vulkanmod.render.profiling.ProfilerOverlay;
 import net.vulkanmod.vulkan.MoltenVKConfig;
 import net.vulkanmod.compat.opengl.GlDrawOptions;
 import net.vulkanmod.api.LodCulling;
@@ -102,10 +105,13 @@ public final class SettingsCatalog {
         bindPerformanceSynchronization();
         bindQualityGeneral();
         bindQualityTextures();
+        bindGlint();
         bindQualityLighting();
         bindQualityEnvironment();
-        bindQualityParticles();
-        bindQualityEntities();
+        bindEnvironmentWind();
+        bindRenderingAdvanced();
+        bindRenderingEntities();
+        bindDeveloperTools();
         bindAdvancedRenderer();
         bindAdvancedSynchronization();
         bindAdvancedCompatibility();
@@ -125,15 +131,49 @@ public final class SettingsCatalog {
         registerAll(SettingsDefinitions.qualityTextures());
         registerAll(SettingsDefinitions.qualityLighting());
         registerAll(SettingsDefinitions.qualityEnvironment());
-        registerAll(SettingsDefinitions.qualityParticles());
-        registerAll(SettingsDefinitions.qualityEntities());
+        registerAll(SettingsDefinitions.renderingAdvanced());
+        registerAll(SettingsDefinitions.renderingEntities());
         registerAll(SettingsDefinitions.advancedRenderer());
         registerAll(SettingsDefinitions.advancedSynchronization());
         registerAll(SettingsDefinitions.advancedCompatibility());
         registerAll(SettingsDefinitions.shadersCurrent());
+        registerAll(SettingsDefinitions.developerTools());
+        registerParticles();
 
         registerPlugins();
         registerMods();
+    }
+
+    private void registerParticles() {
+        List<ResourceLocation> ids;
+        try {
+            ids = ParticleToggles.ids();
+        } catch (Throwable unavailable) {
+            return;
+        }
+        for (ResourceLocation id : ids) {
+            SettingMeta meta = SettingsDefinitions.particleToggle(id.toString(), particleLabel(id));
+            registry.register(meta);
+            bindings.put(meta.id(), SettingBinding.of(
+                    () -> ParticleToggles.enabled(id),
+                    value -> ParticleToggles.setEnabled(id, boolValue(value)))
+                    .withDefault(() -> Boolean.TRUE));
+        }
+    }
+
+    private static String particleLabel(ResourceLocation id) {
+        StringBuilder out = new StringBuilder();
+        for (String word : id.getPath().split("_")) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (!out.isEmpty()) {
+                out.append(' ');
+            }
+            out.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        String name = out.isEmpty() ? id.getPath() : out.toString();
+        return "minecraft".equals(id.getNamespace()) ? name : name + " (" + id.getNamespace() + ")";
     }
 
     private void registerAll(List<SettingMeta> definitions) {
@@ -236,6 +276,14 @@ public final class SettingsCatalog {
         return binding;
     }
 
+    private static boolean camilleActive() {
+        try {
+            return DefaultMainPass.postShaderActive() && Initializer.CONFIG.isCamille();
+        } catch (Throwable failure) {
+            return false;
+        }
+    }
+
     public boolean enabled(SettingId id) {
         if (id == null) {
             throw new IllegalArgumentException("id must not be null");
@@ -251,6 +299,12 @@ public final class SettingsCatalog {
         }
         if (SettingsDefinitions.DISABLE_HIDPI.equals(id)) {
             return Platform.isMacOS();
+        }
+        if (SettingsDefinitions.VULKAN_VALIDATION.equals(id)) {
+            return net.vulkanmod.vulkan.MoltenVKConfig.vulkanSdkPresent();
+        }
+        if (SettingsDefinitions.CAMILLE_ONLY.contains(id)) {
+            return camilleActive();
         }
         if (SettingsDefinitions.VSR_UPSCALER.equals(id)) {
             return VsrPreset.current(Initializer.CONFIG).isEnabled();
@@ -551,6 +605,19 @@ public final class SettingsCatalog {
                 SettingsDefinitions.EFFECT_SCALE_STEP, SettingsDefinitions.PERCENT_SCALE)
                 .withDefault(() -> SettingsDefinitions.EFFECT_SCALE_DEFAULT)
                 .withFormatter(SettingsCatalog::percentLabel));
+
+        bindings.put(SettingsDefinitions.VIEW_BOBBING, SettingBinding.of(
+                () -> Minecraft.getInstance().options.bobView().get(),
+                value -> Minecraft.getInstance().options.bobView().set(boolValue(value)))
+                .withDefault(() -> Boolean.TRUE));
+
+        bindings.put(SettingsDefinitions.DAMAGE_TILT, SettingBinding.scaled(
+                () -> Minecraft.getInstance().options.damageTiltStrength().get(),
+                value -> Minecraft.getInstance().options.damageTiltStrength().set(doubleValue(value)),
+                SettingsDefinitions.EFFECT_SCALE_MIN, SettingsDefinitions.EFFECT_SCALE_MAX,
+                SettingsDefinitions.EFFECT_SCALE_STEP, SettingsDefinitions.PERCENT_SCALE)
+                .withDefault(() -> SettingsDefinitions.EFFECT_SCALE_MAX)
+                .withFormatter(SettingsCatalog::percentLabel));
     }
 
     private void bindDisplayAdvanced() {
@@ -664,6 +731,13 @@ public final class SettingsCatalog {
     }
 
     private void bindPerformanceGeneral() {
+        bindings.put(SettingsDefinitions.BUILDER_THREADS, SettingBinding.ranged(
+                () -> Initializer.CONFIG.chunkBuilderThreads,
+                value -> Initializer.CONFIG.chunkBuilderThreads = intValue(value),
+                SettingsDefinitions.BUILDER_THREADS_AUTO, TaskDispatcher::maxThreadCount, 1)
+                .withDefault(() -> SettingsDefinitions.BUILDER_THREADS_AUTO)
+                .withFormatter(SettingsCatalog::builderThreadsLabel));
+
         bindings.put(SettingsDefinitions.PERFORMANCE_PROFILE, SettingBinding.choosing(
                 () -> PerformancePreset.byId(Initializer.CONFIG.performancePreset).translationKey,
                 value -> PerformancePresetApplier.apply(performanceProfileFor(label(value)),
@@ -728,6 +802,73 @@ public final class SettingsCatalog {
                 .withDefault(() -> GraphicsStatus.FAST.getKey()));
     }
 
+    private static final List<String> SHOW_FPS_MODES = List.of(
+            "vulkanmod.options.showFps.off", "vulkanmod.options.showFps.simple",
+            "vulkanmod.options.showFps.advanced");
+
+    private void bindDeveloperTools() {
+        bindings.put(SettingsDefinitions.SHOW_FPS, SettingBinding.choosing(
+                () -> I18n.get(SHOW_FPS_MODES.get(clampIndex(Initializer.CONFIG.showFps,
+                        SHOW_FPS_MODES.size()))),
+                value -> Initializer.CONFIG.showFps = indexOfLabel(SHOW_FPS_MODES, value),
+                () -> SHOW_FPS_MODES.stream().map(I18n::get).toList())
+                .withDefault(() -> I18n.get(SHOW_FPS_MODES.get(0))));
+
+        bindings.put(SettingsDefinitions.SHOW_COORDINATES, SettingBinding.of(
+                () -> Initializer.CONFIG.showCoordinates,
+                value -> Initializer.CONFIG.showCoordinates = boolValue(value))
+                .withDefault(() -> Boolean.FALSE));
+
+        bindings.put(SettingsDefinitions.PERF_LOG, SettingBinding.of(
+                () -> Initializer.CONFIG.perfLog,
+                value -> {
+                    Initializer.CONFIG.perfLog = boolValue(value);
+                    net.vulkanmod.vulkan.FrameTimer.setLogging(Initializer.CONFIG.perfLog);
+                })
+                .withDefault(() -> Boolean.FALSE));
+
+        bindings.put(SettingsDefinitions.DEBUG_OVERLAY, SettingBinding.of(
+                () -> Minecraft.getInstance().getDebugOverlay().showDebugScreen(),
+                value -> {
+                    if (boolValue(value) != Minecraft.getInstance().getDebugOverlay().showDebugScreen()) {
+                        Minecraft.getInstance().getDebugOverlay().toggleOverlay();
+                    }
+                })
+                .withDefault(() -> Boolean.FALSE));
+
+        bindings.put(SettingsDefinitions.PROFILER_OVERLAY, SettingBinding.of(
+                () -> ProfilerOverlay.shouldRender,
+                value -> {
+                    if (boolValue(value) != ProfilerOverlay.shouldRender) {
+                        ProfilerOverlay.toggle();
+                    }
+                })
+                .withDefault(() -> Boolean.FALSE));
+
+        bindings.put(SettingsDefinitions.VSR_DEBUG, SettingBinding.of(
+                () -> Initializer.CONFIG.vsrDebug,
+                value -> Initializer.CONFIG.vsrDebug = boolValue(value))
+                .withDefault(() -> Boolean.FALSE));
+
+        bindings.put(SettingsDefinitions.PBR_DEBUG_NORMALS, SettingBinding.of(
+                () -> Initializer.CONFIG.pbrDebugNormals,
+                value -> Initializer.CONFIG.pbrDebugNormals = boolValue(value))
+                .withDefault(() -> Boolean.FALSE));
+    }
+
+    private void bindEnvironmentWind() {
+        bindings.put(SettingsDefinitions.WIND_STRENGTH, SettingBinding.ranged(
+                () -> Math.round(Initializer.CONFIG.windStrength * SettingsDefinitions.PERCENT_SCALE),
+                value -> {
+                    int percent = intValue(value);
+                    Initializer.CONFIG.windEnabled = percent > 0;
+                    Initializer.CONFIG.windStrength = percent / (float) SettingsDefinitions.PERCENT_SCALE;
+                },
+                0, SettingsDefinitions.WIND_MAX, SettingsDefinitions.WIND_STEP)
+                .withDefault(() -> SettingsDefinitions.WIND_DEFAULT)
+                .withFormatter(SettingsCatalog::windLabel));
+    }
+
     private void bindQualityTextures() {
         bindings.put(SettingsDefinitions.MIPMAP_LEVELS, SettingBinding.choosing(
                 () -> String.valueOf(Minecraft.getInstance().options.mipmapLevels().get()),
@@ -758,6 +899,16 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.citEnabled,
                 value -> Initializer.CONFIG.citEnabled = boolValue(value))
                 .withDefault(() -> Boolean.TRUE));
+    }
+
+    private void bindGlint() {
+        bindings.put(SettingsDefinitions.GLINT_STRENGTH, SettingBinding.scaled(
+                () -> Minecraft.getInstance().options.glintStrength().get(),
+                value -> Minecraft.getInstance().options.glintStrength().set(doubleValue(value)),
+                SettingsDefinitions.EFFECT_SCALE_MIN, SettingsDefinitions.EFFECT_SCALE_MAX,
+                SettingsDefinitions.EFFECT_SCALE_STEP, SettingsDefinitions.PERCENT_SCALE)
+                .withDefault(() -> SettingsDefinitions.GLINT_DEFAULT)
+                .withFormatter(SettingsCatalog::percentLabel));
     }
 
     private void bindQualityLighting() {
@@ -792,7 +943,8 @@ public final class SettingsCatalog {
                 .withDefault(() -> CloudStatus.FANCY.getKey()));
     }
 
-    private void bindQualityParticles() {
+    private void bindRenderingAdvanced() {
+
         bindings.put(SettingsDefinitions.PARTICLES, SettingBinding.choosing(
                 () -> Minecraft.getInstance().options.particles().get().getKey(),
                 value -> Minecraft.getInstance().options.particles().set(particleStatusFor(label(value))),
@@ -800,7 +952,12 @@ public final class SettingsCatalog {
                 .withDefault(() -> ParticleStatus.ALL.getKey()));
     }
 
-    private void bindQualityEntities() {
+    private void bindRenderingEntities() {
+        bindings.put(SettingsDefinitions.SHADOW_CASTERS, SettingBinding.of(
+                () -> Initializer.CONFIG.entityShadows,
+                value -> Initializer.CONFIG.entityShadows = boolValue(value))
+                .withDefault(() -> Boolean.TRUE));
+
         bindings.put(SettingsDefinitions.ENTITY_SHADOWS, SettingBinding.of(
                 () -> Minecraft.getInstance().options.entityShadows().get(),
                 value -> Minecraft.getInstance().options.entityShadows().set(boolValue(value)))
@@ -816,6 +973,11 @@ public final class SettingsCatalog {
     }
 
     private void bindAdvancedRenderer() {
+        bindings.put(SettingsDefinitions.VULKAN_VALIDATION, SettingBinding.of(
+                () -> Initializer.CONFIG.vulkanValidation,
+                value -> Initializer.CONFIG.vulkanValidation = boolValue(value))
+                .withDefault(() -> Boolean.FALSE));
+
         bindings.put(SettingsDefinitions.GPU_DEVICE, SettingBinding.choosing(
                 () -> deviceLabel(Initializer.CONFIG.device),
                 value -> Initializer.CONFIG.device = deviceFor(label(value)),
@@ -1076,11 +1238,38 @@ public final class SettingsCatalog {
         };
     }
 
+
+    private static String windLabel(Object value) {
+        int percent = intValue(value);
+        return percent == 0 ? I18n.get("options.off") : percent + "%";
+    }
+
+    private static String builderThreadsLabel(Object value) {
+        int threads = intValue(value);
+        return threads <= SettingsDefinitions.BUILDER_THREADS_AUTO
+                ? I18n.get("options.guiScale.auto") + " (" + TaskDispatcher.autoThreadCount() + ")"
+                : Integer.toString(threads);
+    }
+
+    private static int clampIndex(int value, int size) {
+        return Math.max(0, Math.min(size - 1, value));
+    }
+
+    private static int indexOfLabel(List<String> keys, Object value) {
+        String label = String.valueOf(value);
+        for (int index = 0; index < keys.size(); index++) {
+            if (I18n.get(keys.get(index)).equals(label)) {
+                return index;
+            }
+        }
+        return 0;
+    }
+
     private static String percentLabel(Object value) {
         int percent = intValue(value);
         return percent == SettingsDefinitions.EFFECT_SCALE_MIN
                 ? I18n.get("options.off")
-                : I18n.get("options.percent_value", percent);
+                : percent + "%";
     }
 
     private static String framerateLimitLabel(Object value) {

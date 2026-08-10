@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class BreadcrumbModel {
-    private static final int SEPARATOR_ADVANCE = 14;
-    private static final int HEIGHT = 9;
+    public static final int SEPARATOR_ADVANCE = 14;
+    public static final int HEIGHT = 9;
 
     private BreadcrumbModel() {
     }

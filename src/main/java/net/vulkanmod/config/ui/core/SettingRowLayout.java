@@ -28,7 +28,6 @@ public final class SettingRowLayout {
     private static final int ROW_GAP = 5;
     private static final int ROW_GAP_COMPACT = 3;
     private static final int PAD_X = 14;
-    private static final int TOP = 70;
     private static final int BOTTOM = 12;
 
     private SettingRowLayout() {
@@ -64,9 +63,35 @@ public final class SettingRowLayout {
         List<Rect> rows = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             rows.add(new Rect(content.x() + PAD_X,
-                    content.y() + TOP + index * pitch - scroll, width, height));
+                    content.y() + index * pitch - scroll, width, height));
         }
         return List.copyOf(rows);
+    }
+
+    public static final int GROUP_CHEVRON = 7;
+    public static final int GROUP_COUNT_W = 24;
+
+    public static Rect groupChevron(Rect row) {
+        return row.isEmpty() ? Rect.EMPTY
+                : new Rect(row.x(), row.y() + (row.height() - GROUP_CHEVRON) / 2,
+                        GROUP_CHEVRON, GROUP_CHEVRON);
+    }
+
+    public static Rect groupLabel(Rect row) {
+        int left = row.x() + GROUP_CHEVRON + 5;
+        int width = row.right() - GROUP_COUNT_W - 6 - left;
+        return row.isEmpty() || width <= 0 ? Rect.EMPTY
+                : new Rect(left, row.y() + (row.height() - 9) / 2, width, 9);
+    }
+
+    public static Rect groupCount(Rect row) {
+        return row.isEmpty() ? Rect.EMPTY
+                : new Rect(row.right() - GROUP_COUNT_W, row.y() + (row.height() - 7) / 2,
+                        GROUP_COUNT_W, 7);
+    }
+
+    public static Rect groupRule(Rect row) {
+        return row.isEmpty() ? Rect.EMPTY : new Rect(row.x(), row.bottom() - 1, row.width(), 1);
     }
 
     public static Rect cardBox(Rect row) {
@@ -172,7 +197,7 @@ public final class SettingRowLayout {
         if (count == 0) {
             return 0;
         }
-        return TOP + count * (rowHeight(breakpoint) + rowGap(breakpoint)) - rowGap(breakpoint) + BOTTOM;
+        return count * (rowHeight(breakpoint) + rowGap(breakpoint)) - rowGap(breakpoint) + BOTTOM;
     }
 
     public static int maxScroll(Rect content, int count, Breakpoint breakpoint) {
@@ -203,14 +228,14 @@ public final class SettingRowLayout {
             return clampScroll(scroll, content, count, breakpoint);
         }
 
-        int top = TOP + index * (rowHeight(breakpoint) + rowGap(breakpoint));
+        int top = index * (rowHeight(breakpoint) + rowGap(breakpoint));
         int bottom = top + rowHeight(breakpoint);
         int offset = scroll;
         if (bottom > offset + content.height() - BOTTOM) {
             offset = bottom - content.height() + BOTTOM;
         }
-        if (top < offset + TOP) {
-            offset = top - TOP;
+        if (top < offset) {
+            offset = top;
         }
         return clampScroll(Math.max(0, offset), content, count, breakpoint);
     }
