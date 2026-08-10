@@ -248,14 +248,23 @@ public final class ShellRenderer {
     private final Glide applyBarSlide = new Glide(80.0f);
     private ApplyBarModel lastBar;
     private boolean barOnScreen;
-    private final Glide navMarkerTop = new Glide(55.0f);
-    private final Glide navMarkerHeight = new Glide(55.0f);
+    private static final int MARKER_STEP_MS = 45;
+    private static final int MARKER_STEPS = 4;
+    private static final int MARKER_FLASH_MS = 120;
     private boolean navMarkerPlaced;
+    private float navMarkerFromOffset;
+    private float navMarkerToOffset;
+    private float navMarkerFromSpan;
+    private float navMarkerToSpan;
+    private long navMarkerElapsed = 9_999L;
     private float navMarkerOffset;
     private float navMarkerSpan;
-    private final Glide tabMarkerX = new Glide(55.0f);
-    private final Glide tabMarkerWidth = new Glide(55.0f);
     private boolean tabMarkerPlaced;
+    private int tabMarkerFromX;
+    private int tabMarkerToX;
+    private int tabMarkerFromW;
+    private int tabMarkerToW;
+    private long tabMarkerElapsed = 9_999L;
     private int tabStripOrigin;
     private final CoalScene coals = new CoalScene(0x5A1FL);
     private final PresetFx presetFx = new PresetFx();
@@ -318,7 +327,7 @@ public final class ShellRenderer {
 
         Rect content = layout.content();
         if (!content.isEmpty()) {
-            float reveal = Motion.easeOut(pageElapsed, Motion.PAGE_MS);
+            float reveal = Motion.step(Motion.easeOut(pageElapsed, Motion.PAGE_MS), 3);
             graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
             try {
                 paintCoals(graphics, painter, content, deltaMs);
@@ -738,9 +747,10 @@ public final class ShellRenderer {
         List<Rect> shifted = new ArrayList<>(rows.size());
         for (int index = 0; index < rows.size(); index++) {
             shifted.add(rows.get(index).translated(
-                    Motion.slide(Motion.rowReveal(pageElapsed, index), pageDirection, Motion.PAGE_TRAVEL),
-                    Motion.slide(Motion.easeOut(rowsElapsed - index * 12L, Motion.ROWS_MS), 1,
-                            Motion.ROW_TRAVEL)));
+                    Motion.slide(Motion.step(Motion.rowReveal(pageElapsed, index), 3),
+                            pageDirection, Motion.PAGE_TRAVEL),
+                    Motion.slide(Motion.step(Motion.easeOut(rowsElapsed - index * 12L, Motion.ROWS_MS), 3),
+                            1, Motion.ROW_TRAVEL)));
         }
         return List.copyOf(shifted);
     }
@@ -1125,6 +1135,16 @@ public final class ShellRenderer {
         return Math.max(0.0f, (high - low) / rowHeight);
     }
 
+    private static float steppedBetween(float from, float to, long elapsed) {
+        int step = (int) Math.min(MARKER_STEPS, elapsed / MARKER_STEP_MS);
+        return from + (to - from) * step / MARKER_STEPS;
+    }
+
+    private static boolean markerLanding(long elapsed) {
+        long landed = (long) MARKER_STEPS * MARKER_STEP_MS;
+        return elapsed >= landed && elapsed < landed + MARKER_FLASH_MS;
+    }
+
     private void paintNavMarker(SurfacePainter painter, Rect sidebar, SidebarModel model,
                                 SidebarViewport viewport, RouteId activeRoute, long deltaMs) {
         int index = -1;
@@ -1143,21 +1163,50 @@ public final class ShellRenderer {
         }
 
         float offset = model.offsetOf(index);
-        float height = model.heightOf(index);
+        float span = model.heightOf(index);
         if (!navMarkerPlaced) {
             this.navMarkerPlaced = true;
-            navMarkerTop.jumpTo(offset);
-            navMarkerHeight.jumpTo(height);
+            this.navMarkerFromOffset = offset;
+            this.navMarkerToOffset = offset;
+            this.navMarkerFromSpan = span;
+            this.navMarkerToSpan = span;
+            this.navMarkerElapsed = 9_999L;
+        } else if (offset != navMarkerToOffset || span != navMarkerToSpan) {
+            this.navMarkerFromOffset = steppedBetween(navMarkerFromOffset, navMarkerToOffset,
+                    navMarkerElapsed);
+            this.navMarkerFromSpan = steppedBetween(navMarkerFromSpan, navMarkerToSpan,
+                    navMarkerElapsed);
+            this.navMarkerToOffset = offset;
+            this.navMarkerToSpan = span;
+            this.navMarkerElapsed = 0L;
+        } else {
+            this.navMarkerElapsed = Math.min(9_999L, navMarkerElapsed + deltaMs);
         }
-        this.navMarkerOffset = navMarkerTop.advance(offset, deltaMs);
-        this.navMarkerSpan = navMarkerHeight.advance(height, deltaMs);
+
+        this.navMarkerOffset = steppedBetween(navMarkerFromOffset, navMarkerToOffset, navMarkerElapsed);
+        this.navMarkerSpan = steppedBetween(navMarkerFromSpan, navMarkerToSpan, navMarkerElapsed);
         int top = viewport.screenTop(Math.round(navMarkerOffset));
-        int span = Math.round(navMarkerSpan);
-        Rect box = SidebarModel.rowBox(sidebar, top, span, depth);
+        int spanNow = Math.round(navMarkerSpan);
+        Rect box = SidebarModel.rowBox(sidebar, top, spanNow, depth);
+
+        boolean travelling = navMarkerElapsed < (long) MARKER_STEPS * MARKER_STEP_MS;
+        if (travelling) {
+            Rect trail = SidebarModel.rowBox(sidebar,
+                    viewport.screenTop(Math.round(navMarkerFromOffset)),
+                    Math.round(navMarkerFromSpan), depth);
+            paintRoundedOutline(painter, trail, NAV_RADIUS,
+                    theme.color(ColorToken.BORDER_ACCENT, 0.35f));
+        }
+
         paintRoundedGradient(painter, box, NAV_RADIUS,
                 theme.color(ColorToken.SURFACE_NAV_ACTIVE), theme.color(ColorToken.SURFACE_SIDEBAR_BOTTOM));
         paintRoundedOutline(painter, box, NAV_RADIUS, theme.color(ColorToken.BORDER_ACCENT));
-        paintLeadingEdge(painter, box, NAV_RADIUS, theme.color(ColorToken.ACCENT));
+        boolean landing = markerLanding(navMarkerElapsed);
+        paintLeadingEdge(painter, box, NAV_RADIUS,
+                landing ? 0xFFFFE7C4 : theme.color(ColorToken.ACCENT));
+        if (landing) {
+            paintRoundedOutline(painter, box, NAV_RADIUS, Motion.fade(theme.color(ColorToken.ACCENT), 0.55f));
+        }
     }
 
     private void paintRowSurface(SurfacePainter painter, Rect box, boolean active, float hovered, float focused) {
@@ -2745,7 +2794,29 @@ public final class ShellRenderer {
             paintSmallLines(painter, font, band.subtitle(), I18n.get(subtitle), ColorToken.TEXT_MUTED);
         }
         paintTabStrip(painter, font, layout, presenter, deltaMs);
-        painter.fill(band.rule(), theme.color(ColorToken.BORDER_SUBTLE));
+        paintBandRule(painter, band.rule());
+    }
+
+    private void paintBandRule(SurfacePainter painter, Rect rule) {
+        if (rule.isEmpty()) {
+            return;
+        }
+        if (pageElapsed >= Motion.SEQUENCE_MS) {
+            painter.fill(rule, theme.color(ColorToken.BORDER_SUBTLE));
+            return;
+        }
+        float sweep = Motion.step(Motion.easeOut(pageElapsed, Motion.PAGE_MS + 90), 5);
+        int width = Math.round(rule.width() * sweep);
+        if (width <= 0) {
+            return;
+        }
+        painter.fill(new Rect(rule.x(), rule.y(), width, rule.height()),
+                theme.color(ColorToken.BORDER_SUBTLE));
+        if (width < rule.width()) {
+            painter.fill(new Rect(rule.x() + Math.max(0, width - 6), rule.y(), Math.min(6, width),
+                    rule.height()), theme.color(ColorToken.ACCENT, 0.8f));
+            painter.fill(new Rect(rule.x() + width, rule.y(), 1, rule.height()), 0xFFFFE7C4);
+        }
     }
 
     private void paintCrumbs(SurfacePainter painter, Font font, ShellLayout layout,
@@ -2782,18 +2853,38 @@ public final class ShellRenderer {
         }
         int origin = boxes.get(0).x();
         if (tabMarkerPlaced && origin != tabStripOrigin) {
-            tabMarkerX.jumpTo(tabMarkerX.value() + origin - tabStripOrigin);
+            int drift = origin - tabStripOrigin;
+            this.tabMarkerFromX += drift;
+            this.tabMarkerToX += drift;
         }
         this.tabStripOrigin = origin;
+
         if (!tabMarkerPlaced) {
             this.tabMarkerPlaced = true;
-            tabMarkerX.jumpTo(target.x());
-            tabMarkerWidth.jumpTo(target.width());
+            this.tabMarkerFromX = target.x();
+            this.tabMarkerToX = target.x();
+            this.tabMarkerFromW = target.width();
+            this.tabMarkerToW = target.width();
+            this.tabMarkerElapsed = 9_999L;
+        } else if (target.x() != tabMarkerToX || target.width() != tabMarkerToW) {
+            this.tabMarkerFromX = Math.round(steppedBetween(tabMarkerFromX, tabMarkerToX, tabMarkerElapsed));
+            this.tabMarkerFromW = Math.round(steppedBetween(tabMarkerFromW, tabMarkerToW, tabMarkerElapsed));
+            this.tabMarkerToX = target.x();
+            this.tabMarkerToW = target.width();
+            this.tabMarkerElapsed = 0L;
+        } else {
+            this.tabMarkerElapsed = Math.min(9_999L, tabMarkerElapsed + deltaMs);
         }
-        Rect box = new Rect(Math.round(tabMarkerX.advance(target.x(), deltaMs)), target.y(),
-                Math.round(tabMarkerWidth.advance(target.width(), deltaMs)), target.height());
+
+        Rect box = new Rect(Math.round(steppedBetween(tabMarkerFromX, tabMarkerToX, tabMarkerElapsed)),
+                target.y(),
+                Math.round(steppedBetween(tabMarkerFromW, tabMarkerToW, tabMarkerElapsed)),
+                target.height());
         paintRoundedGradient(painter, box, PILL_RADIUS,
                 theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
+        if (markerLanding(tabMarkerElapsed)) {
+            paintRoundedFill(painter, box, PILL_RADIUS, Motion.fade(0xFFFFF3D6, 0.35f));
+        }
     }
 
     private void paintTabStrip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,

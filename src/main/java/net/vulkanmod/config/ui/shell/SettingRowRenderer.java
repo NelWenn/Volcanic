@@ -165,11 +165,7 @@ public final class SettingRowRenderer {
 
         String key = meta.id().toString();
         String display = binding.display(value);
-        String wasShown = shown.get(key);
         float struckNow = strike(key, display, deltaMs);
-        if (wasShown != null && !wasShown.equals(display) && resetHovered) {
-            bursts.trigger(key + "~");
-        }
         ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS, cardArgb(highlighted));
         if (struckNow > 0.0f) {
             ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS,
@@ -187,21 +183,6 @@ public final class SettingRowRenderer {
 
         if (reset) {
             paintReset(painter, SettingRowLayout.resetBox(box), resetHovered);
-        }
-        int undoFrame = bursts.frame(key + "~");
-        if (undoFrame >= 0) {
-            Rect undo = SettingRowLayout.resetBox(box);
-            int ux = undo.x() + undo.width() / 2;
-            int uy = undo.y() + undo.height() / 2;
-            for (int spark = 0; spark < net.vulkanmod.config.ui.core.PixelBurst.SPARKS; spark++) {
-                int tone = spark % 3 == 0 ? 0xFFFFF3D6 : theme.color(ColorToken.ACCENT);
-                painter.fill(new Rect(
-                        ux + net.vulkanmod.config.ui.core.PixelBurst.sparkX(spark, undoFrame),
-                        uy + net.vulkanmod.config.ui.core.PixelBurst.sparkY(spark, undoFrame),
-                        net.vulkanmod.config.ui.core.PixelBurst.sparkSize(spark),
-                        net.vulkanmod.config.ui.core.PixelBurst.sparkSize(spark)),
-                        Motion.fade(tone, 1.0f - 0.2f * undoFrame));
-            }
         }
         Boolean fav = starWas.put(key, favorite);
         if (fav != null && fav != favorite && favorite) {
