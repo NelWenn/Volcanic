@@ -232,7 +232,7 @@ public final class ShellRenderer {
     private static final String KEY_PLAYING_NOW = "vulkanmod.overview.playing_now";
     private static final String KEY_PENDING = "vulkanmod.overview.pending";
     private static final String KEY_NOT_TRIED = "vulkanmod.overview.not_tried";
-    private static final int ICON_RISE = -1;
+    private static final String KEY_SELECT = "vulkanmod.overview.select";
     private static final String KEY_PROFILES_INTRO = "vulkanmod.overview.profiles_intro";
     private static final String KEY_PROFILES_LEGEND = "vulkanmod.overview.profiles_legend";
     private static final String KEY_FRAMES = "vulkanmod.overview.frames";
@@ -1448,60 +1448,152 @@ public final class ShellRenderer {
             return;
         }
         boolean lit = hovered && model.selectable();
-        ColorToken edge = model.playing() ? ColorToken.ACCENT
-                : model.staged() ? ColorToken.WARNING
-                : model.suggested() ? ColorToken.BORDER_ACCENT
-                : ColorToken.BORDER_SUBTLE;
+        int tone = PresetIcons.tone(model.key());
+        int toneDeep = Motion.blend(tone, 0xFF000000, 0.45f);
+        int edge = model.playing() ? tone
+                : model.staged() ? theme.color(ColorToken.WARNING)
+                : model.suggested() ? theme.color(ColorToken.BORDER_ACCENT)
+                : lit ? theme.color(ColorToken.BORDER_STRONG)
+                : theme.color(ColorToken.BORDER_SUBTLE);
 
         paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS,
                 theme.color(lit ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD));
-        if (model.playing() || model.staged() || model.suggested()) {
-            paintRoundedGradient(painter, card, SettingRowLayout.CARD_RADIUS,
-                    theme.color(edge, 0.10f), theme.color(ColorToken.SURFACE_CARD, 0.0f));
+        paintCardWash(painter, card, tone, model.playing() || lit ? 0.12f : 0.06f);
+        paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS, edge);
+        if (model.playing()) {
+            paintRoundedOutline(painter, card.inset(2), SettingRowLayout.CARD_RADIUS - 2,
+                    Motion.fade(tone, 0.4f));
         }
-        paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS, theme.color(edge));
-        paintAccentStripe(painter, card, slots.accent(), theme.color(edge));
+        paintAccentStripe(painter, card, slots.accent(), model.playing() || lit ? tone : toneDeep);
 
         String[] icon = PresetIcons.of(model.key());
-        int iconGap = 0;
-        if (icon != null && slots.name().width() > PresetIcons.SIZE + 30) {
-            SettingRowRenderer.paintGlyph(painter,
-                    new Rect(slots.name().x(), slots.name().y() + ICON_RISE, PresetIcons.SIZE, PresetIcons.SIZE),
-                    icon, theme.color(model.playing() ? ColorToken.ACCENT_BRIGHT : ColorToken.TEXT_SECONDARY),
-                    true);
-            iconGap = PresetIcons.SIZE + 5;
+        if (icon != null) {
+            SettingRowRenderer.paintGlyph(painter, slots.glyph(), icon, tone, true);
         }
-        String name = I18n.get(model.key()).toUpperCase(Locale.ROOT);
-        String badge = model.playing() ? I18n.get(KEY_PLAYING_NOW)
-                : model.staged() ? I18n.get(KEY_PENDING)
-                : model.suggested() ? I18n.get(KEY_SUGGESTED) : null;
-        int badgeWidth = badge == null ? 0 : smallWidth(painter, font, badge) + 4;
-        painter.text(slots.name().x() + iconGap, slots.name().y(),
-                trimToWidth(font, name, slots.name().width() - badgeWidth - iconGap),
-                theme.color(model.playing() ? ColorToken.ACCENT_BRIGHT : ColorToken.TEXT_PRIMARY), false);
-        if (badge != null) {
-            painter.smallText(slots.badge().right() - badgeWidth + 4, slots.badge().y(), badge,
-                    theme.color(model.playing() ? ColorToken.SUCCESS
-                            : model.staged() ? ColorToken.WARNING : ColorToken.ACCENT));
-        }
+        painter.text(slots.name().x(), slots.name().y(),
+                trimToWidth(font, I18n.get(model.key()).toUpperCase(Locale.ROOT), slots.name().width()),
+                model.playing() ? tone : theme.color(ColorToken.TEXT_PRIMARY), false);
+        painter.smallText(slots.tier().x(), slots.tier().y(), PresetIcons.tier(model.key()),
+                theme.color(ColorToken.TEXT_FAINT));
+        painter.fill(slots.rule(), theme.color(ColorToken.BORDER_SUBTLE));
 
         paintSmallLines(painter, font, slots.blurb(), I18n.get(model.key() + ".card"),
                 ColorToken.TEXT_MUTED);
-        if (!slots.changes().isEmpty()) {
-            paintSmallLines(painter, font, slots.changes(), I18n.get(model.key() + ".changes"),
-                    ColorToken.TEXT_SECONDARY);
-        }
 
         PresetRating.Rating rating = PresetRating.of(model.key());
-        if (rating != null) {
-            paintRatingBar(painter, font, slots.framesBar(), KEY_FRAMES, rating.frames(), true);
-            paintRatingBar(painter, font, slots.looksBar(), KEY_LOOKS, rating.looks(), false);
+        paintMeter(painter, font, slots.framesLabel(), slots.framesRow(), KEY_FRAMES,
+                rating == null ? 0 : rating.frames(), tone, toneDeep);
+        paintMeter(painter, font, slots.looksLabel(), slots.looksRow(), KEY_LOOKS,
+                rating == null ? 0 : rating.looks(), tone, toneDeep);
+
+        paintCardStrip(painter, font, card, slots.strip(), model, lit, tone);
+        if (model.playing()) {
+            paintScanlines(painter, card);
+        }
+    }
+
+    private void paintCardWash(SurfacePainter painter, Rect card, int tone, float alpha) {
+        int depth = PresetCardLayout.CARD_PAD + PresetCardLayout.GLYPH + 6;
+        int argb = Motion.fade(tone, alpha);
+        for (Rect span : RoundedScanline.fillSpans(card, SettingRowLayout.CARD_RADIUS)) {
+            int row = span.y() - card.y();
+            if (row < depth) {
+                painter.fill(span, argb);
+            } else if (row < depth + 4) {
+                int from = span.x() + Math.floorMod(span.x() + span.y(), 2);
+                for (int x = from; x < span.right(); x += 2) {
+                    painter.fill(new Rect(x, span.y(), 1, 1), argb);
+                }
+            }
+        }
+    }
+
+    private void paintMeter(SurfacePainter painter, Font font, Rect label, Rect row, String labelKey,
+                            int level, int tone, int toneDeep) {
+        if (label.isEmpty() || row.isEmpty()) {
+            return;
+        }
+        painter.smallText(label.x(), label.y(), I18n.get(labelKey), theme.color(ColorToken.TEXT_FAINT));
+        if (level > 0) {
+            String word = I18n.get(labelKey + "." + level);
+            painter.smallText(label.right() - smallWidth(painter, font, word), label.y(), word,
+                    theme.color(ColorToken.TEXT_SECONDARY));
+        }
+        int half = row.height() / 2;
+        for (int index = 0; index < PresetCardLayout.SEGMENTS; index++) {
+            Rect seg = PresetCardLayout.segment(row, index);
+            if (seg.isEmpty()) {
+                continue;
+            }
+            if (index < level) {
+                painter.fill(new Rect(seg.x(), seg.y(), seg.width(), half), tone);
+                painter.fill(new Rect(seg.x(), seg.y() + half, seg.width(), seg.height() - half),
+                        toneDeep);
+            } else {
+                painter.fill(seg, theme.color(ColorToken.IMPACT_TRACK));
+                painter.fill(seg.inset(1), theme.color(ColorToken.SURFACE_SUNKEN));
+            }
+        }
+    }
+
+    private void paintCardStrip(SurfacePainter painter, Font font, Rect card, Rect strip,
+                                PresetCardModel.Card model, boolean lit, int tone) {
+        if (strip.isEmpty()) {
+            return;
+        }
+        String measured = OverviewSignals.fpsOf(model.key());
+        int band;
+        String text;
+        int argb;
+        if (model.playing()) {
+            band = Motion.fade(tone, 0.2f);
+            text = I18n.get(KEY_PLAYING_NOW);
+            argb = theme.color(ColorToken.SUCCESS);
+        } else if (model.staged()) {
+            band = theme.color(ColorToken.WARNING, 0.16f);
+            text = I18n.get(KEY_PENDING);
+            argb = theme.color(ColorToken.WARNING);
+        } else if (model.suggested()) {
+            band = Motion.fade(tone, 0.12f);
+            text = I18n.get(KEY_SUGGESTED);
+            argb = theme.color(ColorToken.ACCENT);
+        } else if (measured != null) {
+            band = theme.color(ColorToken.SURFACE_SUNKEN, 0.55f);
+            text = measured;
+            argb = theme.color(ColorToken.SUCCESS);
+        } else if (lit) {
+            band = Motion.fade(tone, 0.14f);
+            text = I18n.get(KEY_SELECT);
+            argb = tone;
+        } else {
+            band = theme.color(ColorToken.SURFACE_SUNKEN, 0.55f);
+            text = I18n.get(KEY_NOT_TRIED);
+            argb = theme.color(ColorToken.TEXT_FAINT);
         }
 
-        String measured = OverviewSignals.fpsOf(model.key());
-        painter.smallText(slots.measured().x(), slots.measured().y(),
-                measured != null ? measured : I18n.get(KEY_NOT_TRIED),
-                theme.color(measured != null ? ColorToken.SUCCESS : ColorToken.TEXT_FAINT));
+        painter.fill(new Rect(strip.x(), strip.y() - 1, strip.width(), 1),
+                theme.color(ColorToken.BORDER_SUBTLE));
+        for (Rect span : RoundedScanline.fillSpans(card, SettingRowLayout.CARD_RADIUS)) {
+            if (span.y() >= strip.y() && span.y() < strip.bottom()) {
+                int from = Math.max(span.x(), strip.x());
+                int to = Math.min(span.right(), strip.right());
+                if (to > from) {
+                    painter.fill(new Rect(from, span.y(), to - from, 1), band);
+                }
+            }
+        }
+        int width = smallWidth(painter, font, text);
+        painter.smallText(strip.x() + (strip.width() - width) / 2,
+                strip.y() + (strip.height() - PresetCardLayout.SMALL_LINE) / 2 + 1, text, argb);
+    }
+
+    private void paintScanlines(SurfacePainter painter, Rect card) {
+        int argb = theme.color(ColorToken.SURFACE_SUNKEN, 0.15f);
+        for (Rect span : RoundedScanline.fillSpans(card, SettingRowLayout.CARD_RADIUS)) {
+            if ((span.y() - card.y()) % 3 == 0) {
+                painter.fill(span, argb);
+            }
+        }
     }
 
     private void paintAccentStripe(SurfacePainter painter, Rect card, Rect stripe, int argb) {
@@ -2179,26 +2271,6 @@ public final class ShellRenderer {
         } catch (Throwable unavailable) {
             return 16.7f;
         }
-    }
-
-    private void paintRatingBar(SurfacePainter painter, Font font, Rect track, String labelKey,
-                                int level, boolean accent) {
-        if (track.isEmpty()) {
-            return;
-        }
-        painter.smallText(track.x() - PresetCardLayout.BAR_LABEL_WIDTH, track.y() - 2, I18n.get(labelKey),
-                theme.color(ColorToken.TEXT_FAINT));
-        painter.fill(track, theme.color(ColorToken.IMPACT_TRACK));
-        Rect fill = PresetCardLayout.barFill(track, level, PresetRating.LEVELS);
-        if (!fill.isEmpty()) {
-            if (accent) {
-                painter.gradient(fill, theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
-            } else {
-                painter.fill(fill, theme.color(ColorToken.TEXT_MUTED));
-            }
-        }
-        painter.smallText(track.right() + 5, track.y() - 2, I18n.get(labelKey + "." + level),
-                theme.color(ColorToken.TEXT_SECONDARY));
     }
 
     private static int smallWidth(SurfacePainter painter, Font font, String text) {

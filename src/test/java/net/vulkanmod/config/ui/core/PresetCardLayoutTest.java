@@ -100,22 +100,8 @@ class PresetCardLayoutTest {
     }
 
     @Test
-    void theBarsFillInProportionAndNeverOverflow() {
-        Rect card = PresetCardLayout.cards(WIDE, 5, 0, Breakpoint.WIDE).get(0);
-        Rect track = PresetCardLayout.bar(card, 0, 20);
-
-        assertTrue(track.right() <= card.right() - PresetCardLayout.CARD_PAD);
-        assertTrue(PresetCardLayout.barFill(track, 0, 5).isEmpty());
-        assertEquals(track.width(), PresetCardLayout.barFill(track, 5, 5).width());
-        assertTrue(PresetCardLayout.barFill(track, 2, 5).width()
-                < PresetCardLayout.barFill(track, 4, 5).width());
-        assertEquals(track.width(), PresetCardLayout.barFill(track, 99, 5).width(), "clamped, not overflowing");
-    }
-
-    @Test
     void degenerateShellsProduceNothing() {
         assertTrue(PresetCardLayout.cards(Rect.EMPTY, 5, 0, Breakpoint.WIDE).isEmpty());
-        assertTrue(PresetCardLayout.bar(new Rect(0, 0, 40, 80), 0, 20).isEmpty());
         assertEquals(0, PresetCardLayout.rowPattern(0, 660).length);
     }
 
@@ -125,19 +111,22 @@ class PresetCardLayoutTest {
         assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.cards(WIDE, -1, 0, Breakpoint.WIDE));
         assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.cards(WIDE, 1, -1, Breakpoint.WIDE));
         assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.cardHeight(null));
-        assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.bar(null, 0, 0));
-        assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.bar(WIDE, -1, 0));
-        assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.barFill(WIDE, 1, 0));
         assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.rowPattern(-1, 660));
+        assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.slots(null, true));
+        assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.segment(null, 0));
+        assertThrows(IllegalArgumentException.class,
+                () -> PresetCardLayout.segment(new Rect(0, 0, 80, 6), PresetCardLayout.SEGMENTS));
+        assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.segment(WIDE, -1));
     }
 
     @Test
-    void nothingInsideACardOverlapsAnythingElse() {
+    void theCardReadsTopToBottomWithNothingOverlapping() {
         for (Breakpoint bp : Breakpoint.values()) {
             Rect content = bp == Breakpoint.COMPACT ? NARROW : WIDE;
             for (Rect card : PresetCardLayout.cards(content, 5, 0, bp)) {
                 PresetCardLayout.Slots s = PresetCardLayout.slots(card, bp != Breakpoint.COMPACT);
-                Rect[] stack = {s.name(), s.blurb(), s.changes(), s.framesBar(), s.looksBar(), s.measured()};
+                Rect[] stack = {s.glyph(), s.name(), s.tier(), s.rule(), s.blurb(),
+                        s.framesLabel(), s.framesRow(), s.looksLabel(), s.looksRow(), s.strip()};
                 Rect previous = null;
                 for (Rect r : stack) {
                     if (r.isEmpty()) {
@@ -147,7 +136,7 @@ class PresetCardLayoutTest {
                     assertTrue(r.bottom() <= card.bottom(), bp + ": a slot escaped the bottom");
                     assertTrue(r.right() <= card.right(), bp + ": a slot escaped the right edge");
                     if (previous != null) {
-                        assertTrue(r.y() >= previous.bottom() - 1,
+                        assertTrue(r.y() >= previous.bottom(),
                                 bp + ": " + r + " overlaps " + previous);
                     }
                     previous = r;
@@ -157,19 +146,51 @@ class PresetCardLayoutTest {
     }
 
     @Test
-    void aShortCardDropsTheChangesLineRatherThanStackingOnTheBars() {
-        Rect tall = new Rect(0, 0, 220, PresetCardLayout.CARD_HEIGHT);
-        Rect squat = new Rect(0, 0, 220, PresetCardLayout.CARD_HEIGHT_COMPACT);
+    void theStatusStripSpansTheCardFootSoTheBadgeNeverFightsTheTitle() {
+        Rect card = new Rect(10, 20, 104, PresetCardLayout.CARD_HEIGHT);
+        PresetCardLayout.Slots s = PresetCardLayout.slots(card, true);
 
-        assertFalse(PresetCardLayout.slots(tall, true).changes().isEmpty());
-        assertTrue(PresetCardLayout.slots(squat, false).changes().isEmpty());
-        assertFalse(PresetCardLayout.slots(squat, false).framesBar().isEmpty(),
-                "the bars are the point of the card and survive");
+        assertEquals(card.bottom() - 1, s.strip().bottom());
+        assertEquals(card.width() - 2, s.strip().width());
+        assertEquals(PresetCardLayout.STRIP_H, s.strip().height());
+        assertTrue(s.strip().y() > s.looksRow().bottom(), "the meters clear the strip");
+        assertTrue(s.name().bottom() < s.strip().y(), "the name lives nowhere near the badge now");
+    }
+
+    @Test
+    void theMetersAreChunkyEnoughToReadAsBlocksNotHairlines() {
+        Rect card = new Rect(0, 0, 104, PresetCardLayout.CARD_HEIGHT);
+        PresetCardLayout.Slots s = PresetCardLayout.slots(card, true);
+
+        assertTrue(s.framesRow().height() >= 5, "a meter row must be chunky, not a hairline");
+        int last = -1;
+        for (int index = 0; index < PresetCardLayout.SEGMENTS; index++) {
+            Rect seg = PresetCardLayout.segment(s.framesRow(), index);
+            assertFalse(seg.isEmpty());
+            assertTrue(seg.width() >= 10, "segment " + index + " is " + seg.width() + "px wide");
+            assertTrue(seg.x() > last, "segments must march left to right without touching");
+            assertTrue(seg.right() <= s.framesRow().right());
+            last = seg.right();
+        }
+    }
+
+    @Test
+    void everyCardShowsGlyphNameMetersAndBlurbAtBothHeights() {
+        for (int height : new int[] {PresetCardLayout.CARD_HEIGHT, PresetCardLayout.CARD_HEIGHT_COMPACT}) {
+            PresetCardLayout.Slots s = PresetCardLayout.slots(new Rect(0, 0, 104, height),
+                    height >= PresetCardLayout.CARD_HEIGHT);
+            assertFalse(s.glyph().isEmpty(), height + ": no glyph");
+            assertFalse(s.name().isEmpty(), height + ": no name");
+            assertFalse(s.tier().isEmpty(), height + ": no tier");
+            assertFalse(s.blurb().isEmpty(), height + ": no room left for the description");
+            assertFalse(s.framesRow().isEmpty(), height + ": no meters");
+            assertEquals(PresetCardLayout.GLYPH, s.glyph().width(), "the glyph scales its art twice");
+        }
     }
 
     @Test
     void theAccentStripeRunsTheFullHeightAndTextClearsIt() {
-        Rect card = new Rect(10, 20, 220, PresetCardLayout.CARD_HEIGHT);
+        Rect card = new Rect(10, 20, 104, PresetCardLayout.CARD_HEIGHT);
         PresetCardLayout.Slots s = PresetCardLayout.slots(card, true);
 
         assertEquals(card.y(), s.accent().y());
@@ -181,8 +202,9 @@ class PresetCardLayoutTest {
     @Test
     void slotsOfADegenerateCardAreAllEmpty() {
         PresetCardLayout.Slots s = PresetCardLayout.slots(new Rect(0, 0, 4, 80), true);
-        assertTrue(s.name().isEmpty() && s.framesBar().isEmpty() && s.accent().isEmpty());
-        assertThrows(IllegalArgumentException.class, () -> PresetCardLayout.slots(null, true));
+        assertTrue(s.name().isEmpty() && s.framesRow().isEmpty() && s.accent().isEmpty());
+        PresetCardLayout.Slots squat = PresetCardLayout.slots(new Rect(0, 0, 104, 40), false);
+        assertTrue(squat.name().isEmpty(), "a card too short for its own layout gives up whole");
     }
 
     @Test

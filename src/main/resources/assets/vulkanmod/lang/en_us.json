@@ -431,5 +431,6 @@
   "vulkanmod.options.uiSounds": "Volcanic Sounds",
   "vulkanmod.options.uiSounds.tooltip": "The click on every menu control and the theme that plays once the game reaches the title screen. Minecraft's own sounds are untouched.",
   "vulkanmod.options.loadingScreen": "Loading Screen",
-  "vulkanmod.options.loadingScreen.tooltip": "Volcanic's own startup screen, with its fire and its bar. Turn it off to get Minecraft's back. Another mod that claims the loading screen switches this off on its own."
+  "vulkanmod.options.loadingScreen.tooltip": "Volcanic's own startup screen, with its fire and its bar. Turn it off to get Minecraft's back. Another mod that claims the loading screen switches this off on its own.",
+  "vulkanmod.overview.select": "SELECT"
 }
