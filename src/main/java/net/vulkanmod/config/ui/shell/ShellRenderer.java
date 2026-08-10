@@ -35,11 +35,11 @@ import net.vulkanmod.config.ui.core.Recommendation;
 import net.vulkanmod.config.ui.settings.OverviewSignals;
 import net.vulkanmod.vulkan.SessionSamples;
 import net.vulkanmod.config.ui.core.Gradient;
-import net.vulkanmod.config.ui.core.EmberField;
 import net.vulkanmod.config.ui.core.Glide;
 import net.vulkanmod.config.ui.core.HoverState;
 import net.vulkanmod.config.ui.core.ImpactLevel;
-import net.vulkanmod.config.ui.core.CoalBed;
+import net.vulkanmod.config.ui.core.CoalArt;
+import net.vulkanmod.config.ui.core.CoalScene;
 import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.OverviewModel;
@@ -85,6 +85,8 @@ public final class ShellRenderer {
 
 
     private static final float SCRIM_ALPHA = 0.72f;
+    private static final ResourceLocation COAL_BED =
+            ResourceLocation.fromNamespaceAndPath("vulkanmod", "textures/gui/coalbed.png");
     private static final int BAR_BUTTON_RADIUS = 5;
     private static final int SEARCH_RADIUS = 5;
     private static final ResourceLocation LOGO =
@@ -219,8 +221,7 @@ public final class ShellRenderer {
     private final Glide tabMarkerX = new Glide(55.0f);
     private final Glide tabMarkerWidth = new Glide(55.0f);
     private boolean tabMarkerPlaced;
-    private final EmberField embers = new EmberField(0x5A1F);
-    private final CoalBed coals = new CoalBed(0x5A1FL);
+    private final CoalScene coals = new CoalScene(0x5A1FL);
     private final Glide drawerSlide = new Glide(60.0f);
     private RouteId enteredRoute;
     private int enteredDepth;
@@ -273,7 +274,7 @@ public final class ShellRenderer {
             float reveal = Motion.easeOut(pageElapsed, Motion.PAGE_MS);
             graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
             try {
-                paintEmbers(painter, content, deltaMs);
+                paintCoals(graphics, painter, content, deltaMs);
                 painter.flush();
                 painter.setOffset(Motion.slide(reveal, pageDirection, Motion.PAGE_TRAVEL), 0);
                 paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
@@ -978,50 +979,40 @@ public final class ShellRenderer {
         }
     }
 
-    private void paintEmbers(SurfacePainter painter, Rect content, long deltaMs) {
-        coals.advance(deltaMs);
-        int glowTop = coals.glowTop(content);
-        painter.gradient(new Rect(content.x(), glowTop, content.width(), content.bottom() - glowTop),
-                coals.glowArgb() & 0x00FFFFFF, coals.glowArgb());
+    private void paintCoals(GuiGraphics graphics, SurfacePainter painter, Rect content, long deltaMs) {
+        coals.advance(deltaMs, content);
 
-        Rect band = coals.lavaBand(content);
-        painter.gradient(band, coals.lavaTopArgb(), coals.lavaBottomArgb());
-        for (int vent = 0; vent < CoalBed.VENTS; vent++) {
-            int argb = coals.ventArgb(vent);
-            if ((argb >>> 24) == 0) {
-                continue;
-            }
-            int left = coals.ventX(vent, content);
-            int wide = Math.min(coals.ventWidth(vent), content.right() - left);
-            if (wide > 0) {
-                painter.fill(new Rect(left, coals.ventY(vent, content), wide,
-                        coals.ventHeight(vent)), argb);
+        int tiles = coals.tiles(content);
+        for (int tile = 0; tile < tiles; tile++) {
+            Rect rect = coals.tileRect(tile, content);
+            graphics.blit(COAL_BED, rect.x(), rect.y(), rect.width(), rect.height(),
+                    0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
+        }
+
+        for (int tile = 0; tile < tiles; tile++) {
+            for (int site = 0; site < CoalScene.GLOW_SITES; site++) {
+                int argb = coals.glowArgb(site);
+                if ((argb >>> 24) == 0) {
+                    continue;
+                }
+                int size = coals.glowSize(site);
+                int left = coals.glowX(site, tile, content);
+                if (left >= content.right()) {
+                    continue;
+                }
+                painter.fill(new Rect(left, coals.glowY(site, content),
+                        Math.min(size, content.right() - left), size), argb);
             }
         }
 
-        for (int chunk = 0; chunk < CoalBed.CHUNKS; chunk++) {
-            int left = coals.chunkX(chunk, content);
-            int wide = Math.min(coals.chunkWidth(chunk), content.right() - left);
-            if (wide <= 0) {
-                continue;
-            }
-            int top = coals.chunkY(chunk, content);
-            int tall = coals.chunkHeight(chunk);
-            int argb = coals.chunkArgb(chunk);
-            int cap = coals.capHeight(chunk);
-            int inset = Math.min(coals.capInset(chunk), Math.max(0, (wide - 1) / 2));
-            painter.fill(new Rect(left, top + cap, wide, tall - cap), argb);
-            painter.fill(new Rect(left + inset, top, wide - inset * 2, cap), argb);
-        }
-
-        embers.advance(deltaMs, content.height());
-        for (int index = 0; index < EmberField.SPARKS; index++) {
-            int argb = embers.colorOf(index);
+        for (int index = 0; index < CoalScene.PARTICLES; index++) {
+            int argb = coals.particleArgb(index);
             if ((argb >>> 24) == 0) {
                 continue;
             }
-            int side = embers.sizeOf(index);
-            painter.fill(new Rect(embers.xOf(index, content), embers.yOf(index, content), side, side), argb);
+            int side = coals.particleSize(index);
+            painter.fill(new Rect(coals.particleX(index, content), coals.particleY(index, content),
+                    side, side), argb);
         }
     }
 
