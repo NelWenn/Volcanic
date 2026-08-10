@@ -31,6 +31,10 @@ public final class SettingRowRenderer {
             new net.vulkanmod.config.ui.core.HoverState(Motion.SELECTION_MS, true);
     private final java.util.Map<String, String> shown = new java.util.HashMap<>();
     private final java.util.Map<String, Long> struck = new java.util.HashMap<>();
+    private final net.vulkanmod.config.ui.core.PixelBurst bursts =
+            new net.vulkanmod.config.ui.core.PixelBurst();
+    private final java.util.Map<String, Boolean> pillWas = new java.util.HashMap<>();
+    private final java.util.Map<String, Boolean> starWas = new java.util.HashMap<>();
 
     private static final int TRACK_HEIGHT = 3;
     private static final int TRACK_GAP = 8;
@@ -86,12 +90,18 @@ public final class SettingRowRenderer {
                 favorite, starHovered, prevHovered, nextHovered, 0L);
     }
 
+    public void tick(long deltaMs) {
+        this.bursts.advance(deltaMs);
+    }
+
     public void endFrame() {
         this.pills.endFrame();
         this.stars.endFrame();
         this.fills.keySet().retainAll(seen);
         this.shown.keySet().retainAll(seen);
         this.struck.keySet().retainAll(seen);
+        this.pillWas.keySet().retainAll(seen);
+        this.starWas.keySet().retainAll(seen);
         this.seen.clear();
     }
 
@@ -167,8 +177,12 @@ public final class SettingRowRenderer {
         if (reset) {
             paintReset(painter, SettingRowLayout.resetBox(box), resetHovered);
         }
+        Boolean fav = starWas.put(key, favorite);
+        if (fav != null && fav != favorite && favorite) {
+            bursts.trigger(key + "*");
+        }
         paintStar(painter, SettingRowLayout.starBox(box), favorite, starHovered,
-                stars.advance(key, favorite, deltaMs));
+                stars.advance(key, favorite, deltaMs), bursts.frame(key + "*"));
 
         int right = card.right() - ShellRenderer.CARD_PAD_X;
         switch (meta.type()) {
@@ -230,7 +244,8 @@ public final class SettingRowRenderer {
         }
     }
 
-    private void paintStar(SurfacePainter painter, Rect box, boolean favorite, boolean hovered, float lit) {
+    private void paintStar(SurfacePainter painter, Rect box, boolean favorite, boolean hovered, float lit,
+                           int burstFrame) {
         if (box.isEmpty()) {
             return;
         }
@@ -242,6 +257,19 @@ public final class SettingRowRenderer {
         int argb = Motion.blend(theme.color(starToken(false, hovered)),
                 theme.color(ColorToken.ACCENT), lit);
         paintGlyph(painter, box.inset(Math.max(0, inset)), STAR, argb, favorite);
+        if (burstFrame >= 0) {
+            int cx = box.x() + box.width() / 2;
+            int cy = box.y() + box.height() / 2;
+            for (int spark = 0; spark < net.vulkanmod.config.ui.core.PixelBurst.SPARKS; spark++) {
+                int tone = spark % 3 == 0 ? 0xFFFFF3D6 : theme.color(ColorToken.ACCENT);
+                painter.fill(new Rect(
+                        cx + net.vulkanmod.config.ui.core.PixelBurst.sparkX(spark, burstFrame),
+                        cy + net.vulkanmod.config.ui.core.PixelBurst.sparkY(spark, burstFrame),
+                        net.vulkanmod.config.ui.core.PixelBurst.sparkSize(spark),
+                        net.vulkanmod.config.ui.core.PixelBurst.sparkSize(spark)),
+                        Motion.fade(tone, 1.0f - 0.2f * burstFrame));
+            }
+        }
     }
 
     private static ColorToken starToken(boolean favorite, boolean hovered) {
@@ -280,15 +308,50 @@ public final class SettingRowRenderer {
     private void paintPill(SurfacePainter painter, Rect box, int right, boolean on, String key, long deltaMs) {
         Rect pill = new Rect(right - PILL_WIDTH, box.y() + (box.height() - PILL_HEIGHT) / 2,
                 PILL_WIDTH, PILL_HEIGHT);
-        float t = pills.advance(key, on, deltaMs);
-        ShellRenderer.paintRoundedFill(painter, pill, PILL_HEIGHT / 2,
-                Motion.blend(theme.color(ColorToken.BORDER_DEFAULT), theme.color(ColorToken.SUCCESS), t));
+        Boolean was = pillWas.put(key, on);
+        if (was != null && was != on) {
+            bursts.trigger(key);
+        }
+        float t = Motion.step(pills.advance(key, on, deltaMs), 4);
+
+        int half = PILL_HEIGHT / 2;
+        notched(painter, pill, Motion.blend(theme.color(ColorToken.BORDER_DEFAULT),
+                theme.color(ColorToken.ACCENT_BRIGHT), t));
+        painter.fill(new Rect(pill.x() + 1, pill.y() + half, pill.width() - 2, PILL_HEIGHT - half - 1),
+                Motion.blend(theme.color(ColorToken.SURFACE_SUNKEN),
+                        theme.color(ColorToken.ACCENT_DEEP), t));
 
         int knob = PILL_HEIGHT - KNOB_INSET * 2;
         int travel = PILL_WIDTH - KNOB_INSET * 2 - knob;
-        int knobX = pill.x() + KNOB_INSET + Math.round(travel * t);
-        ShellRenderer.paintRoundedFill(painter, new Rect(knobX, pill.y() + KNOB_INSET, knob, knob), knob / 2,
-                Motion.blend(theme.color(ColorToken.TEXT_MUTED), theme.color(ColorToken.TEXT_PRIMARY), t));
+        Rect grip = new Rect(pill.x() + KNOB_INSET + Math.round(travel * t),
+                pill.y() + KNOB_INSET, knob, knob);
+        notched(painter, grip, Motion.blend(theme.color(ColorToken.TEXT_MUTED), 0xFFFFE7C4, t));
+        painter.fill(new Rect(grip.x() + 1, grip.bottom() - 2, grip.width() - 2, 1),
+                Motion.blend(theme.color(ColorToken.SURFACE_SUNKEN),
+                        theme.color(ColorToken.ACCENT_DEEP), t));
+
+        int frame = bursts.frame(key);
+        if (frame >= 0) {
+            int cx = on ? pill.right() - KNOB_INSET - knob / 2 : pill.x() + KNOB_INSET + knob / 2;
+            int cy = pill.y() + half;
+            for (int spark = 0; spark < net.vulkanmod.config.ui.core.PixelBurst.SPARKS; spark++) {
+                int argb = on
+                        ? (spark % 3 == 0 ? 0xFFFFF3D6 : theme.color(ColorToken.ACCENT))
+                        : theme.color(ColorToken.TEXT_MUTED);
+                painter.fill(new Rect(
+                        cx + net.vulkanmod.config.ui.core.PixelBurst.sparkX(spark, frame),
+                        cy + net.vulkanmod.config.ui.core.PixelBurst.sparkY(spark, frame),
+                        net.vulkanmod.config.ui.core.PixelBurst.sparkSize(spark),
+                        net.vulkanmod.config.ui.core.PixelBurst.sparkSize(spark)),
+                        Motion.fade(argb, 1.0f - 0.2f * frame));
+            }
+        }
+    }
+
+    private static void notched(SurfacePainter painter, Rect box, int argb) {
+        painter.fill(new Rect(box.x() + 1, box.y(), box.width() - 2, box.height()), argb);
+        painter.fill(new Rect(box.x(), box.y() + 1, 1, box.height() - 2), argb);
+        painter.fill(new Rect(box.right() - 1, box.y() + 1, 1, box.height() - 2), argb);
     }
 
     private void paintSlider(SurfacePainter painter, Font font, Rect row, Rect card, int right, String text,
@@ -302,7 +365,9 @@ public final class SettingRowRenderer {
 
         Rect track = new Rect(zone.x(), zone.y() + (zone.height() - TRACK_HEIGHT) / 2,
                 zone.width(), TRACK_HEIGHT);
-        painter.fill(track, theme.color(ColorToken.BORDER_DEFAULT));
+        painter.fill(track, theme.color(ColorToken.SURFACE_SUNKEN));
+        painter.fill(new Rect(track.x(), track.y(), track.width(), 1),
+                theme.color(ColorToken.BORDER_DEFAULT));
 
         Glide glide = fills.computeIfAbsent(key, name -> new Glide(55.0f));
         int target = SettingRowLayout.trackFill(track.width(), value, min, max);

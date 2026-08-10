@@ -46,6 +46,13 @@ public final class Motion {
         return Math.round((1.0f - clamp(reveal)) * direction * travel);
     }
 
+    public static float step(float t, int steps) {
+        if (steps <= 0) {
+            throw new IllegalArgumentException("steps must be positive: " + steps);
+        }
+        return Math.round(clamp(t) * steps) / (float) steps;
+    }
+
     public static float lerp(float from, float to, float t) {
         return from + (to - from) * clamp(t);
     }

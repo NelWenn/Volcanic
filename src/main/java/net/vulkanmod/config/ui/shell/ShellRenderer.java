@@ -2457,6 +2457,7 @@ public final class ShellRenderer {
             return;
         }
 
+        rowRenderer.tick(deltaMs);
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
         List<NavPresenter.ContentRow> rows = presenter.contentRows();
         SettingsCatalog catalog = presenter.catalog();
