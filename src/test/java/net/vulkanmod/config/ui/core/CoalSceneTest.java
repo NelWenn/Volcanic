@@ -41,8 +41,8 @@ class CoalSceneTest {
             float coldest = 1.0f;
             for (int frame = 0; frame < 900; frame++) {
                 scene.advance(16, CONTENT);
-                hottest = Math.max(hottest, scene.zoneHeat(zone, 0));
-                coldest = Math.min(coldest, scene.zoneHeat(zone, 0));
+                hottest = Math.max(hottest, scene.zoneHeat(zone));
+                coldest = Math.min(coldest, scene.zoneHeat(zone));
             }
             assertTrue(hottest > 0.75f, "zone " + zone + " never got hot, peak " + hottest);
             assertTrue(coldest < 0.25f, "zone " + zone + " never went dark, floor " + coldest);
@@ -53,7 +53,7 @@ class CoalSceneTest {
     void theZonesAreOutOfPhaseSoTheHeatTravelsInsteadOfBlinkingAtOnce() {
         CoalScene scene = run(2L, 30);
         long shades = IntStream.range(0, CoalScene.ZONES)
-                .map(zone -> Math.round(scene.zoneHeat(zone, 0) * 40)).distinct().count();
+                .map(zone -> Math.round(scene.zoneHeat(zone) * 40)).distinct().count();
         assertTrue(shades >= 5, "only " + shades + " distinct zone temperatures, the bed pulses as one");
     }
 
@@ -64,7 +64,7 @@ class CoalSceneTest {
         int darkest = 255;
         for (int frame = 0; frame < 900; frame++) {
             scene.advance(16, CONTENT);
-            int red = (scene.zoneTint(0, 0) >> 16) & 0xFF;
+            int red = (scene.zoneTint(0) >> 16) & 0xFF;
             brightest = Math.max(brightest, red);
             darkest = Math.min(darkest, red);
         }
@@ -89,25 +89,44 @@ class CoalSceneTest {
     }
 
     @Test
-    void theTilesCoverTheWholeWidthWithoutLeavingAGapOrDrawingASpare() {
+    void theBedIsDrawnOnceAcrossTheWholeWidthSoNothingIsEverRepeated() {
         CoalScene scene = new CoalScene(1L);
-        for (int width : new int[] {1, 400, 512, 513, 1920, 3400}) {
-            Rect content = new Rect(0, 0, width, 400);
-            int tiles = scene.tiles(content);
-            assertTrue(tiles * scene.tileWidth() >= width, "width " + width + " left a gap");
-            assertTrue((tiles - 1) * scene.tileWidth() < width, "width " + width + " drew a spare tile");
+        for (int width : new int[] {200, 512, 900, 1920, 3400}) {
+            Rect content = new Rect(40, 10, width, 600);
+            Rect bed = scene.bedRect(content);
+            assertEquals(content.x(), bed.x(), "width " + width + " left a margin");
+            assertEquals(content.width(), bed.width(), "width " + width + " did not span the page");
+            assertEquals(content.bottom(), bed.bottom(), "width " + width + " floated off the bottom");
         }
-        assertEquals(0, scene.tiles(new Rect(0, 0, 0, 100)));
     }
 
     @Test
-    void everyTileSitsOnTheBottomEdgeOfTheContent() {
+    void theBedKeepsTheArtworksProportionsUntilItWouldSwallowThePage() {
         CoalScene scene = new CoalScene(2L);
-        for (int tile = 0; tile < scene.tiles(CONTENT); tile++) {
-            Rect rect = scene.tileRect(tile, CONTENT);
-            assertEquals(CONTENT.bottom(), rect.bottom());
-            assertEquals(scene.bedHeight(), rect.height());
-        }
+        Rect roomy = new Rect(0, 0, 900, 900);
+        assertEquals(Math.round(CoalArt.TEX_H * 900.0f / CoalArt.TEX_W), scene.bedHeight(roomy),
+                "with room to spare the bed should keep the artwork's aspect");
+
+        Rect squat = new Rect(0, 0, 2000, 200);
+        assertTrue(scene.bedHeight(squat) <= 100,
+                "on a short wide page the bed must give way rather than fill it");
+        assertTrue(scene.bedHeight(squat) >= 1);
+    }
+
+    @Test
+    void anEmptyPageProducesNoBedAtAll() {
+        CoalScene scene = new CoalScene(3L);
+        assertTrue(scene.bedRect(new Rect(0, 0, 0, 100)).isEmpty());
+        assertTrue(scene.bedRect(new Rect(0, 0, 100, 0)).isEmpty());
+    }
+
+    @Test
+    void theParticlesGrowWithTheBedSoTheyNeverLookLostOnAWidePage() {
+        CoalScene scene = new CoalScene(4L);
+        float narrow = scene.particleScale(new Rect(0, 0, 400, 600));
+        float wide = scene.particleScale(new Rect(0, 0, 1800, 900));
+        assertTrue(wide > narrow, "a wider page must not leave the particles tiny");
+        assertTrue(narrow >= 0.7f && wide <= 2.2f, "the scale must stay inside sane bounds");
     }
 
     @Test

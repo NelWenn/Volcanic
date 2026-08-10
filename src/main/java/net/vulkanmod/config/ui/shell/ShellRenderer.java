@@ -1014,25 +1014,23 @@ public final class ShellRenderer {
     private void paintCoals(GuiGraphics graphics, SurfacePainter painter, Rect content, long deltaMs) {
         coals.advance(deltaMs, content);
 
-        int tiles = coals.tiles(content);
-        for (int tile = 0; tile < tiles; tile++) {
-            Rect rect = coals.tileRect(tile, content);
-            graphics.blit(COAL_BED, rect.x(), rect.y(), rect.width(), rect.height(),
-                    0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
+        Rect bed = coals.bedRect(content);
+        if (bed.isEmpty()) {
+            return;
         }
+        graphics.blit(COAL_BED, bed.x(), bed.y(), bed.width(), bed.height(),
+                0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
 
-        for (int tile = 0; tile < tiles; tile++) {
-            Rect rect = coals.tileRect(tile, content);
-            for (int zone = 0; zone < CoalScene.ZONES; zone++) {
-                int tint = coals.zoneTint(zone, tile);
-                graphics.setColor(((tint >> 16) & 0xFF) / 255.0f, ((tint >> 8) & 0xFF) / 255.0f,
-                        (tint & 0xFF) / 255.0f, ((tint >>> 24) & 0xFF) / 255.0f);
-                graphics.blit(COAL_ZONES[zone], rect.x(), rect.y(), rect.width(), rect.height(),
-                        0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
-            }
+        for (int zone = 0; zone < CoalScene.ZONES; zone++) {
+            int tint = coals.zoneTint(zone);
+            graphics.setColor(((tint >> 16) & 0xFF) / 255.0f, ((tint >> 8) & 0xFF) / 255.0f,
+                    (tint & 0xFF) / 255.0f, ((tint >>> 24) & 0xFF) / 255.0f);
+            graphics.blit(COAL_ZONES[zone], bed.x(), bed.y(), bed.width(), bed.height(),
+                    0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
         }
         graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
 
+        float grow = coals.particleScale(content);
         for (int index = 0; index < CoalScene.PARTICLES; index++) {
             if (coals.waiting(index)) {
                 continue;
@@ -1042,8 +1040,8 @@ public final class ShellRenderer {
             if (alpha == 0) {
                 continue;
             }
+            int side = Math.max(2, Math.round(coals.sizeOf(index) * grow));
             int left = coals.xOf(index, content);
-            int side = coals.sizeOf(index);
             if (left >= content.right() || left + side <= content.x()) {
                 continue;
             }

@@ -3,7 +3,8 @@ package net.vulkanmod.config.ui.core;
 import java.util.Random;
 
 public final class CoalScene {
-    public static final int SCALE = 2;
+    private static final float MAX_HEIGHT_SHARE = 0.5f;
+    private static final int REFERENCE_HEIGHT = 112;
 
     public static final int SPARK = 0;
     public static final int LAVA = 1;
@@ -42,38 +43,39 @@ public final class CoalScene {
     public CoalScene(long seed) {
         this.random = new Random(seed);
         for (int index = 0; index < PARTICLES; index++) {
-            spawn(index, new Rect(0, 0, tileWidth(), bedHeight() * 4));
+            spawn(index, new Rect(0, 0, CoalArt.TEX_W * 2, REFERENCE_HEIGHT * 4));
             age[index] = random.nextFloat() * span[index];
         }
     }
 
-    public int bedHeight() {
-        return CoalArt.TEX_H * SCALE;
+    public Rect bedRect(Rect content) {
+        if (content.width() <= 0 || content.height() <= 0) {
+            return Rect.EMPTY;
+        }
+        int natural = Math.round(CoalArt.TEX_H * content.width() / (float) CoalArt.TEX_W);
+        int height = Math.max(1, Math.min(natural, Math.round(content.height() * MAX_HEIGHT_SHARE)));
+        return new Rect(content.x(), content.bottom() - height, content.width(), height);
     }
 
-    public int tileWidth() {
-        return CoalArt.TEX_W * SCALE;
+    public int bedHeight(Rect content) {
+        return bedRect(content).height();
     }
 
-    public int tiles(Rect content) {
-        return content.width() <= 0 ? 0 : (content.width() + tileWidth() - 1) / tileWidth();
+    public float particleScale(Rect content) {
+        float ratio = bedHeight(content) / (float) REFERENCE_HEIGHT;
+        return Math.max(0.7f, Math.min(2.2f, ratio));
     }
 
-    public Rect tileRect(int tile, Rect content) {
-        return new Rect(content.x() + tile * tileWidth(), content.bottom() - bedHeight(),
-                tileWidth(), bedHeight());
-    }
-
-    public float zoneHeat(int zone, int tile) {
-        float phase = zone * (6.2831855f / ZONES) + tile * 1.4f;
+    public float zoneHeat(int zone) {
+        float phase = zone * (6.2831855f / ZONES);
         float wave = (float) Math.sin(clock * WAVE_SPEED - phase);
         float slow = (float) Math.sin(clock * 0.31f - phase * 0.5f);
         return Math.max(0.0f, Math.min(1.0f, 0.5f + 0.36f * wave + 0.14f * slow));
     }
 
-    public int zoneTint(int zone, int tile) {
+    public int zoneTint(int zone) {
         return Motion.fade(Motion.blend(HEAT_LOW | 0xFF000000, HEAT_HIGH | 0xFF000000,
-                zoneHeat(zone, tile)), TINT_ALPHA);
+                zoneHeat(zone)), TINT_ALPHA);
     }
 
     public int smokeFrame(int index) {
@@ -122,7 +124,7 @@ public final class CoalScene {
     public int sizeOf(int index) {
         return switch (kindOf(index)) {
             case SPARK -> 4;
-            case LAVA -> py[index] > bedHeight() ? 5 : 7;
+            case LAVA -> py[index] > REFERENCE_HEIGHT ? 5 : 7;
             default -> 8 + Math.round(life(index) * 14.0f);
         };
     }
@@ -151,17 +153,19 @@ public final class CoalScene {
         if (age[index] >= span[index]) {
             return true;
         }
-        if (py[index] < 0.0f || py[index] > content.height() + bedHeight()) {
+        if (py[index] < 0.0f || py[index] > content.height() + REFERENCE_HEIGHT) {
             return true;
         }
-        return px[index] < -tileWidth() || px[index] > content.width() + tileWidth();
+        return px[index] < -80.0f || px[index] > content.width() + 80.0f;
     }
 
     private void spawn(int index, Rect content) {
         int site = random.nextInt(CoalArt.siteCount());
-        int tile = random.nextInt(Math.max(1, tiles(content)));
-        this.px[index] = tile * tileWidth() + CoalArt.siteX(site) * SCALE;
-        this.py[index] = (CoalArt.TEX_H - CoalArt.siteY(site)) * SCALE;
+        Rect bed = bedRect(content);
+        float across = bed.width() <= 0 ? 1.0f : bed.width() / (float) CoalArt.TEX_W;
+        float down = bed.height() <= 0 ? 1.0f : bed.height() / (float) CoalArt.TEX_H;
+        this.px[index] = CoalArt.siteX(site) * across;
+        this.py[index] = (CoalArt.TEX_H - CoalArt.siteY(site)) * down;
         this.age[index] = 0.0f;
         this.phase[index] = random.nextFloat() * 6.2831855f;
         switch (kindOf(index)) {
