@@ -27,9 +27,19 @@ public class LoadingOverlayM {
     @Unique
     private static final int VOLCANIC_SURFACE = 0x140D0B;
     @Unique
-    private static final int VOLCANIC_SURFACE_DEEP = 0x0E0A09;
+    private static final int VOLCANIC_TRACK_TOP = 0x0B0706;
     @Unique
-    private static final int VOLCANIC_BORDER = 0x3A231D;
+    private static final int VOLCANIC_TRACK_BOTTOM = 0x1A100D;
+    @Unique
+    private static final int VOLCANIC_SHADOW = 0x050303;
+    @Unique
+    private static final int VOLCANIC_FILL_TOP = 0xFF7A38;
+    @Unique
+    private static final int VOLCANIC_FILL_BOTTOM = 0xC63A0E;
+    @Unique
+    private static final int VOLCANIC_FILL_SHEEN = 0xFFA765;
+    @Unique
+    private static final int VOLCANIC_TIP = 0xFFE7C4;
     @Unique
     private static final int VOLCANIC_ACCENT = 0xFF5A1F;
 
@@ -243,43 +253,44 @@ public class LoadingOverlayM {
             return;
         }
 
-        int inner = maxX - minX - 4;
+        int inner = maxX - minX - 2;
         if (inner <= 0 || maxY - minY < 6) {
             return;
         }
 
-        guiGraphics.fill(minX + 1, maxY, maxX - 1, maxY + 2, (Math.round(a * 0.5f) << 24) | VOLCANIC_SURFACE_DEEP);
+        int glowA = Math.round(a * 0.22f);
+        guiGraphics.fillGradient(minX - 6, maxY, maxX + 6, maxY + 7,
+                (glowA << 24) | VOLCANIC_ACCENT, VOLCANIC_ACCENT);
 
-        int border = (a << 24) | VOLCANIC_BORDER;
-        guiGraphics.fill(minX, minY, maxX, minY + 1, border);
-        guiGraphics.fill(minX, maxY - 1, maxX, maxY, border);
-        guiGraphics.fill(minX, minY + 1, minX + 1, maxY - 1, border);
-        guiGraphics.fill(maxX - 1, minY + 1, maxX, maxY - 1, border);
-
-        guiGraphics.fillGradient(minX + 1, minY + 1, maxX - 1, maxY - 1,
-                (a << 24) | VOLCANIC_SURFACE_DEEP, (a << 24) | 0x1B100D);
+        int trackTop = (a << 24) | VOLCANIC_TRACK_TOP;
+        int trackBottom = (a << 24) | VOLCANIC_TRACK_BOTTOM;
+        guiGraphics.fillGradient(minX + 1, minY, maxX - 1, maxY, trackTop, trackBottom);
+        guiGraphics.fillGradient(minX, minY + 1, minX + 1, maxY - 1, trackTop, trackBottom);
+        guiGraphics.fillGradient(maxX - 1, minY + 1, maxX, maxY - 1, trackTop, trackBottom);
+        guiGraphics.fill(minX + 1, minY, maxX - 1, minY + 1, (Math.round(a * 0.85f) << 24) | VOLCANIC_SHADOW);
 
         int fillW = Mth.ceil(inner * Mth.clamp(this.currentProgress, 0.0f, 1.0f));
         if (fillW <= 0) {
             return;
         }
 
-        int x0 = minX + 2;
+        int x0 = minX + 1;
         int x1 = x0 + fillW;
-        int y0 = minY + 2;
-        int y1 = maxY - 2;
+        int y0 = minY + 1;
+        int y1 = maxY - 1;
 
-        guiGraphics.fillGradient(x0, y0, x1, y1, (a << 24) | 0xB33F16, (a << 24) | 0x5E2110);
+        guiGraphics.fillGradient(x0, y0, x1, y1, (a << 24) | VOLCANIC_FILL_TOP,
+                (a << 24) | VOLCANIC_FILL_BOTTOM);
+        guiGraphics.fill(x0, y0, x1, y0 + 1, (Math.round(a * 0.9f) << 24) | VOLCANIC_FILL_SHEEN);
 
-        int hot = Math.min(fillW, 4);
-        guiGraphics.fillGradient(x1 - hot, y0, x1, y1, (a << 24) | VOLCANIC_ACCENT, (a << 24) | 0xA8330E);
+        int hot = Math.min(fillW, 3);
+        guiGraphics.fillGradient(x1 - hot, y0, x1, y1, (a << 24) | VOLCANIC_ACCENT,
+                (a << 24) | VOLCANIC_FILL_BOTTOM);
 
-        int tipA = Math.round(a * (0.7f + 0.3f * Mth.sin(this.volcanic$time * 5.4f)));
-        guiGraphics.fill(x1 - 1, y0, x1, y1, (tipA << 24) | 0xFFD9A0);
-
-        this.volcanic$barTipX = x1;
-        this.volcanic$barTipY = (y0 + y1) * 0.5f;
-        this.volcanic$barTipMillis = Util.getMillis();
+        int tipA = Math.round(a * (0.72f + 0.28f * Mth.sin(this.volcanic$time * 5.4f)));
+        guiGraphics.fill(x1 - 1, y0, x1, y1, (tipA << 24) | VOLCANIC_TIP);
+        guiGraphics.fill(x1 - 1, y0 - 1, x1, y0, (Math.round(tipA * 0.6f) << 24) | VOLCANIC_TIP);
+        guiGraphics.fill(x1 - 1, y1, x1, y1 + 1, (Math.round(tipA * 0.6f) << 24) | VOLCANIC_TIP);
     }
 
     @Unique
