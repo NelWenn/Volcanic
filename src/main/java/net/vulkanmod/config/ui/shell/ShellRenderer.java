@@ -210,6 +210,7 @@ public final class ShellRenderer {
     private final HoverState focus = new HoverState(Motion.SELECTION_MS);
     private final Glide applyBarSlide = new Glide(80.0f);
     private ApplyBarModel lastBar;
+    private boolean barOnScreen;
     private final Glide navMarkerTop = new Glide(55.0f);
     private final Glide navMarkerHeight = new Glide(55.0f);
     private boolean navMarkerPlaced;
@@ -303,7 +304,9 @@ public final class ShellRenderer {
         }
 
         Rect drawer = layout.sidebarOrDrawer(true);
-        if (layout.hasDrawer() && !drawer.isEmpty()) {
+        if (!layout.hasDrawer() || drawer.isEmpty()) {
+            drawerSlide.jumpTo(drawer.width() + 1.0f);
+        } else {
             float hidden = drawer.width() + 1;
             int shift = Math.round(drawerSlide.advance(drawerOpen ? 0.0f : hidden, deltaMs));
             if (shift < hidden) {
@@ -334,8 +337,7 @@ public final class ShellRenderer {
             this.pageElapsed = Math.min(this.pageElapsed + deltaMs, Motion.SEQUENCE_MS);
             return;
         }
-        this.pageDirection = enteredRoute == null ? 0
-                : current.depth() >= enteredDepth ? 1 : -1;
+        this.pageDirection = enteredRoute == null || current.depth() >= enteredDepth ? 1 : -1;
         this.enteredRoute = current;
         this.enteredDepth = current.depth();
         this.pageElapsed = 0L;
@@ -659,8 +661,17 @@ public final class ShellRenderer {
         if (presenter == null) {
             throw new IllegalArgumentException("presenter must not be null");
         }
-        return SettingRowLayout.rows(contentBody(layout, presenter), presenter.contentRowCount(), scroll,
-                layout.breakpoint());
+        List<Rect> rows = SettingRowLayout.rows(contentBody(layout, presenter),
+                presenter.contentRowCount(), scroll, layout.breakpoint());
+        if (pageElapsed >= Motion.SEQUENCE_MS) {
+            return rows;
+        }
+        List<Rect> shifted = new ArrayList<>(rows.size());
+        for (int index = 0; index < rows.size(); index++) {
+            shifted.add(rows.get(index).translated(
+                    Motion.slide(Motion.rowReveal(pageElapsed, index), pageDirection, Motion.PAGE_TRAVEL), 0));
+        }
+        return List.copyOf(shifted);
     }
 
     public static Rect sliderTrack(Rect row) {
@@ -834,20 +845,26 @@ public final class ShellRenderer {
         }
         int hidden = region.height() + 2;
         int lift = Math.round(applyBarSlide.advance(bar.visible() ? 0.0f : hidden, deltaMs));
-        if (lift >= hidden || lastBar == null) {
+        this.barOnScreen = lift < hidden && lastBar != null;
+        if (!barOnScreen) {
             return;
         }
         painter.setOffset(0, lift);
         try {
-            paintApplyBarBody(painter, font, layout, presenter, lastBar, region, mouseX, mouseY);
+            paintApplyBarBody(painter, font, layout, presenter, lastBar, region,
+                    layout.applyButton(), layout.discardButton(), mouseX, mouseY);
         } finally {
             painter.setOffset(0, 0);
         }
     }
 
+    public boolean applyBarOnScreen() {
+        return this.barOnScreen;
+    }
+
     private void paintApplyBarBody(SurfacePainter painter, Font font, ShellLayout layout,
                                    NavPresenter presenter, ApplyBarModel bar, Rect region,
-                                   int mouseX, int mouseY) {
+                                   Rect apply, Rect discard, int mouseX, int mouseY) {
         painter.fill(region, theme.color(ColorToken.SURFACE_CHROME));
         painter.fill(new Rect(region.x(), region.y(), region.width(), 1),
                 theme.color(ColorToken.BORDER_ACCENT));
@@ -855,9 +872,9 @@ public final class ShellRenderer {
         painter.text(region.x() + PageHeader.PAD_X, region.y() + (region.height() - TEXT_HEIGHT) / 2,
                 I18n.get(bar.messageKey(), bar.count()), theme.color(token), false);
 
-        paintBarButton(painter, font, applyButton(layout, presenter), I18n.get(KEY_APPLY),
+        paintBarButton(painter, font, apply, I18n.get(KEY_APPLY),
                 ColorToken.ACCENT, mouseX, mouseY);
-        paintBarButton(painter, font, discardButton(layout, presenter), I18n.get(KEY_DISCARD),
+        paintBarButton(painter, font, discard, I18n.get(KEY_DISCARD),
                 ColorToken.BORDER_STRONG, mouseX, mouseY);
     }
 
@@ -927,8 +944,9 @@ public final class ShellRenderer {
                     Rect box = SidebarModel.rowBox(sidebar, top, height, depth);
                     boolean active = route.equals(activeRoute);
                     String key = route.toString();
+                    float hovered = hover.advance(key, index == hoveredIndex, deltaMs);
                     paintRowSurface(painter, box, false,
-                            hover.advance(key, index == hoveredIndex, deltaMs),
+                            volcanic$markerOn(model.offsetOf(index), height) > 0.5f ? 0.0f : hovered,
                             focus.advance(key, key.equals(focusedId), deltaMs));
                     int argb = presenter.rowGreyed(route) ? theme.color(ColorToken.TEXT_MUTED)
                             : Motion.blend(theme.color(ColorToken.TEXT_SECONDARY),
@@ -1976,8 +1994,7 @@ public final class ShellRenderer {
         SettingMeta pointed = hoveredSetting(layout, presenter, contentScroll, mouseX, mouseY);
         for (int i = 0; i < boxes.size() && i < rows.size(); i++) {
             Rect box = boxes.get(i);
-            painter.setOffset(Motion.slide(Motion.rowReveal(pageElapsed, i), pageDirection,
-                    Motion.PAGE_TRAVEL), 0);
+            painter.setOffset(0, 0);
             if (rows.get(i) instanceof NavPresenter.GroupRow group) {
                 paintGroupRow(painter, font, box, group, mouseX, mouseY);
                 continue;

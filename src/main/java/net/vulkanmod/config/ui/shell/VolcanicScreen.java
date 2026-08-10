@@ -491,7 +491,7 @@ public class VolcanicScreen extends Screen {
     }
 
     private boolean applyBarVisible() {
-        return !presenter.pending().isEmpty();
+        return !presenter.pending().isEmpty() || renderer.applyBarOnScreen();
     }
 
     private int maxContentScroll() {

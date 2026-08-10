@@ -23,7 +23,7 @@ public final class SettingRowRenderer {
     private static final int PILL_HEIGHT = 12;
     private static final int KNOB_INSET = 2;
     private final net.vulkanmod.config.ui.core.HoverState pills =
-            new net.vulkanmod.config.ui.core.HoverState(Motion.SELECTION_MS);
+            new net.vulkanmod.config.ui.core.HoverState(Motion.SELECTION_MS, true);
 
     private static final int TRACK_HEIGHT = 3;
     private static final int TRACK_GAP = 8;
