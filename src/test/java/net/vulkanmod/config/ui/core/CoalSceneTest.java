@@ -21,28 +21,71 @@ class CoalSceneTest {
 
     @Test
     void theArtTableIsIntactAndEverySiteFallsInsideTheTexture() {
-        assertTrue(CoalArt.siteCount() >= CoalScene.GLOW_SITES);
+        assertTrue(CoalArt.siteCount() > 0);
         for (int site = 0; site < CoalArt.siteCount(); site++) {
             assertTrue(CoalArt.siteX(site) >= 0 && CoalArt.siteX(site) < CoalArt.TEX_W);
             assertTrue(CoalArt.siteY(site) >= 0 && CoalArt.siteY(site) < CoalArt.TEX_H);
             assertTrue(CoalArt.siteHeat(site) > 0);
         }
-        for (int site = 0; site < CoalScene.GLOW_SITES; site++) {
+        for (int site = 0; site < CoalArt.siteCount(); site++) {
             assertTrue(CoalArt.siteY(site) > CoalArt.TEX_H / 2,
-                    "site " + site + " would glow in the dark half, above the coals");
+                    "site " + site + " would spawn particles above the coals");
         }
     }
 
     @Test
-    void theGlowLandsOnTheArtworksOwnPixelGridRatherThanFloatingOverIt() {
+    void everyZoneSwingsBetweenGlowingAndGoingOutRatherThanHoldingOneShade() {
         CoalScene scene = new CoalScene(1L);
-        assertEquals(CoalScene.SCALE, scene.glowSize(), "a glow must be exactly one painted pixel");
-        for (int site = 0; site < CoalScene.GLOW_SITES; site++) {
-            int x = scene.glowX(site, 0, CONTENT) - CONTENT.x();
-            int y = scene.glowY(site, CONTENT) - (CONTENT.bottom() - scene.bedHeight());
-            assertEquals(0, x % CoalScene.SCALE, "site " + site + " is off the grid horizontally");
-            assertEquals(0, y % CoalScene.SCALE, "site " + site + " is off the grid vertically");
+        for (int zone = 0; zone < CoalScene.ZONES; zone++) {
+            float hottest = 0.0f;
+            float coldest = 1.0f;
+            for (int frame = 0; frame < 900; frame++) {
+                scene.advance(16, CONTENT);
+                hottest = Math.max(hottest, scene.zoneHeat(zone, 0));
+                coldest = Math.min(coldest, scene.zoneHeat(zone, 0));
+            }
+            assertTrue(hottest > 0.75f, "zone " + zone + " never got hot, peak " + hottest);
+            assertTrue(coldest < 0.25f, "zone " + zone + " never went dark, floor " + coldest);
         }
+    }
+
+    @Test
+    void theZonesAreOutOfPhaseSoTheHeatTravelsInsteadOfBlinkingAtOnce() {
+        CoalScene scene = run(2L, 30);
+        long shades = IntStream.range(0, CoalScene.ZONES)
+                .map(zone -> Math.round(scene.zoneHeat(zone, 0) * 40)).distinct().count();
+        assertTrue(shades >= 5, "only " + shades + " distinct zone temperatures, the bed pulses as one");
+    }
+
+    @Test
+    void aZoneTintReachesBothARealGlowAndANearBlack() {
+        CoalScene scene = new CoalScene(3L);
+        int brightest = 0;
+        int darkest = 255;
+        for (int frame = 0; frame < 900; frame++) {
+            scene.advance(16, CONTENT);
+            int red = (scene.zoneTint(0, 0) >> 16) & 0xFF;
+            brightest = Math.max(brightest, red);
+            darkest = Math.min(darkest, red);
+        }
+        assertTrue(brightest > 200, "the hot end never lit up, peak red " + brightest);
+        assertTrue(darkest < 90, "the cold end never went dark, floor red " + darkest);
+    }
+
+    @Test
+    void smokeWalksItsTextureFramesFromFirstToLast() {
+        CoalScene scene = new CoalScene(4L);
+        int puff = CoalScene.SPARKS + CoalScene.LAVAS;
+        int lowest = CoalScene.SMOKE_FRAMES;
+        int highest = -1;
+        for (int frame = 0; frame < 200; frame++) {
+            scene.advance(16, CONTENT);
+            int index = scene.smokeFrame(puff);
+            assertTrue(index >= 0 && index < CoalScene.SMOKE_FRAMES, "frame out of range: " + index);
+            lowest = Math.min(lowest, index);
+            highest = Math.max(highest, index);
+        }
+        assertTrue(highest > lowest, "the smoke never advanced past its first frame");
     }
 
     @Test
@@ -119,13 +162,13 @@ class CoalSceneTest {
     void sparksAreTheSmallestAndTheShortestLivedOfTheThree() {
         CoalScene scene = run(6L, 4);
         for (int index = 0; index < CoalScene.SPARKS; index++) {
-            assertEquals(1, scene.sizeOf(index), "a spark must stay a single pixel");
+            assertTrue(scene.sizeOf(index) <= 5, "a spark must stay small");
         }
         for (int index = CoalScene.SPARKS; index < CoalScene.SPARKS + CoalScene.LAVAS; index++) {
-            assertTrue(scene.sizeOf(index) >= 2, "a lava blob must be chunkier than a spark");
+            assertTrue(scene.sizeOf(index) >= 5, "a lava blob must be chunkier than a spark");
         }
         for (int index = CoalScene.SPARKS + CoalScene.LAVAS; index < CoalScene.PARTICLES; index++) {
-            assertTrue(scene.sizeOf(index) >= 2, "a puff of smoke must be the fattest of the three");
+            assertTrue(scene.sizeOf(index) >= 8, "a puff of smoke must be the fattest of the three");
         }
     }
 
@@ -133,7 +176,7 @@ class CoalSceneTest {
     void smokeStaysFaintWhileSparksBurnBright() {
         CoalScene scene = run(7L, 20);
         for (int index = CoalScene.SPARKS + CoalScene.LAVAS; index < CoalScene.PARTICLES; index++) {
-            assertTrue((scene.argbOf(index) >>> 24) <= 60,
+            assertTrue((scene.argbOf(index) >>> 24) <= 90,
                     "smoke at alpha " + (scene.argbOf(index) >>> 24) + " would hide the text");
         }
         int brightestSpark = IntStream.range(0, CoalScene.SPARKS)

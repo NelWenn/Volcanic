@@ -87,6 +87,38 @@ public final class ShellRenderer {
     private static final float SCRIM_ALPHA = 0.72f;
     private static final ResourceLocation COAL_BED =
             ResourceLocation.fromNamespaceAndPath("vulkanmod", "textures/gui/coalbed.png");
+    private static final ResourceLocation[] COAL_ZONES = coalZones();
+    private static final ResourceLocation SPARK_TEX =
+            ResourceLocation.withDefaultNamespace("textures/particle/flame.png");
+    private static final ResourceLocation LAVA_TEX =
+            ResourceLocation.withDefaultNamespace("textures/particle/lava.png");
+    private static final ResourceLocation[] SMOKE_TEX = smokeFrames();
+
+    private static ResourceLocation[] coalZones() {
+        ResourceLocation[] zones = new ResourceLocation[CoalScene.ZONES];
+        for (int zone = 0; zone < zones.length; zone++) {
+            zones[zone] = ResourceLocation.fromNamespaceAndPath("vulkanmod",
+                    "textures/gui/coal_zone_" + zone + ".png");
+        }
+        return zones;
+    }
+
+    private static ResourceLocation[] smokeFrames() {
+        ResourceLocation[] frames = new ResourceLocation[CoalScene.SMOKE_FRAMES];
+        for (int frame = 0; frame < frames.length; frame++) {
+            frames[frame] = ResourceLocation.withDefaultNamespace(
+                    "textures/particle/generic_" + frame + ".png");
+        }
+        return frames;
+    }
+
+    private ResourceLocation particleTexture(int index) {
+        return switch (coals.kindOf(index)) {
+            case CoalScene.SPARK -> SPARK_TEX;
+            case CoalScene.LAVA -> LAVA_TEX;
+            default -> SMOKE_TEX[coals.smokeFrame(index)];
+        };
+    }
     private static final int BAR_BUTTON_RADIUS = 5;
     private static final int SEARCH_RADIUS = 5;
     private static final ResourceLocation LOGO =
@@ -989,25 +1021,22 @@ public final class ShellRenderer {
                     0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
         }
 
-        int glow = coals.glowSize();
         for (int tile = 0; tile < tiles; tile++) {
-            for (int site = 0; site < CoalScene.GLOW_SITES; site++) {
-                int argb = coals.glowArgb(site);
-                if ((argb >>> 24) == 0) {
-                    continue;
-                }
-                int left = coals.glowX(site, tile, content);
-                if (left >= content.right()) {
-                    continue;
-                }
-                painter.fill(new Rect(left, coals.glowY(site, content),
-                        Math.min(glow, content.right() - left), glow), argb);
+            Rect rect = coals.tileRect(tile, content);
+            for (int zone = 0; zone < CoalScene.ZONES; zone++) {
+                int tint = coals.zoneTint(zone, tile);
+                graphics.setColor(((tint >> 16) & 0xFF) / 255.0f, ((tint >> 8) & 0xFF) / 255.0f,
+                        (tint & 0xFF) / 255.0f, ((tint >>> 24) & 0xFF) / 255.0f);
+                graphics.blit(COAL_ZONES[zone], rect.x(), rect.y(), rect.width(), rect.height(),
+                        0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
             }
         }
+        graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         for (int index = 0; index < CoalScene.PARTICLES; index++) {
             int argb = coals.argbOf(index);
-            if ((argb >>> 24) == 0) {
+            int alpha = argb >>> 24;
+            if (alpha == 0) {
                 continue;
             }
             int left = coals.xOf(index, content);
@@ -1015,8 +1044,12 @@ public final class ShellRenderer {
             if (left >= content.right() || left + side <= content.x()) {
                 continue;
             }
-            painter.fill(new Rect(left, coals.yOf(index, content), side, side), argb);
+            graphics.setColor(((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f,
+                    (argb & 0xFF) / 255.0f, alpha / 255.0f);
+            graphics.blit(particleTexture(index), left, coals.yOf(index, content) - side / 2,
+                    side, side, 0.0f, 0.0f, 8, 8, 8, 8);
         }
+        graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     private float volcanic$markerOn(int rowOffset, int rowHeight) {
