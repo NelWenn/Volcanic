@@ -1024,9 +1024,8 @@ public final class ShellRenderer {
                     boolean active = route.equals(activeRoute);
                     String key = route.toString();
                     float hovered = hover.advance(key, index == hoveredIndex, deltaMs);
-                    float focused = focus.advance(key, key.equals(focusedId), deltaMs);
                     paintRowSurface(painter, box, false, active ? 0.0f : hovered,
-                            active ? 0.0f : focused);
+                            !active && key.equals(focusedId) ? 1.0f : 0.0f);
                     int argb = presenter.rowGreyed(route) ? theme.color(ColorToken.TEXT_MUTED)
                             : Motion.blend(theme.color(ColorToken.TEXT_SECONDARY),
                                     theme.color(ColorToken.TEXT_PRIMARY),
