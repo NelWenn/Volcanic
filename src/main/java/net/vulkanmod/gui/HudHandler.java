@@ -45,4 +45,13 @@ public class HudHandler {
     public List<HUD> getHuds() {
         return List.copyOf(huds);
     }
+
+    public <T extends HUD> T get(Class<T> type) {
+        for (HUD hud : huds) {
+            if (type.isInstance(hud)) {
+                return type.cast(hud);
+            }
+        }
+        return null;
+    }
 }

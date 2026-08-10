@@ -802,17 +802,11 @@ public final class SettingsCatalog {
                 .withDefault(() -> GraphicsStatus.FAST.getKey()));
     }
 
-    private static final List<String> SHOW_FPS_MODES = List.of(
-            "vulkanmod.options.showFps.off", "vulkanmod.options.showFps.simple",
-            "vulkanmod.options.showFps.advanced");
-
     private void bindDeveloperTools() {
-        bindings.put(SettingsDefinitions.SHOW_FPS, SettingBinding.choosing(
-                () -> I18n.get(SHOW_FPS_MODES.get(clampIndex(Initializer.CONFIG.showFps,
-                        SHOW_FPS_MODES.size()))),
-                value -> Initializer.CONFIG.showFps = indexOfLabel(SHOW_FPS_MODES, value),
-                () -> SHOW_FPS_MODES.stream().map(I18n::get).toList())
-                .withDefault(() -> I18n.get(SHOW_FPS_MODES.get(0))));
+        bindings.put(SettingsDefinitions.SHOW_FPS, SettingBinding.of(
+                () -> Initializer.CONFIG.showFpsCounter,
+                value -> Initializer.CONFIG.showFpsCounter = boolValue(value))
+                .withDefault(() -> Boolean.FALSE));
 
         bindings.put(SettingsDefinitions.SHOW_COORDINATES, SettingBinding.of(
                 () -> Initializer.CONFIG.showCoordinates,

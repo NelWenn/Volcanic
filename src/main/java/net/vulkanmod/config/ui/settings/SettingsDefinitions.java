@@ -483,7 +483,7 @@ public final class SettingsDefinitions {
     public static List<SettingMeta> developerTools() {
         return List.of(
                 new SettingMeta.Builder(SHOW_FPS, DEVELOPER_TOOLS, "vulkanmod.options.showFps",
-                        SettingType.ENUM, SettingSource.VOLCANIC)
+                        SettingType.BOOL, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.showFps.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.NONE).visual(ImpactLevel.LOW).build(),

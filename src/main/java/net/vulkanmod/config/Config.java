@@ -109,7 +109,7 @@ public class Config {
 
     public java.util.List<String> disabledParticles = new java.util.ArrayList<>();
     public int chunkBuilderThreads = 0;
-    public int showFps = 0;
+    public boolean showFpsCounter = false;
     public boolean showCoordinates = false;
     public boolean perfLog = false;
     public boolean vulkanValidation = false;
