@@ -102,6 +102,8 @@
   "vulkanmod.options.glFboViewport": "GL FBO Viewport",
   "vulkanmod.options.glFboViewport.tooltip": "Uses the framebuffer-object viewport convention for mods that render to their own render targets. Requires restart.",
   "vulkanmod.keybind.toggle_debug_overlay": "Toggle Debug Overlay",
+  "vulkanmod.keybind.toggle_fps_overlay": "Toggle FPS Display",
+  "vulkanmod.keybind.toggle_profiler_overlay": "Toggle Chunk Profiler",
   "vulkanmod.keybind.open_options": "Open Volcanic Settings",
   "vulkanmod.options.title": "Volcanic Graphics",
   "vulkanmod.applybar.chunk_rebuild": "%d held, Apply rebuilds the chunks, Esc discards",

@@ -4,14 +4,16 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.ui.core.FrameSamples;
+import net.vulkanmod.gui.HUD;
 import net.vulkanmod.vulkan.FrameTimer;
 import net.vulkanmod.vulkan.SessionSamples;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public final class FpsOverlay {
+public final class FpsOverlay extends HUD {
     public static final int OFF = 0;
     public static final int SIMPLE = 1;
     public static final int ADVANCED = 2;
@@ -25,17 +27,24 @@ public final class FpsOverlay {
     private static final int BACKDROP = 0xA00E0A09;
     private static final long REFRESH_MS = 500L;
 
-    private static List<String> cached = List.of();
-    private static long cachedAt;
-    private static int cachedFps;
+    private List<String> cached = List.of();
+    private long cachedAt;
+    private int cachedFps;
 
-    private FpsOverlay() {
+    public FpsOverlay() {
+        super("vulkanmod.keybind.toggle_fps_overlay", GLFW.GLFW_KEY_UNKNOWN, "Volcanic");
     }
 
-    public static void render(GuiGraphics graphics) {
+    @Override
+    public boolean shouldRender() {
+        return super.shouldRender() && (mode() != OFF || coordinates()) && !debugScreenOpen();
+    }
+
+    @Override
+    public void render(GuiGraphics graphics) {
         int mode = mode();
         boolean coordinates = coordinates();
-        if ((mode == OFF && !coordinates) || graphics == null) {
+        if (graphics == null) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
@@ -43,7 +52,6 @@ public final class FpsOverlay {
             return;
         }
         refresh(mode, coordinates);
-        cached = cached.stream().filter(line -> !line.isBlank()).toList();
         if (cached.isEmpty()) {
             return;
         }
@@ -61,7 +69,7 @@ public final class FpsOverlay {
         }
     }
 
-    private static void refresh(int mode, boolean coordinates) {
+    private void refresh(int mode, boolean coordinates) {
         long now = System.currentTimeMillis();
         if (now - cachedAt < REFRESH_MS && !cached.isEmpty()) {
             return;
@@ -87,7 +95,17 @@ public final class FpsOverlay {
         if (coordinates) {
             lines.add(position());
         }
+        lines.removeIf(String::isBlank);
         cached = List.copyOf(lines);
+    }
+
+    private static boolean debugScreenOpen() {
+        try {
+            Minecraft minecraft = Minecraft.getInstance();
+            return minecraft.gui != null && minecraft.gui.getDebugOverlay().showDebugScreen();
+        } catch (Throwable unavailable) {
+            return false;
+        }
     }
 
     private static String position() {

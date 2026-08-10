@@ -15,6 +15,8 @@ import net.vulkanmod.config.ui.shell.VolcanicScreen;
 import net.vulkanmod.gui.DebugOverlay;
 import net.vulkanmod.gui.HUD;
 import net.vulkanmod.gui.HudHandler;
+import net.vulkanmod.gui.ProfilerHud;
+import net.vulkanmod.render.profiling.FpsOverlay;
 
 @EventBusSubscriber(value = Dist.CLIENT, modid = Initializer.MOD_ID)
 public class ClientEvents {
@@ -52,5 +54,7 @@ public class ClientEvents {
 
     static {
         HudHandler.getInstance().registerOrdered(new DebugOverlay(), 0);
+        HudHandler.getInstance().registerOrdered(new ProfilerHud(), 1);
+        HudHandler.getInstance().registerOrdered(new FpsOverlay(), 2);
     }
 }

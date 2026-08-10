@@ -74,7 +74,6 @@
     "render.GameRendererMixin",
     "render.GlProgramManagerMixin",
     "render.GlStateManagerM",
-    "profiling.GuiMixin",
     "render.GuiGraphicsRenderStateMixin",
     "render.GuiRenderStateBoundaryMixin",
     "render.LevelRendererMixin",
