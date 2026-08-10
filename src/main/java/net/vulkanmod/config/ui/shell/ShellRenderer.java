@@ -1437,13 +1437,38 @@ public final class ShellRenderer {
                 }
                 painter.fill(new Rect(cx - 1, box.bottom() - 7, 2, 4), tone);
             }
-            int flash = presetFx.levelFlash(index);
-            if (flash > 0) {
-                int argb = Motion.fade(tone, flash == 2 ? 0.85f : 0.35f);
+            int spread = presetFx.levelSpread(index);
+            if (spread > 0) {
+                int glow = presetFx.levelGlow(index);
                 int mid = box.y() + box.height() / 2;
-                painter.fill(new Rect(box.x() + 4, mid, box.width() - 8, 1), argb);
-                painter.fill(new Rect(box.x() + 4, mid - 2, 1, 5), argb);
-                painter.fill(new Rect(box.right() - 5, mid - 2, 1, 5), argb);
+                int half = (box.width() / 2 - 5) * spread / 4;
+                int argb = Motion.fade(tone, 0.25f + 0.15f * glow);
+
+                paintRoundedOutline(painter, box, SettingRowLayout.CARD_RADIUS,
+                        Motion.fade(tone, 0.14f * glow));
+
+                int wash = Motion.fade(tone, 0.045f * glow);
+                int reach = 4 + spread * 5;
+                for (int y = mid - reach; y <= mid + reach; y += 2) {
+                    if (y <= box.y() + 3 || y >= box.bottom() - 3) {
+                        continue;
+                    }
+                    int inset = 5 + Math.abs(y - mid) / 2;
+                    int from = box.x() + inset + Math.floorMod(box.x() + inset + y, 2);
+                    for (int x = from; x < box.right() - inset; x += 2) {
+                        painter.fill(new Rect(x, y, 1, 1), wash);
+                    }
+                }
+
+                painter.fill(new Rect(cx - half, mid - 1, half * 2, 2), argb);
+                if (spread >= 2) {
+                    painter.fill(new Rect(cx - half, mid - 4, 2, 8), argb);
+                    painter.fill(new Rect(cx + half - 2, mid - 4, 2, 8), argb);
+                }
+                if (spread == 4 && glow >= 3) {
+                    painter.fill(new Rect(cx - 2, mid - 6, 4, 2), Motion.fade(tone, 0.9f));
+                    painter.fill(new Rect(cx - 2, mid + 4, 4, 2), Motion.fade(tone, 0.9f));
+                }
             }
         } else if (effect == PresetFx.ERUPT && presetFx.flashing(index)) {
             painter.fill(box, theme.color(ColorToken.TEXT_PRIMARY));

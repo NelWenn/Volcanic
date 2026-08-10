@@ -138,17 +138,36 @@ class PresetFxTest {
         }
         assertTrue(reversals >= 2, "a balance must tip back and forth, got " + reversals + " reversals");
         assertEquals(0, running(PresetFx.ROCK, 9).rockAngle(0), "it must end perfectly level");
+        assertEquals(0, running(PresetFx.ROCK, 12).rockAngle(0), "and stay level through the settle");
     }
 
     @Test
-    void theLevelLineOnlyFlashesOnceTheRockingIsOver() {
+    void theLevelLineOnlyAppearsOnceTheRockingIsOverAndThenGrowsToFullWidth() {
         for (int frame = 0; frame < 8; frame++) {
-            assertEquals(0, running(PresetFx.ROCK, frame).levelFlash(0),
+            assertEquals(0, running(PresetFx.ROCK, frame).levelSpread(0),
                     "the line showed while still tipping, frame " + frame);
         }
-        assertEquals(2, running(PresetFx.ROCK, 8).levelFlash(0));
-        assertEquals(1, running(PresetFx.ROCK, 9).levelFlash(0), "the line fades rather than cutting");
-        assertEquals(0, new PresetFx().levelFlash(0));
+        int previous = 0;
+        for (int frame = 8; frame < 16; frame++) {
+            int spread = running(PresetFx.ROCK, frame).levelSpread(0);
+            assertTrue(spread >= previous, "the line shrank at frame " + frame);
+            previous = spread;
+        }
+        assertEquals(4, previous, "the line never reached the card edges");
+        assertEquals(0, new PresetFx().levelSpread(0));
+    }
+
+    @Test
+    void theSettleGlowFadesInsteadOfCuttingOut() {
+        assertEquals(4, running(PresetFx.ROCK, 8).levelGlow(0), "the settle must open bright");
+        int previous = 4;
+        for (int frame = 9; frame < 16; frame++) {
+            int glow = running(PresetFx.ROCK, frame).levelGlow(0);
+            assertTrue(glow <= previous, "the glow brightened at frame " + frame);
+            previous = glow;
+        }
+        assertEquals(1, previous, "it must still be visible on its last frame, then end");
+        assertEquals(0, running(PresetFx.ROCK, 16).levelGlow(0));
     }
 
     @Test
