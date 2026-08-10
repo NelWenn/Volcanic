@@ -71,6 +71,50 @@ public interface MenuPlugin {
         return List.of();
     }
 
+    /**
+     * Une ligne libre sous le titre de la vitrine — auteur, version, ce que le plugin veut.
+     * {@code null} : la ligne n'est pas affichée.
+     */
+    default String byline() {
+        return null;
+    }
+
+    /**
+     * Description courte affichée dans la vitrine du plugin. {@code null} : le menu affiche
+     * sa note par défaut (nombre de groupes de réglages).
+     */
+    default String description() {
+        return null;
+    }
+
+    /**
+     * Jusqu'à quatre étiquettes libres, rendues en pastilles (LOD, Terrain, …). Le menu ajoute
+     * lui-même « Requires Volcanic » ; inutile de le déclarer.
+     */
+    default List<String> tags() {
+        return List.of();
+    }
+
+    /**
+     * Icône carrée de la vitrine, en chemin texture complet, par exemple
+     * {@code "caldera:textures/gui/plugin_icon.png"}. 64×64 recommandé — le filtrage est
+     * toujours nearest, fournir la taille réellement affichée. {@code null} : le menu dessine
+     * un glyphe à la première lettre du nom.
+     */
+    default String iconTexture() {
+        return null;
+    }
+
+    /**
+     * Bannière 16:9 de la vitrine, en chemin texture complet, par exemple
+     * {@code "caldera:textures/gui/plugin_banner.png"}. 432×243 recommandé, nearest oblige.
+     * Le voile de lisibilité est ajouté par le menu, la bannière n'a pas à le contenir.
+     * {@code null} : fond généré depuis l'identifiant du plugin.
+     */
+    default String bannerTexture() {
+        return null;
+    }
+
     default void onApply() {
     }
 }
