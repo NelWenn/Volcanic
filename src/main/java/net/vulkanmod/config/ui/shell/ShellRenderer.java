@@ -2809,12 +2809,29 @@ public final class ShellRenderer {
             }
         }
 
-        boolean bright = art.banner() != null && art.banner().midLuma() > 0.5f;
-        int titleArgb = bright ? 0xFF1F1206 : theme.color(ColorToken.TEXT_PRIMARY);
-        int proseArgb = bright ? 0xFF3A2712 : theme.color(ColorToken.TEXT_SECONDARY);
+        if (!slots.title().isEmpty() && !slots.icon().isEmpty()) {
+            float luma = art.banner() == null ? 0.0f : art.banner().midLuma();
+            int plate = theme.color(ColorToken.SURFACE_BASE,
+                    Math.min(0.82f, 0.5f + 0.4f * luma));
+            int top = Math.min(slots.icon().y(), slots.title().y()) - 6;
+            int bottom = Math.max(slots.icon().bottom(),
+                    slots.desc().isEmpty() ? slots.byline().bottom() : slots.desc().bottom()) + 6;
+            Rect band = new Rect(slots.icon().x() - 6, top,
+                    slots.title().right() - slots.icon().x() + 12, bottom - top);
+            painter.fill(band, plate);
+            for (int edge = 0; edge < 2; edge++) {
+                int y = edge == 0 ? band.y() - 1 : band.bottom();
+                int from = band.x() + Math.floorMod(band.x() + y, 2);
+                for (int x = from; x < band.right(); x += 2) {
+                    painter.fill(new Rect(x, y, 1, 1), plate);
+                }
+            }
+        }
+        int titleArgb = theme.color(ColorToken.TEXT_PRIMARY);
+        int proseArgb = theme.color(ColorToken.TEXT_SECONDARY);
         if (!slots.title().isEmpty()) {
             painter.text(slots.title().x(), slots.title().y(),
-                    trimToWidth(font, plugin.name(), slots.title().width()), titleArgb, !bright);
+                    trimToWidth(font, plugin.name(), slots.title().width()), titleArgb, true);
         }
         if (!slots.byline().isEmpty() && art.byline() != null) {
             painter.smallText(slots.byline().x(), slots.byline().y(),
