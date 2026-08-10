@@ -35,6 +35,9 @@ public final class SettingRowRenderer {
             new net.vulkanmod.config.ui.core.PixelBurst();
     private final java.util.Map<String, Boolean> pillWas = new java.util.HashMap<>();
     private final java.util.Map<String, Boolean> starWas = new java.util.HashMap<>();
+    private final java.util.Map<String, String> cycText = new java.util.HashMap<>();
+    private final java.util.Map<String, Long> cycLeft = new java.util.HashMap<>();
+    private final java.util.Map<String, Integer> cycDir = new java.util.HashMap<>();
 
     private static final int TRACK_HEIGHT = 3;
     private static final int TRACK_GAP = 8;
@@ -102,6 +105,9 @@ public final class SettingRowRenderer {
         this.struck.keySet().retainAll(seen);
         this.pillWas.keySet().retainAll(seen);
         this.starWas.keySet().retainAll(seen);
+        this.cycText.keySet().retainAll(seen);
+        this.cycLeft.keySet().retainAll(seen);
+        this.cycDir.keySet().retainAll(seen);
         this.seen.clear();
     }
 
@@ -158,7 +164,12 @@ public final class SettingRowRenderer {
         boolean reset = resettable && enabled;
 
         String key = meta.id().toString();
-        float struckNow = strike(key, binding.display(value), deltaMs);
+        String display = binding.display(value);
+        String wasShown = shown.get(key);
+        float struckNow = strike(key, display, deltaMs);
+        if (wasShown != null && !wasShown.equals(display) && resetHovered) {
+            bursts.trigger(key + "~");
+        }
         ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS, cardArgb(highlighted));
         if (struckNow > 0.0f) {
             ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS,
@@ -177,6 +188,21 @@ public final class SettingRowRenderer {
         if (reset) {
             paintReset(painter, SettingRowLayout.resetBox(box), resetHovered);
         }
+        int undoFrame = bursts.frame(key + "~");
+        if (undoFrame >= 0) {
+            Rect undo = SettingRowLayout.resetBox(box);
+            int ux = undo.x() + undo.width() / 2;
+            int uy = undo.y() + undo.height() / 2;
+            for (int spark = 0; spark < net.vulkanmod.config.ui.core.PixelBurst.SPARKS; spark++) {
+                int tone = spark % 3 == 0 ? 0xFFFFF3D6 : theme.color(ColorToken.ACCENT);
+                painter.fill(new Rect(
+                        ux + net.vulkanmod.config.ui.core.PixelBurst.sparkX(spark, undoFrame),
+                        uy + net.vulkanmod.config.ui.core.PixelBurst.sparkY(spark, undoFrame),
+                        net.vulkanmod.config.ui.core.PixelBurst.sparkSize(spark),
+                        net.vulkanmod.config.ui.core.PixelBurst.sparkSize(spark)),
+                        Motion.fade(tone, 1.0f - 0.2f * undoFrame));
+            }
+        }
         Boolean fav = starWas.put(key, favorite);
         if (fav != null && fav != favorite && favorite) {
             bursts.trigger(key + "*");
@@ -191,8 +217,8 @@ public final class SettingRowRenderer {
             case INT -> paintSlider(painter, font, box, card, right, binding.display(value),
                     intValue(meta, value), binding.min(), binding.max(), enabled, highlighted,
                     meta.id().toString(), deltaMs);
-            case ENUM -> paintCycler(painter, font, box, I18n.get(binding.display(value)),
-                    enabled, highlighted, prevHovered, nextHovered);
+            case ENUM -> paintCycler(painter, font, box, I18n.get(display),
+                    enabled, highlighted, prevHovered, nextHovered, key, deltaMs);
         }
     }
 
@@ -391,7 +417,8 @@ public final class SettingRowRenderer {
     }
 
     private void paintCycler(SurfacePainter painter, Font font, Rect row, String text,
-                             boolean enabled, float hovered, boolean prevHovered, boolean nextHovered) {
+                             boolean enabled, float hovered, boolean prevHovered, boolean nextHovered,
+                             String key, long deltaMs) {
         Rect prev = SettingRowLayout.cyclerPrevBox(row);
         Rect value = SettingRowLayout.cyclerValueBox(row);
         Rect next = SettingRowLayout.cyclerNextBox(row);
@@ -401,12 +428,24 @@ public final class SettingRowRenderer {
             return;
         }
 
-        paintArrow(painter, font, prev, ARROW_LEFT, enabled, hovered, prevHovered);
-        paintArrow(painter, font, next, ARROW_RIGHT, enabled, hovered, nextHovered);
+        String previous = cycText.put(key, text);
+        if (previous != null && !previous.equals(text)) {
+            cycLeft.put(key, (long) Motion.SELECTION_MS);
+            cycDir.put(key, nextHovered ? 1 : prevHovered ? -1 : 0);
+        }
+        long left = Math.max(0L, cycLeft.getOrDefault(key, 0L) - deltaMs);
+        cycLeft.put(key, left);
+        int dir = left > 0 ? cycDir.getOrDefault(key, 0) : 0;
+        int shift = left > Motion.SELECTION_MS * 2 / 3 ? 3 : left > Motion.SELECTION_MS / 3 ? 1 : 0;
+
+        paintArrow(painter, font, prev, ARROW_LEFT, enabled, hovered,
+                prevHovered || (left > 0 && dir < 0));
+        paintArrow(painter, font, next, ARROW_RIGHT, enabled, hovered,
+                nextHovered || (left > 0 && dir > 0));
 
         String shown = trimmed(font, text, value.width() - ARROW_GAP * 2);
-        painter.text(value.x() + (value.width() - font.width(shown)) / 2, textTop(value), shown,
-                valueArgb(enabled), false);
+        painter.text(value.x() + (value.width() - font.width(shown)) / 2 + dir * shift, textTop(value),
+                shown, left > 0 ? theme.color(ColorToken.TEXT_PRIMARY) : valueArgb(enabled), false);
     }
 
     private void paintArrow(SurfacePainter painter, Font font, Rect box, String glyph,

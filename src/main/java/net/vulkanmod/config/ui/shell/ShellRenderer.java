@@ -330,7 +330,7 @@ public final class ShellRenderer {
                 painter.setOffset(pageDirection == 0
                         ? Motion.slide(reveal, 0, Motion.PAGE_TRAVEL) : 0, 0);
                 paintBand(painter, font, layout, presenter, deltaMs);
-                paintScrollIndicator(painter, layout, presenter, contentScroll);
+                paintScrollIndicator(painter, layout, presenter, contentScroll, deltaMs);
                 painter.flush();
             } finally {
                 painter.setOffset(0, 0);
@@ -2435,9 +2435,27 @@ public final class ShellRenderer {
         return cut.isEmpty() ? text : cut + "…";
     }
 
+    private int lastIndicatorScroll = Integer.MIN_VALUE;
+    private long indicatorGlow;
+
     private void paintScrollIndicator(SurfacePainter painter, ShellLayout layout, NavPresenter presenter,
-                                      int contentScroll) {
-        paintScrollIndicator(painter, contentScrollIndicator(layout, presenter, contentScroll));
+                                      int contentScroll, long deltaMs) {
+        if (contentScroll != lastIndicatorScroll) {
+            this.lastIndicatorScroll = contentScroll;
+            this.indicatorGlow = 500L;
+        } else {
+            this.indicatorGlow = Math.max(0L, indicatorGlow - deltaMs);
+        }
+        ScrollIndicator indicator = contentScrollIndicator(layout, presenter, contentScroll);
+        if (!indicator.visible()) {
+            return;
+        }
+        float lit = Motion.step(indicatorGlow / 500.0f, 3);
+        int radius = indicator.track().width() / 2;
+        paintRoundedFill(painter, indicator.track(), radius,
+                theme.color(ColorToken.BORDER_SUBTLE, 0.5f + 0.5f * lit));
+        paintRoundedFill(painter, indicator.thumb(), radius,
+                Motion.blend(theme.color(ColorToken.BORDER_ACCENT), theme.color(ColorToken.ACCENT), lit));
     }
 
     private void paintScrollIndicator(SurfacePainter painter, ScrollIndicator indicator) {
