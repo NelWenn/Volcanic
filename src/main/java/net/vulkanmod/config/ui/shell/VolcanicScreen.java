@@ -14,6 +14,7 @@ import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
 import net.vulkanmod.config.ui.core.PresetCardModel;
 import net.vulkanmod.config.ui.core.Glide;
+import net.vulkanmod.sound.UiSounds;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SearchIndex;
@@ -141,6 +142,14 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        boolean handled = handleClick(mouseX, mouseY, button);
+        if (handled && button == PRIMARY_BUTTON) {
+            UiSounds.playClick();
+        }
+        return handled;
+    }
+
+    private boolean handleClick(double mouseX, double mouseY, int button) {
         if (button != PRIMARY_BUTTON) {
             return super.mouseClicked(mouseX, mouseY, button);
         }

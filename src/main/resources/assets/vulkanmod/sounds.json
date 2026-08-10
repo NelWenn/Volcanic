@@ -1,0 +1,20 @@
+{
+  "ui.click1": {
+    "category": "master",
+    "sounds": [
+      { "name": "vulkanmod:ui/click1", "stream": false }
+    ]
+  },
+  "ui.click2": {
+    "category": "master",
+    "sounds": [
+      { "name": "vulkanmod:ui/click2", "stream": false }
+    ]
+  },
+  "ui.intro": {
+    "category": "master",
+    "sounds": [
+      { "name": "vulkanmod:ui/intro", "stream": false }
+    ]
+  }
+}

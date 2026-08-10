@@ -53,6 +53,7 @@ public class Initializer {
 	public Initializer(IEventBus modEventBus, ModContainer modContainer) {
 		VERSION = modContainer.getModInfo().getVersion().toString();
 		modEventBus.addListener(this::onInitializeClient);
+		net.vulkanmod.sound.UiSounds.register(modEventBus);
 		modEventBus.addListener(CitModelRegistrar::onRegisterAdditional);
 		modEventBus.addListener((ModelEvent.RegisterGeometryLoaders event) ->
 				event.register(ResourceLocation.fromNamespaceAndPath("fusion", "model"),

@@ -9,6 +9,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.neoforge.client.event.ScreenEvent;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.ui.shell.UiKeybinds;
 import net.vulkanmod.config.ui.shell.VolcanicScreen;
@@ -16,6 +18,7 @@ import net.vulkanmod.gui.DebugOverlay;
 import net.vulkanmod.gui.HUD;
 import net.vulkanmod.gui.HudHandler;
 import net.vulkanmod.render.profiling.FpsOverlay;
+import net.vulkanmod.sound.UiSounds;
 
 @EventBusSubscriber(value = Dist.CLIENT, modid = Initializer.MOD_ID)
 public class ClientEvents {
@@ -24,6 +27,13 @@ public class ClientEvents {
     public static void onRenderGui(RenderGuiEvent.Post event) {
         GuiGraphics guiGraphics = event.getGuiGraphics();
         HudHandler.getInstance().renderAll(guiGraphics);
+    }
+
+    @SubscribeEvent
+    public static void onScreenOpened(ScreenEvent.Init.Post event) {
+        if (event.getScreen() instanceof TitleScreen) {
+            UiSounds.playIntroOnce();
+        }
     }
 
     @SubscribeEvent

@@ -208,6 +208,9 @@ public final class ShellRenderer {
     private final HoverState focus = new HoverState(Motion.SELECTION_MS);
     private final Glide applyBarSlide = new Glide(80.0f);
     private ApplyBarModel lastBar;
+    private final Glide navMarkerTop = new Glide(65.0f);
+    private final Glide navMarkerHeight = new Glide(65.0f);
+    private boolean navMarkerPlaced;
     private RouteId enteredRoute;
     private int enteredDepth;
     private long pageElapsed = Motion.SEQUENCE_MS;
@@ -875,6 +878,8 @@ public final class ShellRenderer {
         int hoveredIndex = sidebarEntryAt(sidebar, model, scroll, mouseX, mouseY);
         String focusedId = focusedIn(presenter, NavPresenter.REGION_SIDEBAR);
 
+        paintNavMarker(painter, sidebar, model, viewport, activeRoute, deltaMs);
+
         int first = model.firstVisible(scroll);
         int last = model.lastVisible(scroll, sidebar.height());
         for (int index = first; first >= 0 && index <= last; index++) {
@@ -897,7 +902,7 @@ public final class ShellRenderer {
                     Rect box = SidebarModel.rowBox(sidebar, top, height, depth);
                     boolean active = route.equals(activeRoute);
                     String key = route.toString();
-                    paintRowSurface(painter, box, active,
+                    paintRowSurface(painter, box, false,
                             hover.advance(key, index == hoveredIndex, deltaMs),
                             focus.advance(key, key.equals(focusedId), deltaMs));
                     ColorToken token = presenter.rowGreyed(route) ? ColorToken.TEXT_MUTED
@@ -926,6 +931,39 @@ public final class ShellRenderer {
         for (Rect tick : rail.ticks()) {
             painter.fill(tick, argb);
         }
+    }
+
+    private void paintNavMarker(SurfacePainter painter, Rect sidebar, SidebarModel model,
+                                SidebarViewport viewport, RouteId activeRoute, long deltaMs) {
+        int index = -1;
+        int depth = 1;
+        for (int candidate = 0; candidate < model.entries().size(); candidate++) {
+            if (model.entries().get(candidate) instanceof SidebarModel.Row row
+                    && row.route().equals(activeRoute)) {
+                index = candidate;
+                depth = row.depth();
+                break;
+            }
+        }
+        if (index < 0) {
+            this.navMarkerPlaced = false;
+            return;
+        }
+
+        float offset = model.offsetOf(index);
+        float height = model.heightOf(index);
+        if (!navMarkerPlaced) {
+            this.navMarkerPlaced = true;
+            navMarkerTop.jumpTo(offset);
+            navMarkerHeight.jumpTo(height);
+        }
+        int top = viewport.screenTop(Math.round(navMarkerTop.advance(offset, deltaMs)));
+        int span = Math.round(navMarkerHeight.advance(height, deltaMs));
+        Rect box = SidebarModel.rowBox(sidebar, top, span, depth);
+        paintRoundedGradient(painter, box, NAV_RADIUS,
+                theme.color(ColorToken.SURFACE_NAV_ACTIVE), theme.color(ColorToken.SURFACE_SIDEBAR_BOTTOM));
+        paintRoundedOutline(painter, box, NAV_RADIUS, theme.color(ColorToken.BORDER_ACCENT));
+        paintLeadingEdge(painter, box, NAV_RADIUS, theme.color(ColorToken.ACCENT));
     }
 
     private void paintRowSurface(SurfacePainter painter, Rect box, boolean active, float hovered, float focused) {
