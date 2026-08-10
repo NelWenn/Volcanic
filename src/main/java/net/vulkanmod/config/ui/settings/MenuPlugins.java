@@ -173,7 +173,8 @@ public final class MenuPlugins {
         return ids;
     }
 
-    public record Art(net.minecraft.resources.ResourceLocation texture, int width, int height) {
+    public record Art(net.minecraft.resources.ResourceLocation texture, int width, int height,
+                      float midLuma) {
     }
 
     public record Showcase(String byline, String description, java.util.List<String> tags,
@@ -228,16 +229,29 @@ public final class MenuPlugins {
             if (resource.isEmpty()) {
                 return null;
             }
-            try (java.io.InputStream in = resource.get().open()) {
-                byte[] head = in.readNBytes(24);
-                if (head.length < 24 || head[1] != 'P' || head[2] != 'N' || head[3] != 'G') {
+            try (java.io.InputStream in = resource.get().open();
+                 com.mojang.blaze3d.platform.NativeImage image =
+                         com.mojang.blaze3d.platform.NativeImage.read(in)) {
+                int width = image.getWidth();
+                int height = image.getHeight();
+                if (width <= 0 || height <= 0) {
                     return null;
                 }
-                int width = ((head[16] & 0xFF) << 24) | ((head[17] & 0xFF) << 16)
-                        | ((head[18] & 0xFF) << 8) | (head[19] & 0xFF);
-                int height = ((head[20] & 0xFF) << 24) | ((head[21] & 0xFF) << 16)
-                        | ((head[22] & 0xFF) << 8) | (head[23] & 0xFF);
-                return width > 0 && height > 0 ? new Art(texture, width, height) : null;
+                float total = 0.0f;
+                int samples = 0;
+                int stepX = Math.max(1, width / 32);
+                int stepY = Math.max(1, height / 24);
+                for (int y = Math.round(height * 0.30f); y < height * 0.75f; y += stepY) {
+                    for (int x = 0; x < width; x += stepX) {
+                        int abgr = image.getPixelRGBA(x, y);
+                        int red = abgr & 0xFF;
+                        int green = (abgr >> 8) & 0xFF;
+                        int blue = (abgr >> 16) & 0xFF;
+                        total += (0.299f * red + 0.587f * green + 0.114f * blue) / 255.0f;
+                        samples++;
+                    }
+                }
+                return new Art(texture, width, height, samples == 0 ? 0.0f : total / samples);
             }
         } catch (Throwable unavailable) {
             return null;

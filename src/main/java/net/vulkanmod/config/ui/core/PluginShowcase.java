@@ -27,10 +27,14 @@ public final class PluginShowcase {
         if (width <= 0) {
             return 0;
         }
-        return Math.min(MAX_H, Math.round(width * 9 / 16.0f));
+        return Math.min(MAX_H, Math.round(width * 9 / 21.0f));
     }
 
     public static Crop cover(int frameW, int frameH, int texW, int texH) {
+        return cover(frameW, frameH, texW, texH, 0.5f);
+    }
+
+    public static Crop cover(int frameW, int frameH, int texW, int texH, float anchorY) {
         if (frameW <= 0 || frameH <= 0 || texW <= 0 || texH <= 0) {
             return new Crop(0, 0, Math.max(0, texW), Math.max(0, texH));
         }
@@ -39,7 +43,8 @@ public final class PluginShowcase {
         int usedH = Math.max(1, Math.round(frameH / scale));
         usedW = Math.min(usedW, texW);
         usedH = Math.min(usedH, texH);
-        return new Crop((texW - usedW) / 2, (texH - usedH) / 2, usedW, usedH);
+        float clamped = Math.max(0.0f, Math.min(1.0f, anchorY));
+        return new Crop((texW - usedW) / 2, Math.round((texH - usedH) * clamped), usedW, usedH);
     }
 
     public static Slots slots(Rect frame) {

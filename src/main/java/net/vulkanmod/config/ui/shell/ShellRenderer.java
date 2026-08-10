@@ -1844,6 +1844,10 @@ public final class ShellRenderer {
     }
 
     private void paintSmallLines(SurfacePainter painter, Font font, Rect box, String text, ColorToken token) {
+        paintSmallLines(painter, font, box, text, theme.color(token));
+    }
+
+    private void paintSmallLines(SurfacePainter painter, Font font, Rect box, String text, int argb) {
         if (box.isEmpty()) {
             return;
         }
@@ -1855,7 +1859,7 @@ public final class ShellRenderer {
             String line = i == rows - 1 && lines.size() > rows
                     ? trimToWidth(font, lines.get(i) + "…", wrapWidth)
                     : lines.get(i);
-            painter.smallText(box.x(), box.y() + i * PresetCardLayout.SMALL_LINE, line, theme.color(token));
+            painter.smallText(box.x(), box.y() + i * PresetCardLayout.SMALL_LINE, line, argb);
         }
     }
 
@@ -2731,7 +2735,7 @@ public final class ShellRenderer {
 
         if (art.banner() != null) {
             PluginShowcase.Crop crop = PluginShowcase.cover(frame.width(), frame.height(),
-                    art.banner().width(), art.banner().height());
+                    art.banner().width(), art.banner().height(), 1.0f);
             graphics.setColor(1.0f, 1.0f, 1.0f, reveal);
             graphics.blit(art.banner().texture(), frame.x(), frame.y(), frame.width(), frame.height(),
                     crop.u(), crop.v(), crop.uw(), crop.vh(),
@@ -2767,10 +2771,6 @@ public final class ShellRenderer {
                     theme.color(ColorToken.BORDER_ACCENT));
             painter.fill(new Rect(frame.right() - 1, frame.y() + 1, 1, frame.height() - 2),
                     theme.color(ColorToken.BORDER_ACCENT));
-            for (int y = frame.y() + 2; y < frame.bottom() - 2; y += 3) {
-                painter.fill(new Rect(frame.x() + 1, y, frame.width() - 2, 1),
-                        theme.color(ColorToken.SURFACE_SUNKEN, 0.08f));
-            }
             painter.flush();
 
             painter.setOffset(0, Motion.slide(reveal, 1, 6));
@@ -2809,22 +2809,23 @@ public final class ShellRenderer {
             }
         }
 
+        boolean bright = art.banner() != null && art.banner().midLuma() > 0.5f;
+        int titleArgb = bright ? 0xFF1F1206 : theme.color(ColorToken.TEXT_PRIMARY);
+        int proseArgb = bright ? 0xFF3A2712 : theme.color(ColorToken.TEXT_SECONDARY);
         if (!slots.title().isEmpty()) {
             painter.text(slots.title().x(), slots.title().y(),
-                    trimToWidth(font, plugin.name(), slots.title().width()),
-                    theme.color(ColorToken.TEXT_PRIMARY), true);
+                    trimToWidth(font, plugin.name(), slots.title().width()), titleArgb, !bright);
         }
         if (!slots.byline().isEmpty() && art.byline() != null) {
             painter.smallText(slots.byline().x(), slots.byline().y(),
                     smallTrim(painter, font, art.byline().toUpperCase(Locale.ROOT),
-                            slots.byline().width()),
-                    theme.color(ColorToken.TEXT_SECONDARY));
+                            slots.byline().width()), proseArgb);
         }
         if (!slots.desc().isEmpty()) {
             String description = art.description() != null ? art.description()
                     : plugin.groups().isEmpty() ? I18n.get(KEY_PLUGIN_NO_SETTINGS)
                     : I18n.get(KEY_PLUGIN_SETTINGS, plugin.groups().size());
-            paintSmallLines(painter, font, slots.desc(), description, ColorToken.TEXT_SECONDARY);
+            paintSmallLines(painter, font, slots.desc(), description, proseArgb);
         }
         if (!slots.tags().isEmpty()) {
             int x = slots.tags().x();

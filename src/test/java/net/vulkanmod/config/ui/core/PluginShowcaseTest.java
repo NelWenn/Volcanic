@@ -10,20 +10,29 @@ class PluginShowcaseTest {
     private static final Rect FRAME = new Rect(50, 40, 432, 243);
 
     @Test
-    void theFrameKeepsSixteenNinthsUntilTheCapAndNeverBelowIt() {
-        assertEquals(180, PluginShowcase.height(320));
-        assertEquals(144, PluginShowcase.height(256));
-        assertEquals(PluginShowcase.MAX_H, PluginShowcase.height(432), "a wide frame hits the cap");
-        assertEquals(PluginShowcase.MAX_H, PluginShowcase.height(2000));
+    void theFrameKeepsTwentyOneNinthsUntilTheCap() {
+        assertEquals(144, PluginShowcase.height(336));
+        assertEquals(185, PluginShowcase.height(432));
+        assertEquals(PluginShowcase.MAX_H, PluginShowcase.height(2000), "a wide window caps the frame");
         assertEquals(0, PluginShowcase.height(0));
     }
 
     @Test
+    void aBottomAnchoredCropSacrificesTheSkyAndKeepsTheHorizon() {
+        PluginShowcase.Crop crop = PluginShowcase.cover(430, 184, 256, 144, 1.0f);
+        assertEquals(256, crop.uw(), "full width survives");
+        assertEquals(crop.v() + crop.vh(), 144, "the crop must end on the image's bottom edge");
+        assertTrue(crop.v() > 0, "which means the top rows are what got cut");
+        assertEquals(0, PluginShowcase.cover(430, 184, 256, 144, 0.0f).v(),
+                "a top anchor keeps the sky instead");
+    }
+
+    @Test
     void aPixelPerfectBannerIsUsedWholeAndUncropped() {
-        PluginShowcase.Crop crop = PluginShowcase.cover(432, 243, 256, 144);
+        PluginShowcase.Crop crop = PluginShowcase.cover(336, 144, 336, 144);
         assertEquals(0, crop.u());
         assertEquals(0, crop.v());
-        assertEquals(256, crop.uw());
+        assertEquals(336, crop.uw());
         assertEquals(144, crop.vh());
     }
 
