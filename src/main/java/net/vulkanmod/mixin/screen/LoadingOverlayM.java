@@ -108,6 +108,8 @@ public class LoadingOverlayM {
     private long volcanic$lastMillis;
     @Unique
     private float volcanic$time;
+    @Unique
+    private float volcanic$frameSeconds;
 
     @Unique
     private float volcanic$ventX;
@@ -131,6 +133,26 @@ public class LoadingOverlayM {
     @Inject(method = "<init>", at = @At("TAIL"))
     public void init(CallbackInfo ci) {
         this.volcanic$titleTex = ResourceLocation.fromNamespaceAndPath(Initializer.MOD_ID, "textures/gui/volcanic_wordmark.png");
+    }
+
+    @Unique
+    private void volcanic$drawScene(GuiGraphics guiGraphics) {
+        int w = guiGraphics.guiWidth();
+        int h = guiGraphics.guiHeight();
+        if (w <= 0 || h <= 0) {
+            return;
+        }
+        float alpha = this.volcanic$overlayAlpha(Util.getMillis());
+        if (alpha <= 0.004f) {
+            return;
+        }
+        int mojangBottom = h / 2 + (int) (Math.min(w * 0.75, h) * 0.25 * 0.5);
+
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        this.volcanic$drawCaldera(guiGraphics, w, h, mojangBottom, alpha);
+        this.volcanic$drawCoals(guiGraphics, w, h, this.volcanic$frameSeconds, alpha);
+        RenderSystem.disableBlend();
     }
 
     @Unique
@@ -190,6 +212,7 @@ public class LoadingOverlayM {
         float dt = this.volcanic$lastMillis == 0L ? 0.0f : Mth.clamp((now - this.volcanic$lastMillis) / 1000.0f, 0.0f, 0.1f);
         this.volcanic$lastMillis = now;
         this.volcanic$time += dt;
+        this.volcanic$frameSeconds = dt;
 
         float alpha = this.volcanic$overlayAlpha(now);
         if (alpha <= 0.004f) {
@@ -209,8 +232,6 @@ public class LoadingOverlayM {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
-        this.volcanic$drawCaldera(guiGraphics, w, h, mojangBottom, alpha);
-        this.volcanic$drawCoals(guiGraphics, w, h, dt, alpha);
         this.volcanic$drawTitle(guiGraphics, w, mojangBottom, barTop, alpha);
 
         RenderSystem.disableBlend();
@@ -219,6 +240,8 @@ public class LoadingOverlayM {
     @Inject(method = "drawProgressBar", at = @At("HEAD"), cancellable = true)
     private void volcanic$drawBar(GuiGraphics guiGraphics, int minX, int minY, int maxX, int maxY, float partialTick, CallbackInfo ci) {
         ci.cancel();
+
+        this.volcanic$drawScene(guiGraphics);
 
         int a = Math.round(255.0f * Mth.clamp(partialTick, 0.0f, 1.0f));
         if (a <= 0) {
