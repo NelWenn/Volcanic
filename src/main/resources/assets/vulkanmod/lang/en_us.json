@@ -434,6 +434,5 @@
   "vulkanmod.options.loadingScreen.tooltip": "Volcanic's own startup screen, with its fire and its bar. Turn it off to get Minecraft's back. Another mod that claims the loading screen switches this off on its own.",
   "vulkanmod.overview.select": "SELECT",
   "vulkanmod.ui.plugins.close": "Click to close the showcase",
-  "vulkanmod.ui.plugins.settings_button": "Settings ›",
-  "vulkanmod.ui.plugins.requires": "Requires Volcanic"
+  "vulkanmod.ui.plugins.settings_button": "Settings ›"
 }

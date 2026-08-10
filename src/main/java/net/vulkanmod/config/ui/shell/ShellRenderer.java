@@ -227,7 +227,6 @@ public final class ShellRenderer {
     private static final String KEY_PLUGINS_OPEN = "vulkanmod.ui.plugins.open";
     private static final String KEY_PLUGINS_CLOSE = "vulkanmod.ui.plugins.close";
     private static final String KEY_PLUGINS_SETTINGS = "vulkanmod.ui.plugins.settings_button";
-    private static final String KEY_PLUGINS_REQUIRES = "vulkanmod.ui.plugins.requires";
     private String showcaseShownId;
     private long showcaseElapsed = 9_999L;
     private static final String KEY_PLUGINS_NONE = "vulkanmod.ui.plugins.none";
@@ -2846,11 +2845,8 @@ public final class ShellRenderer {
         }
         if (!slots.tags().isEmpty()) {
             int x = slots.tags().x();
-            List<String> tags = new ArrayList<>(art.tags());
-            tags.add(I18n.get(KEY_PLUGINS_REQUIRES));
-            for (int index = 0; index < tags.size(); index++) {
-                String label = tags.get(index).toUpperCase(Locale.ROOT);
-                boolean dim = index == tags.size() - 1;
+            for (String tag : art.tags()) {
+                String label = tag.toUpperCase(Locale.ROOT);
                 int width = smallWidth(painter, font, label) + 10;
                 if (x + width > slots.tags().right()) {
                     break;
@@ -2858,15 +2854,15 @@ public final class ShellRenderer {
                 Rect chip = new Rect(x, slots.tags().y(), width, slots.tags().height());
                 painter.fill(chip, theme.color(ColorToken.SURFACE_CHROME, 0.85f));
                 painter.fill(new Rect(chip.x(), chip.y(), chip.width(), 1),
-                        theme.color(dim ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_ACCENT));
+                        theme.color(ColorToken.BORDER_ACCENT));
                 painter.fill(new Rect(chip.x(), chip.bottom() - 1, chip.width(), 1),
-                        theme.color(dim ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_ACCENT));
+                        theme.color(ColorToken.BORDER_ACCENT));
                 painter.fill(new Rect(chip.x(), chip.y() + 1, 1, chip.height() - 2),
-                        theme.color(dim ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_ACCENT));
+                        theme.color(ColorToken.BORDER_ACCENT));
                 painter.fill(new Rect(chip.right() - 1, chip.y() + 1, 1, chip.height() - 2),
-                        theme.color(dim ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_ACCENT));
+                        theme.color(ColorToken.BORDER_ACCENT));
                 painter.smallText(chip.x() + 5, chip.y() + 2, label,
-                        theme.color(dim ? ColorToken.TEXT_SECONDARY : ColorToken.ACCENT_BRIGHT));
+                        theme.color(ColorToken.ACCENT_BRIGHT));
                 x += width + 5;
             }
         }
