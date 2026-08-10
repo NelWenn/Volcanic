@@ -132,7 +132,7 @@ public class Config {
 
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
-            .excludeFieldsWithModifiers(Modifier.PRIVATE)
+            .excludeFieldsWithModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.TRANSIENT)
             .create();
 
     public static Config load(Path path) {

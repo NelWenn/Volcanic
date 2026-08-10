@@ -207,6 +207,7 @@ public final class ShellRenderer {
     private final HoverState hover = new HoverState(Motion.HOVER_MS);
     private final HoverState focus = new HoverState(Motion.SELECTION_MS);
     private final Glide applyBarSlide = new Glide(80.0f);
+    private ApplyBarModel lastBar;
     private RouteId enteredRoute;
     private int enteredDepth;
     private long pageElapsed = Motion.SEQUENCE_MS;
@@ -800,14 +801,17 @@ public final class ShellRenderer {
         if (region.isEmpty()) {
             return;
         }
+        if (bar.visible()) {
+            this.lastBar = bar;
+        }
         int hidden = region.height() + 2;
         int lift = Math.round(applyBarSlide.advance(bar.visible() ? 0.0f : hidden, deltaMs));
-        if (lift >= hidden) {
+        if (lift >= hidden || lastBar == null) {
             return;
         }
         painter.setOffset(0, lift);
         try {
-            paintApplyBarBody(painter, font, layout, presenter, bar, region, mouseX, mouseY);
+            paintApplyBarBody(painter, font, layout, presenter, lastBar, region, mouseX, mouseY);
         } finally {
             painter.setOffset(0, 0);
         }
