@@ -35,14 +35,14 @@ public final class PluginPageLayout {
         }
     }
 
-    public record Page(Block plugins, Block mods, Rect empty, int height) {
+    public record Page(Block plugins, Block mods, Rect empty, Rect showcase, int height) {
     }
 
     public record Slots(Rect accent, Rect name, Rect note, Rect state, Rect toggle) {
     }
 
     private static final Block NO_BLOCK = new Block(Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, List.of(), false);
-    private static final Page NO_PAGE = new Page(NO_BLOCK, NO_BLOCK, Rect.EMPTY, 0);
+    private static final Page NO_PAGE = new Page(NO_BLOCK, NO_BLOCK, Rect.EMPTY, Rect.EMPTY, 0);
     private static final Slots NO_SLOTS =
             new Slots(Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, Rect.EMPTY);
 
@@ -50,6 +50,11 @@ public final class PluginPageLayout {
     }
 
     public static Page page(Rect content, int pluginCount, int modCount, int scroll, Breakpoint breakpoint) {
+        return page(content, pluginCount, modCount, scroll, breakpoint, -1);
+    }
+
+    public static Page page(Rect content, int pluginCount, int modCount, int scroll, Breakpoint breakpoint,
+                            int expandedIndex) {
         if (content == null || breakpoint == null) {
             throw new IllegalArgumentException("content and breakpoint must not be null");
         }
@@ -70,7 +75,7 @@ public final class PluginPageLayout {
             int free = content.height() - BOTTOM - EMPTY_H;
             Rect empty = new Rect(x + Math.max(0, (usable - cardWidth) / 2),
                     base + Math.max(0, free / 2), cardWidth, EMPTY_H);
-            return new Page(NO_BLOCK, NO_BLOCK, empty, height);
+            return new Page(NO_BLOCK, NO_BLOCK, empty, Rect.EMPTY, height);
         }
 
         int offset = 0;
@@ -81,12 +86,27 @@ public final class PluginPageLayout {
         Block plugins = block(x, base, offset, usable, shown, rowHeight, rowGap, placeholder);
         offset += blockHeight(shown, rowHeight, rowGap);
 
+        Rect showcase = Rect.EMPTY;
+        if (!placeholder && expandedIndex >= 0 && expandedIndex < shown) {
+            int showHeight = PluginShowcase.height(usable);
+            int drop = showHeight + rowGap;
+            Rect anchor = plugins.rows().get(expandedIndex);
+            showcase = new Rect(x, anchor.bottom() + rowGap, usable, showHeight);
+            List<Rect> moved = new ArrayList<>(plugins.rows());
+            for (int index = expandedIndex + 1; index < moved.size(); index++) {
+                moved.set(index, moved.get(index).translated(0, drop));
+            }
+            plugins = new Block(plugins.heading(), plugins.count(), plugins.rule(), moved, false);
+            offset += drop;
+            height += drop;
+        }
+
         Block mods = NO_BLOCK;
         if (modCount > 0) {
             offset += BLOCK_GAP;
             mods = block(x, base, offset, usable, modCount, MOD_ROW_H, MOD_ROW_GAP, false);
         }
-        return new Page(plugins, mods, Rect.EMPTY, height);
+        return new Page(plugins, mods, Rect.EMPTY, showcase, height);
     }
 
     public static Slots slots(Rect row, boolean toggleable) {
@@ -174,10 +194,21 @@ public final class PluginPageLayout {
     }
 
     public static int maxScroll(Rect content, int pluginCount, int modCount, Breakpoint breakpoint) {
+        return maxScroll(content, pluginCount, modCount, breakpoint, false);
+    }
+
+    public static int maxScroll(Rect content, int pluginCount, int modCount, Breakpoint breakpoint,
+                                boolean expanded) {
         if (content == null) {
             throw new IllegalArgumentException("content must not be null");
         }
-        return Math.max(0, contentHeight(pluginCount, modCount, breakpoint) - content.height());
+        int height = contentHeight(pluginCount, modCount, breakpoint);
+        if (expanded && pluginCount > 0) {
+            int usable = content.width() - PAD_X * 2;
+            height += PluginShowcase.height(Math.max(0, usable))
+                    + SettingRowLayout.rowGap(breakpoint);
+        }
+        return Math.max(0, height - content.height());
     }
 
     public static int clampScroll(int scroll, Rect content, int pluginCount, int modCount,

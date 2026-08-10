@@ -27,6 +27,8 @@ import net.vulkanmod.config.ui.settings.StatsReport;
 import net.vulkanmod.vulkan.FrameTimer;
 import net.vulkanmod.config.ui.core.PageHeader;
 import net.vulkanmod.config.ui.core.PluginPageLayout;
+import net.vulkanmod.config.ui.core.PluginShowcase;
+import net.vulkanmod.config.ui.settings.MenuPlugins;
 import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
 import net.vulkanmod.config.ui.core.PresetCardModel;
@@ -223,6 +225,11 @@ public final class ShellRenderer {
     private static final RouteId EXPERIMENTAL = RouteId.parse("experimental");
     private static final RouteId DEVELOPER = RouteId.parse("developer");
     private static final String KEY_PLUGINS_OPEN = "vulkanmod.ui.plugins.open";
+    private static final String KEY_PLUGINS_CLOSE = "vulkanmod.ui.plugins.close";
+    private static final String KEY_PLUGINS_SETTINGS = "vulkanmod.ui.plugins.settings_button";
+    private static final String KEY_PLUGINS_REQUIRES = "vulkanmod.ui.plugins.requires";
+    private String showcaseShownId;
+    private long showcaseElapsed = 9_999L;
     private static final String KEY_PLUGINS_NONE = "vulkanmod.ui.plugins.none";
     private static final String KEY_PLUGINS_EMPTY_HINT = "vulkanmod.ui.plugins.empty.hint";
     private static final int RATING_FROM_BOTTOM = 22;
@@ -1272,8 +1279,8 @@ public final class ShellRenderer {
         } else if (OVERVIEW.equals(presenter.stack().current())) {
             paintOverview(graphics, painter, font, layout, presenter, contentScroll, mouseX, mouseY);
         } else {
-            paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged,
-                    keyboardFocus, deltaMs);
+            paintSettings(graphics, painter, font, layout, presenter, contentScroll, mouseX, mouseY,
+                    dragged, keyboardFocus, deltaMs);
         }
         painter.flush();
     }
@@ -2556,12 +2563,13 @@ public final class ShellRenderer {
         paintRoundedFill(painter, indicator.thumb(), radius, theme.color(ColorToken.BORDER_ACCENT));
     }
 
-    private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+    private void paintSettings(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
+                               NavPresenter presenter,
                                int contentScroll, int mouseX, int mouseY, SettingId dragged,
                                boolean keyboardFocus, long deltaMs) {
         List<SettingMeta> settings = presenter.settings();
         if (settings.isEmpty()
-                && paintEmptyPage(painter, font, layout, presenter, keyboardFocus, deltaMs,
+                && paintEmptyPage(graphics, painter, font, layout, presenter, keyboardFocus, deltaMs,
                         contentScroll, mouseX, mouseY)) {
             return;
         }
@@ -2600,7 +2608,8 @@ public final class ShellRenderer {
         painter.setOffset(0, 0);
     }
 
-    private boolean paintEmptyPage(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+    private boolean paintEmptyPage(GuiGraphics graphics, SurfacePainter painter, Font font,
+                                   ShellLayout layout, NavPresenter presenter,
                                    boolean keyboardFocus, long deltaMs,
                                    int contentScroll, int mouseX, int mouseY) {
         RouteId current = presenter.stack().current();
@@ -2613,7 +2622,7 @@ public final class ShellRenderer {
             return true;
         }
         if (PLUGINS.equals(current)) {
-            paintPluginsPage(painter, font, layout, presenter, keyboardFocus, deltaMs,
+            paintPluginsPage(graphics, painter, font, layout, presenter, keyboardFocus, deltaMs,
                     contentScroll, mouseX, mouseY);
             return true;
         }
@@ -2655,11 +2664,17 @@ public final class ShellRenderer {
 
     private PluginPageLayout.Page pluginPage(ShellLayout layout, NavPresenter presenter, int scroll) {
         return PluginPageLayout.page(contentBody(layout, presenter), presenter.pluginPages().size(),
-                presenter.catalog().modIds().size(), scroll, layout.breakpoint());
+                presenter.catalog().modIds().size(), scroll, layout.breakpoint(),
+                presenter.expandedPluginIndex());
     }
 
-    private void paintPluginsPage(SurfacePainter painter, Font font, ShellLayout layout,
-                                  NavPresenter presenter, boolean keyboardFocus, long deltaMs,
+    public Rect pluginShowcaseFrame(ShellLayout layout, NavPresenter presenter, int scroll) {
+        return pluginPage(layout, presenter, scroll).showcase();
+    }
+
+    private void paintPluginsPage(GuiGraphics graphics, SurfacePainter painter, Font font,
+                                  ShellLayout layout, NavPresenter presenter,
+                                  boolean keyboardFocus, long deltaMs,
                                   int scroll, int mouseX, int mouseY) {
         PluginPageLayout.Page page = pluginPage(layout, presenter, scroll);
         if (!page.empty().isEmpty()) {
@@ -2676,9 +2691,15 @@ public final class ShellRenderer {
         } else {
             String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
             List<Rect> rows = shiftedRows(block.rows(), 0);
+            int expanded = presenter.expandedPluginIndex();
             for (int index = 0; index < rows.size() && index < plugins.size(); index++) {
                 paintPluginRow(painter, font, rows.get(index), plugins.get(index),
-                        keyboardFocus ? focusedId : null, deltaMs, mouseX, mouseY);
+                        keyboardFocus ? focusedId : null, index == expanded, deltaMs, mouseX, mouseY);
+            }
+            if (!page.showcase().isEmpty() && expanded >= 0 && expanded < plugins.size()) {
+                painter.flush();
+                paintShowcase(graphics, painter, font, page.showcase(), plugins.get(expanded),
+                        deltaMs, mouseX, mouseY);
             }
         }
 
@@ -2693,6 +2714,147 @@ public final class ShellRenderer {
         for (int index = 0; index < modRows.size() && index < mods.size(); index++) {
             paintPluginNote(painter, font, modRows.get(index),
                     NavPresenter.modName(mods.get(index)));
+        }
+    }
+
+    private void paintShowcase(GuiGraphics graphics, SurfacePainter painter, Font font, Rect frame,
+                               NavPresenter.PluginPage plugin, long deltaMs, int mouseX, int mouseY) {
+        if (plugin.id().equals(showcaseShownId)) {
+            this.showcaseElapsed = Math.min(9_999L, showcaseElapsed + Math.max(0L, deltaMs));
+        } else {
+            this.showcaseShownId = plugin.id();
+            this.showcaseElapsed = 0L;
+        }
+        float reveal = motionEnabled() ? Motion.easeOut(showcaseElapsed, 200) : 1.0f;
+        MenuPlugins.Showcase art = MenuPlugins.showcaseOf(plugin.id());
+        PluginShowcase.Slots slots = PluginShowcase.slots(frame);
+
+        if (art.banner() != null) {
+            PluginShowcase.Crop crop = PluginShowcase.cover(frame.width(), frame.height(),
+                    art.banner().width(), art.banner().height());
+            graphics.setColor(1.0f, 1.0f, 1.0f, reveal);
+            graphics.blit(art.banner().texture(), frame.x(), frame.y(), frame.width(), frame.height(),
+                    crop.u(), crop.v(), crop.uw(), crop.vh(),
+                    art.banner().width(), art.banner().height());
+            graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+
+        painter.setAlpha(reveal);
+        try {
+            if (art.banner() == null) {
+                int tone = PresetIcons.tone(null);
+                painter.fill(frame, theme.color(ColorToken.SURFACE_SUNKEN));
+                painter.gradient(frame, Motion.fade(tone, 0.0f), Motion.fade(tone, 0.3f));
+                int seed = plugin.id().hashCode();
+                for (int dot = 0; dot < 70; dot++) {
+                    int h = seed * 31 + dot * 0x9E3779B9;
+                    int dx = Math.floorMod(h, Math.max(1, frame.width() - 2));
+                    int dy = Math.floorMod(h >> 8, Math.max(1, frame.height() / 3));
+                    painter.fill(new Rect(frame.x() + 1 + dx,
+                            frame.bottom() - 2 - dy, 1 + Math.floorMod(h >> 16, 2), 1),
+                            Motion.fade(tone, 0.25f + 0.04f * Math.floorMod(h >> 20, 8)));
+                }
+            }
+
+            int shadeTop = frame.y() + frame.height() * 2 / 5;
+            painter.gradient(new Rect(frame.x(), shadeTop, frame.width(), frame.bottom() - shadeTop),
+                    theme.color(ColorToken.SURFACE_BASE, 0.0f), theme.color(ColorToken.SURFACE_BASE, 0.92f));
+            painter.fill(new Rect(frame.x(), frame.y(), frame.width(), 1),
+                    theme.color(ColorToken.BORDER_ACCENT));
+            painter.fill(new Rect(frame.x(), frame.bottom() - 1, frame.width(), 1),
+                    theme.color(ColorToken.BORDER_ACCENT));
+            painter.fill(new Rect(frame.x(), frame.y() + 1, 1, frame.height() - 2),
+                    theme.color(ColorToken.BORDER_ACCENT));
+            painter.fill(new Rect(frame.right() - 1, frame.y() + 1, 1, frame.height() - 2),
+                    theme.color(ColorToken.BORDER_ACCENT));
+            for (int y = frame.y() + 2; y < frame.bottom() - 2; y += 3) {
+                painter.fill(new Rect(frame.x() + 1, y, frame.width() - 2, 1),
+                        theme.color(ColorToken.SURFACE_SUNKEN, 0.08f));
+            }
+            painter.flush();
+
+            painter.setOffset(0, Motion.slide(reveal, 1, 6));
+            paintShowcaseContent(graphics, painter, font, plugin, art, slots, reveal, mouseX, mouseY);
+            painter.flush();
+        } finally {
+            painter.setOffset(0, 0);
+            painter.setAlpha(1.0f);
+        }
+    }
+
+    private void paintShowcaseContent(GuiGraphics graphics, SurfacePainter painter, Font font,
+                                      NavPresenter.PluginPage plugin, MenuPlugins.Showcase art,
+                                      PluginShowcase.Slots slots, float reveal,
+                                      int mouseX, int mouseY) {
+        Rect icon = slots.icon();
+        if (!icon.isEmpty()) {
+            painter.fill(icon.inset(-2), theme.color(ColorToken.SURFACE_SUNKEN, 0.85f));
+            painter.fill(icon.inset(-1), theme.color(ColorToken.ACCENT_DEEP));
+            painter.fill(icon, theme.color(ColorToken.SURFACE_SUNKEN));
+            if (art.icon() != null) {
+                painter.flush();
+                PluginShowcase.Crop crop = PluginShowcase.cover(icon.width(), icon.height(),
+                        art.icon().width(), art.icon().height());
+                graphics.setColor(1.0f, 1.0f, 1.0f, reveal);
+                graphics.blit(art.icon().texture(), icon.x(), icon.y(), icon.width(), icon.height(),
+                        crop.u(), crop.v(), crop.uw(), crop.vh(),
+                        art.icon().width(), art.icon().height());
+                graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+            } else {
+                String letter = plugin.name().isEmpty() ? "?"
+                        : plugin.name().substring(0, 1).toUpperCase(Locale.ROOT);
+                painter.text(icon.x() + (icon.width() - font.width(letter)) / 2,
+                        icon.y() + (icon.height() - TEXT_HEIGHT) / 2, letter,
+                        theme.color(ColorToken.ACCENT), false);
+            }
+        }
+
+        if (!slots.title().isEmpty()) {
+            painter.text(slots.title().x(), slots.title().y(),
+                    trimToWidth(font, plugin.name(), slots.title().width()),
+                    theme.color(ColorToken.TEXT_PRIMARY), true);
+        }
+        if (!slots.byline().isEmpty() && art.byline() != null) {
+            painter.smallText(slots.byline().x(), slots.byline().y(),
+                    smallTrim(painter, font, art.byline().toUpperCase(Locale.ROOT),
+                            slots.byline().width()),
+                    theme.color(ColorToken.TEXT_SECONDARY));
+        }
+        if (!slots.desc().isEmpty()) {
+            String description = art.description() != null ? art.description()
+                    : plugin.groups().isEmpty() ? I18n.get(KEY_PLUGIN_NO_SETTINGS)
+                    : I18n.get(KEY_PLUGIN_SETTINGS, plugin.groups().size());
+            paintSmallLines(painter, font, slots.desc(), description, ColorToken.TEXT_SECONDARY);
+        }
+        if (!slots.tags().isEmpty()) {
+            int x = slots.tags().x();
+            List<String> tags = new ArrayList<>(art.tags());
+            tags.add(I18n.get(KEY_PLUGINS_REQUIRES));
+            for (int index = 0; index < tags.size(); index++) {
+                String label = tags.get(index).toUpperCase(Locale.ROOT);
+                boolean dim = index == tags.size() - 1;
+                int width = smallWidth(painter, font, label) + 10;
+                if (x + width > slots.tags().right()) {
+                    break;
+                }
+                Rect chip = new Rect(x, slots.tags().y(), width, slots.tags().height());
+                painter.fill(chip, theme.color(ColorToken.SURFACE_CHROME, 0.85f));
+                painter.fill(new Rect(chip.x(), chip.y(), chip.width(), 1),
+                        theme.color(dim ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_ACCENT));
+                painter.fill(new Rect(chip.x(), chip.bottom() - 1, chip.width(), 1),
+                        theme.color(dim ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_ACCENT));
+                painter.fill(new Rect(chip.x(), chip.y() + 1, 1, chip.height() - 2),
+                        theme.color(dim ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_ACCENT));
+                painter.fill(new Rect(chip.right() - 1, chip.y() + 1, 1, chip.height() - 2),
+                        theme.color(dim ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_ACCENT));
+                painter.smallText(chip.x() + 5, chip.y() + 2, label,
+                        theme.color(dim ? ColorToken.TEXT_SECONDARY : ColorToken.ACCENT_BRIGHT));
+                x += width + 5;
+            }
+        }
+        if (!slots.button().isEmpty()) {
+            paintBarButton(painter, font, slots.button(), I18n.get(KEY_PLUGINS_SETTINGS),
+                    ColorToken.ACCENT, mouseX, mouseY);
         }
     }
 
@@ -2716,8 +2878,8 @@ public final class ShellRenderer {
     }
 
     private void paintPluginRow(SurfacePainter painter, Font font, Rect row,
-                                NavPresenter.PluginPage plugin, String focusedId, long deltaMs,
-                                int mouseX, int mouseY) {
+                                NavPresenter.PluginPage plugin, String focusedId, boolean expanded,
+                                long deltaMs, int mouseX, int mouseY) {
         if (row.isEmpty()) {
             return;
         }
@@ -2746,7 +2908,8 @@ public final class ShellRenderer {
                     theme.color(on ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_MUTED), false);
         }
         if (!slots.note().isEmpty()) {
-            String note = hovered ? I18n.get(KEY_PLUGINS_OPEN)
+            String note = expanded ? I18n.get(KEY_PLUGINS_CLOSE)
+                    : hovered ? I18n.get(KEY_PLUGINS_OPEN)
                     : plugin.groups().isEmpty() ? I18n.get(KEY_PLUGIN_NO_SETTINGS)
                     : I18n.get(KEY_PLUGIN_SETTINGS, plugin.groups().size());
             painter.smallText(slots.note().x(), slots.note().y(),

@@ -10,6 +10,7 @@ import net.vulkanmod.config.ui.core.ProfileChipRow;
 import net.vulkanmod.config.ui.core.FrameGraphLayout;
 import net.vulkanmod.config.ui.core.InfoRowLayout;
 import net.vulkanmod.config.ui.core.PluginPageLayout;
+import net.vulkanmod.config.ui.core.PluginShowcase;
 import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
 import net.vulkanmod.config.ui.core.PresetCardModel;
@@ -442,7 +443,19 @@ public class VolcanicScreen extends Screen {
             if (PluginPageLayout.slots(row, plugin.toggleable()).toggle().contains(mouseX, mouseY)) {
                 presenter.togglePlugin(plugin.id());
             } else {
-                select(PluginSettings.routeOf(plugin.id()), NavPresenter.REGION_CONTENT);
+                presenter.toggleShowcase(plugin.id());
+                this.contentScroll = Math.max(0, Math.min(this.contentScroll, maxContentScroll()));
+                this.contentScrollTarget = Math.max(0, Math.min(this.contentScrollTarget,
+                        maxContentScroll()));
+            }
+            return true;
+        }
+        Rect frame = renderer.pluginShowcaseFrame(layout, presenter, contentScroll);
+        if (!frame.isEmpty() && frame.contains(mouseX, mouseY)) {
+            String expanded = presenter.expandedPlugin();
+            if (expanded != null
+                    && PluginShowcase.slots(frame).button().contains(mouseX, mouseY)) {
+                select(PluginSettings.routeOf(expanded), NavPresenter.REGION_CONTENT);
             }
             return true;
         }
@@ -519,7 +532,8 @@ public class VolcanicScreen extends Screen {
         }
         if (PluginSettings.ROOT.equals(presenter.stack().current())) {
             return PluginPageLayout.maxScroll(content, presenter.pluginPages().size(),
-                    presenter.catalog().modIds().size(), layout.breakpoint()) + reserve;
+                    presenter.catalog().modIds().size(), layout.breakpoint(),
+                    presenter.expandedPluginIndex() >= 0) + reserve;
         }
         return SettingRowLayout.maxScroll(content, presenter.contentRowCount(), layout.breakpoint()) + reserve;
     }

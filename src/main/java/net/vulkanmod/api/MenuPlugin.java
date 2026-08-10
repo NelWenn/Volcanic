@@ -106,10 +106,11 @@ public interface MenuPlugin {
     }
 
     /**
-     * Bannière 16:9 de la vitrine, en chemin texture complet, par exemple
-     * {@code "caldera:textures/gui/plugin_banner.png"}. 432×243 recommandé, nearest oblige.
-     * Le voile de lisibilité est ajouté par le menu, la bannière n'a pas à le contenir.
-     * {@code null} : fond généré depuis l'identifiant du plugin.
+     * Bannière de la vitrine, en chemin texture complet, par exemple
+     * {@code "caldera:textures/gui/plugin_banner.png"}. 256×144 recommandé pour du pixel art.
+     * Une image classique à un autre ratio marche aussi : le menu la recadre au centre pour
+     * remplir le cadre 16:9, sans la déformer. Le voile de lisibilité est ajouté par le menu,
+     * la bannière n'a pas à le contenir. {@code null} : fond généré depuis l'identifiant.
      */
     default String bannerTexture() {
         return null;

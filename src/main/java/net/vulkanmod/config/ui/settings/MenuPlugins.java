@@ -172,4 +172,75 @@ public final class MenuPlugins {
         }
         return ids;
     }
+
+    public record Art(net.minecraft.resources.ResourceLocation texture, int width, int height) {
+    }
+
+    public record Showcase(String byline, String description, java.util.List<String> tags,
+                           Art icon, Art banner) {
+    }
+
+    private static final java.util.Map<String, Showcase> SHOWCASES = new java.util.HashMap<>();
+
+    public static Showcase showcaseOf(String pluginId) {
+        return SHOWCASES.computeIfAbsent(pluginId, MenuPlugins::readShowcase);
+    }
+
+    public static void forgetShowcases() {
+        SHOWCASES.clear();
+    }
+
+    private static Showcase readShowcase(String pluginId) {
+        MenuPlugin plugin = byId(pluginId);
+        if (plugin == null) {
+            return new Showcase(null, null, java.util.List.of(), null, null);
+        }
+        String byline = null;
+        String description = null;
+        java.util.List<String> tags = java.util.List.of();
+        Art icon = null;
+        Art banner = null;
+        try {
+            byline = plugin.byline();
+            description = plugin.description();
+            java.util.List<String> declared = plugin.tags();
+            if (declared != null && !declared.isEmpty()) {
+                tags = java.util.List.copyOf(declared.subList(0, Math.min(4, declared.size())));
+            }
+            icon = artOf(plugin.iconTexture());
+            banner = artOf(plugin.bannerTexture());
+        } catch (Throwable failure) {
+            Initializer.LOGGER.warn("Plugin {} failed to dress its showcase: {}",
+                    pluginId, failure.toString());
+        }
+        return new Showcase(byline, description, tags, icon, banner);
+    }
+
+    private static Art artOf(String path) {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        try {
+            net.minecraft.resources.ResourceLocation texture =
+                    net.minecraft.resources.ResourceLocation.parse(path);
+            var resource = net.minecraft.client.Minecraft.getInstance().getResourceManager()
+                    .getResource(texture);
+            if (resource.isEmpty()) {
+                return null;
+            }
+            try (java.io.InputStream in = resource.get().open()) {
+                byte[] head = in.readNBytes(24);
+                if (head.length < 24 || head[1] != 'P' || head[2] != 'N' || head[3] != 'G') {
+                    return null;
+                }
+                int width = ((head[16] & 0xFF) << 24) | ((head[17] & 0xFF) << 16)
+                        | ((head[18] & 0xFF) << 8) | (head[19] & 0xFF);
+                int height = ((head[20] & 0xFF) << 24) | ((head[21] & 0xFF) << 16)
+                        | ((head[22] & 0xFF) << 8) | (head[23] & 0xFF);
+                return width > 0 && height > 0 ? new Art(texture, width, height) : null;
+            }
+        } catch (Throwable unavailable) {
+            return null;
+        }
+    }
 }

@@ -161,7 +161,7 @@
   "vulkanmod.ui.plugins.groups": "%s setting groups",
   "vulkanmod.ui.plugins.nogroups": "No settings declared",
   "vulkanmod.ui.plugins.intro": "Plugins are mods that add rendering features to Volcanic. Turn one off to rule it out.",
-  "vulkanmod.ui.plugins.open": "Open its settings",
+  "vulkanmod.ui.plugins.open": "Click for the showcase",
   "vulkanmod.ui.plugins.none": "None installed",
   "vulkanmod.ui.plugins.empty.hint": "A plugin is a mod that declares its settings to Volcanic. Installed ones show up here.",
   "vulkanmod.ui.plugin.empty": "This plugin has no settings to show.",
@@ -432,5 +432,8 @@
   "vulkanmod.options.uiSounds.tooltip": "The click on every menu control and the theme that plays once the game reaches the title screen. Minecraft's own sounds are untouched.",
   "vulkanmod.options.loadingScreen": "Loading Screen",
   "vulkanmod.options.loadingScreen.tooltip": "Volcanic's own startup screen, with its fire and its bar. Turn it off to get Minecraft's back. Another mod that claims the loading screen switches this off on its own.",
-  "vulkanmod.overview.select": "SELECT"
+  "vulkanmod.overview.select": "SELECT",
+  "vulkanmod.ui.plugins.close": "Click to close the showcase",
+  "vulkanmod.ui.plugins.settings_button": "Settings ›",
+  "vulkanmod.ui.plugins.requires": "Requires Volcanic"
 }

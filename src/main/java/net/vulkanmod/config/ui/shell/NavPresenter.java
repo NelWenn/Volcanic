@@ -109,6 +109,28 @@ public final class NavPresenter {
         return pluginPages;
     }
 
+    private String expandedPlugin;
+
+    public String expandedPlugin() {
+        return expandedPlugin;
+    }
+
+    public void toggleShowcase(String pluginId) {
+        this.expandedPlugin = pluginId == null || pluginId.equals(expandedPlugin) ? null : pluginId;
+    }
+
+    public int expandedPluginIndex() {
+        if (expandedPlugin == null) {
+            return -1;
+        }
+        for (int index = 0; index < pluginPages.size(); index++) {
+            if (pluginPages.get(index).id().equals(expandedPlugin)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
     public void togglePlugin(String pluginId) {
         net.vulkanmod.api.MenuPlugin plugin =
                 net.vulkanmod.config.ui.settings.MenuPlugins.byId(pluginId);
