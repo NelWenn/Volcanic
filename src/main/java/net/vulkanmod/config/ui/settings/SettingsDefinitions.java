@@ -79,6 +79,7 @@ public final class SettingsDefinitions {
     public static final SettingId UI_ANIMATIONS = SettingId.parse("vulkanmod:display.ui_animations");
     public static final SettingId BACKGROUND_ANIMATION = SettingId.parse("vulkanmod:display.background_animation");
     public static final SettingId UI_SOUNDS = SettingId.parse("vulkanmod:display.ui_sounds");
+    public static final SettingId LOADING_SCREEN = SettingId.parse("vulkanmod:display.loading_screen");
 
     public static final SettingId RENDER_DISTANCE = SettingId.parse("minecraft:rendering.render_distance");
     public static final SettingId SIMULATION_DISTANCE = SettingId.parse("minecraft:rendering.simulation_distance");
@@ -304,7 +305,12 @@ public final class SettingsDefinitions {
                         SettingType.BOOL, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.uiSounds.tooltip")
                         .scope(ApplyScope.INSTANT)
-                        .performance(ImpactLevel.NONE).visual(ImpactLevel.NONE).build());
+                        .performance(ImpactLevel.NONE).visual(ImpactLevel.NONE).build(),
+                new SettingMeta.Builder(LOADING_SCREEN, DISPLAY_VOLCANIC,
+                        "vulkanmod.options.loadingScreen", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.loadingScreen.tooltip")
+                        .scope(ApplyScope.INSTANT)
+                        .performance(ImpactLevel.NONE).visual(ImpactLevel.MEDIUM).build());
     }
 
     public static List<SettingMeta> renderingGeneral() {

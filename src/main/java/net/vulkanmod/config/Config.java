@@ -35,6 +35,7 @@ public class Config {
     public boolean uiAnimations = true;
     public boolean backgroundAnimation = true;
     public boolean uiSounds = true;
+    public boolean loadingScreen = true;
 
     public int advCulling = 2;
 

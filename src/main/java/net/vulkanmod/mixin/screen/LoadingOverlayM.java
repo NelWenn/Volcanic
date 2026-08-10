@@ -7,6 +7,7 @@ import net.minecraft.client.gui.screens.LoadingOverlay;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.api.VolcanicLoadingScreen;
 import net.vulkanmod.config.ui.core.CoalArt;
 import net.vulkanmod.config.ui.core.CoalScene;
 import net.vulkanmod.config.ui.core.Rect;
@@ -135,7 +136,9 @@ public class LoadingOverlayM {
 
     @Inject(method = "<clinit>", at = @At("TAIL"))
     private static void modifyBrandBackground(CallbackInfo ci) {
-        BRAND_BACKGROUND = () -> 0xFF000000 | VOLCANIC_SURFACE;
+        IntSupplier vanilla = BRAND_BACKGROUND;
+        BRAND_BACKGROUND = () -> VolcanicLoadingScreen.painting()
+                ? 0xFF000000 | VOLCANIC_SURFACE : vanilla.getAsInt();
     }
 
     @Inject(method = "<init>", at = @At("TAIL"))
@@ -213,6 +216,9 @@ public class LoadingOverlayM {
 
     @Inject(method = "render", at = @At("TAIL"))
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+        if (!VolcanicLoadingScreen.painting()) {
+            return;
+        }
         long now = Util.getMillis();
         float dt = this.volcanic$lastMillis == 0L ? 0.0f : Mth.clamp((now - this.volcanic$lastMillis) / 1000.0f, 0.0f, 0.1f);
         this.volcanic$lastMillis = now;
@@ -244,6 +250,9 @@ public class LoadingOverlayM {
 
     @Inject(method = "drawProgressBar", at = @At("HEAD"), cancellable = true)
     private void volcanic$drawBar(GuiGraphics guiGraphics, int minX, int minY, int maxX, int maxY, float partialTick, CallbackInfo ci) {
+        if (!VolcanicLoadingScreen.painting()) {
+            return;
+        }
         ci.cancel();
 
         this.volcanic$drawScene(guiGraphics);

@@ -677,6 +677,11 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.uiSounds,
                 value -> Initializer.CONFIG.uiSounds = boolValue(value))
                 .withDefault(() -> Boolean.TRUE));
+
+        bindings.put(SettingsDefinitions.LOADING_SCREEN, SettingBinding.of(
+                () -> Initializer.CONFIG.loadingScreen,
+                value -> Initializer.CONFIG.loadingScreen = boolValue(value))
+                .withDefault(() -> Boolean.TRUE));
     }
 
     private void bindRenderingGeneral() {
