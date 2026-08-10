@@ -27,6 +27,10 @@ public final class SettingRowRenderer {
             new net.vulkanmod.config.ui.core.HoverState(Motion.SELECTION_MS, true);
     private final java.util.Map<String, Glide> fills = new java.util.HashMap<>();
     private final java.util.Set<String> seen = new java.util.HashSet<>();
+    private final net.vulkanmod.config.ui.core.HoverState stars =
+            new net.vulkanmod.config.ui.core.HoverState(Motion.SELECTION_MS, true);
+    private final java.util.Map<String, String> shown = new java.util.HashMap<>();
+    private final java.util.Map<String, Long> struck = new java.util.HashMap<>();
 
     private static final int TRACK_HEIGHT = 3;
     private static final int TRACK_GAP = 8;
@@ -84,8 +88,26 @@ public final class SettingRowRenderer {
 
     public void endFrame() {
         this.pills.endFrame();
+        this.stars.endFrame();
         this.fills.keySet().retainAll(seen);
+        this.shown.keySet().retainAll(seen);
+        this.struck.keySet().retainAll(seen);
         this.seen.clear();
+    }
+
+    private float strike(String key, String display, long deltaMs) {
+        seen.add(key);
+        String previous = shown.put(key, display);
+        if (previous != null && !previous.equals(display)) {
+            struck.put(key, (long) Motion.SELECTION_MS);
+        }
+        long left = struck.getOrDefault(key, 0L) - deltaMs;
+        if (left <= 0L) {
+            struck.remove(key);
+            return 0.0f;
+        }
+        struck.put(key, left);
+        return Motion.ease(left, Motion.SELECTION_MS);
     }
 
     public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, SettingBinding binding,
@@ -125,8 +147,17 @@ public final class SettingRowRenderer {
         float highlighted = enabled ? hovered : 0.0f;
         boolean reset = resettable && enabled;
 
+        String key = meta.id().toString();
+        float struckNow = strike(key, binding.display(value), deltaMs);
         ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS, cardArgb(highlighted));
-        ShellRenderer.paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS, borderArgb(highlighted));
+        if (struckNow > 0.0f) {
+            ShellRenderer.paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS,
+                    theme.color(ColorToken.ACCENT, struckNow * 0.16f));
+        }
+        ShellRenderer.paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS,
+                struckNow > 0.0f
+                        ? Motion.blend(borderArgb(highlighted), theme.color(ColorToken.ACCENT), struckNow)
+                        : borderArgb(highlighted));
 
         String title = title(meta, reset);
         painter.text(card.x() + ShellRenderer.CARD_PAD_X, textTop(card), title,
@@ -136,7 +167,8 @@ public final class SettingRowRenderer {
         if (reset) {
             paintReset(painter, SettingRowLayout.resetBox(box), resetHovered);
         }
-        paintStar(painter, SettingRowLayout.starBox(box), favorite, starHovered);
+        paintStar(painter, SettingRowLayout.starBox(box), favorite, starHovered,
+                stars.advance(key, favorite, deltaMs));
 
         int right = card.right() - ShellRenderer.CARD_PAD_X;
         switch (meta.type()) {
@@ -198,7 +230,7 @@ public final class SettingRowRenderer {
         }
     }
 
-    private void paintStar(SurfacePainter painter, Rect box, boolean favorite, boolean hovered) {
+    private void paintStar(SurfacePainter painter, Rect box, boolean favorite, boolean hovered, float lit) {
         if (box.isEmpty()) {
             return;
         }
@@ -206,7 +238,10 @@ public final class SettingRowRenderer {
             ShellRenderer.paintRoundedFill(painter, box, SettingRowLayout.RESET_RADIUS,
                     theme.color(ColorToken.SURFACE_NAV_ACTIVE));
         }
-        paintGlyph(painter, box.inset(STAR_INSET), STAR, theme.color(starToken(favorite, hovered)), favorite);
+        int inset = STAR_INSET - Math.round(lit * (1.0f - lit) * 4.0f);
+        int argb = Motion.blend(theme.color(starToken(false, hovered)),
+                theme.color(ColorToken.ACCENT), lit);
+        paintGlyph(painter, box.inset(Math.max(0, inset)), STAR, argb, favorite);
     }
 
     private static ColorToken starToken(boolean favorite, boolean hovered) {

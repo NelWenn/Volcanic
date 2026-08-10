@@ -255,6 +255,7 @@ public final class ShellRenderer {
     private final Glide tabMarkerX = new Glide(55.0f);
     private final Glide tabMarkerWidth = new Glide(55.0f);
     private boolean tabMarkerPlaced;
+    private int tabStripOrigin;
     private final CoalScene coals = new CoalScene(0x5A1FL);
     private final Glide drawerSlide = new Glide(60.0f);
     private RouteId enteredRoute;
@@ -2356,6 +2357,11 @@ public final class ShellRenderer {
             this.tabMarkerPlaced = false;
             return;
         }
+        int origin = boxes.get(0).x();
+        if (tabMarkerPlaced && origin != tabStripOrigin) {
+            tabMarkerX.jumpTo(tabMarkerX.value() + origin - tabStripOrigin);
+        }
+        this.tabStripOrigin = origin;
         if (!tabMarkerPlaced) {
             this.tabMarkerPlaced = true;
             tabMarkerX.jumpTo(target.x());
