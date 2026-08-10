@@ -501,7 +501,8 @@ public class VolcanicScreen extends Screen {
         int reserve = presenter.pending().isEmpty() ? 0 : layout.overlayReserve();
         if (presenter.isOverview()) {
             PresetCardLayout.Page page = PresetCardLayout.page(content, presenter.presetCards().size(),
-                    0, layout.breakpoint());
+                    0, layout.breakpoint(),
+                    net.vulkanmod.config.ui.core.PresetCardModel.customTail(presenter.presetCards()));
             return page.centred() || content.isEmpty()
                     ? 0
                     : Math.max(0, page.height() + reserve - content.height());

@@ -84,4 +84,9 @@ public final class PresetCardModel {
         }
         return best == Integer.MAX_VALUE ? 0 : best;
     }
+
+    public static boolean customTail(java.util.List<Card> cards) {
+        return cards != null && !cards.isEmpty()
+                && cards.get(cards.size() - 1).key().endsWith(".custom");
+    }
 }

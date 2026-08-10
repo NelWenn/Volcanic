@@ -249,4 +249,47 @@ class PresetCardLayoutTest {
         assertTrue(page.legend().isEmpty() && page.cards().isEmpty() && page.suggestion().isEmpty());
         assertTrue(PresetCardLayout.page(Rect.EMPTY, 5, 0, Breakpoint.WIDE).cards().isEmpty());
     }
+
+    @Test
+    void theCustomTailBarSitsAloneUnderTheGridAndReadsWideNotTall() {
+        for (int width : new int[] {330, 520, 700, 1400}) {
+            Rect content = new Rect(40, 20, width, 700);
+            List<Rect> cards = PresetCardLayout.cards(content, 5, 0, Breakpoint.WIDE, true);
+            assertEquals(5, cards.size());
+
+            Rect bar = cards.get(4);
+            assertTrue(bar.width() > bar.height(), width + ": the tail is not a bar");
+            assertEquals(PresetCardLayout.TAIL_H, bar.height());
+            for (int index = 0; index < 4; index++) {
+                Rect tier = cards.get(index);
+                assertTrue(tier.height() > tier.width(), width + ": a tier card went landscape");
+                assertTrue(bar.y() >= tier.bottom(), width + ": the bar overlaps the grid");
+            }
+
+            int gridLeft = cards.get(0).x();
+            int gridRight = cards.stream().limit(4).mapToInt(Rect::right).max().orElse(0);
+            assertTrue(bar.x() <= gridLeft && bar.right() >= gridRight - 1,
+                    width + ": the bar does not shoulder the grid above it");
+        }
+    }
+
+    @Test
+    void theTailAppearsInThePageHeightSoScrollingKnowsAboutIt() {
+        int usable = 500;
+        assertEquals(PresetCardLayout.gridHeight(4, Breakpoint.WIDE, usable)
+                        + PresetCardLayout.GAP + PresetCardLayout.TAIL_H,
+                PresetCardLayout.gridHeight(5, Breakpoint.WIDE, usable, true));
+    }
+
+    @Test
+    void customTailIsRecognisedOnlyWhenTheLastCardIsCustom() {
+        PresetCardModel.Card tier = new PresetCardModel.Card(
+                "vulkanmod.options.performancePreset.ultra", false, false, true, false, 0);
+        PresetCardModel.Card custom = new PresetCardModel.Card(
+                "vulkanmod.options.performancePreset.custom", false, false, true, false, 0);
+        assertTrue(PresetCardModel.customTail(List.of(tier, custom)));
+        assertFalse(PresetCardModel.customTail(List.of(custom, tier)));
+        assertFalse(PresetCardModel.customTail(List.of()));
+        assertFalse(PresetCardModel.customTail(null));
+    }
 }

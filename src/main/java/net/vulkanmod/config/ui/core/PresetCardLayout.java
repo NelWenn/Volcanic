@@ -20,6 +20,7 @@ public final class PresetCardLayout {
     public static final int BOTTOM = 12;
     public static final int GLYPH = 18;
     public static final int STRIP_H = 13;
+    public static final int TAIL_H = 30;
     public static final int SEG_H = 6;
     public static final int SEG_GAP = 2;
     public static final int SEGMENTS = PresetRating.LEVELS;
@@ -75,6 +76,10 @@ public final class PresetCardLayout {
     }
 
     public static Page page(Rect content, int count, int scroll, Breakpoint breakpoint) {
+        return page(content, count, scroll, breakpoint, false);
+    }
+
+    public static Page page(Rect content, int count, int scroll, Breakpoint breakpoint, boolean tail) {
         if (content == null) {
             throw new IllegalArgumentException("content must not be null");
         }
@@ -89,7 +94,7 @@ public final class PresetCardLayout {
             return new Page(Rect.EMPTY, List.of(), Rect.EMPTY, 0, false);
         }
 
-        int grid = gridHeight(count, breakpoint, usable);
+        int grid = gridHeight(count, breakpoint, usable, tail);
         int block = grid + SUGGEST_GAP + SMALL_LINE;
         int total = LEGEND_H + LEGEND_GAP + block;
         boolean centred = total + OVERVIEW_MARGIN * 2 <= content.height();
@@ -103,14 +108,23 @@ public final class PresetCardLayout {
         int room = content.bottom() - OVERVIEW_MARGIN - below;
         int gridTop = centred && room > block ? below + (room - block) / 2 : below;
 
-        List<Rect> cards = grid(content, count, gridTop, breakpoint);
+        List<Rect> cards = grid(content, count, gridTop, breakpoint, tail);
         Rect suggestion = new Rect(legend.x(), gridTop + grid + SUGGEST_GAP, usable, SMALL_LINE);
         return new Page(legend, cards, suggestion, total + OVERVIEW_MARGIN * 2, centred);
     }
 
     public static int gridHeight(int count, Breakpoint breakpoint, int usableWidth) {
-        int rows = rowPattern(count, usableWidth).length;
-        return rows == 0 ? 0 : rows * (cardHeight(breakpoint) + GAP) - GAP;
+        return gridHeight(count, breakpoint, usableWidth, false);
+    }
+
+    public static int gridHeight(int count, Breakpoint breakpoint, int usableWidth, boolean tail) {
+        int gridded = tail ? Math.max(0, count - 1) : count;
+        int rows = rowPattern(gridded, usableWidth).length;
+        int height = rows == 0 ? 0 : rows * (cardHeight(breakpoint) + GAP) - GAP;
+        if (tail && count > 0) {
+            height += (rows > 0 ? GAP : 0) + TAIL_H;
+        }
+        return height;
     }
 
     public static Rect banner(Rect content, int scroll) {
@@ -124,9 +138,10 @@ public final class PresetCardLayout {
         return new Rect(content.x() + PAD_X, content.y() + BANNER_TOP - scroll, usable, BANNER_HEIGHT);
     }
 
-    private static List<Rect> grid(Rect content, int count, int top, Breakpoint breakpoint) {
+    private static List<Rect> grid(Rect content, int count, int top, Breakpoint breakpoint, boolean tail) {
         int usable = content.width() - PAD_X * 2;
-        int[] pattern = rowPattern(count, usable);
+        int gridded = tail ? Math.max(0, count - 1) : count;
+        int[] pattern = rowPattern(gridded, usable);
         int columns = perRow(usable);
         int width = Math.min(MAX_CARD, (usable - GAP * (columns - 1)) / columns);
         if (width < MIN_CARD && columns > 1) {
@@ -136,18 +151,29 @@ public final class PresetCardLayout {
         }
         int height = cardHeight(breakpoint);
         List<Rect> cards = new ArrayList<>(count);
+        int widest = 0;
         for (int row = 0; row < pattern.length; row++) {
             int inRow = pattern[row];
             int rowWidth = inRow * width + GAP * (inRow - 1);
+            widest = Math.max(widest, rowWidth);
             int left = content.x() + PAD_X + (usable - rowWidth) / 2;
             for (int column = 0; column < inRow; column++) {
                 cards.add(new Rect(left + column * (width + GAP), top + row * (height + GAP), width, height));
             }
         }
+        if (tail && count > 0) {
+            int barWidth = widest > 0 ? widest : Math.min(usable, MAX_CARD * 3);
+            int barTop = pattern.length == 0 ? top : top + pattern.length * (height + GAP);
+            cards.add(new Rect(content.x() + PAD_X + (usable - barWidth) / 2, barTop, barWidth, TAIL_H));
+        }
         return List.copyOf(cards);
     }
 
     public static List<Rect> cards(Rect content, int count, int scroll, Breakpoint breakpoint) {
+        return cards(content, count, scroll, breakpoint, false);
+    }
+
+    public static List<Rect> cards(Rect content, int count, int scroll, Breakpoint breakpoint, boolean tail) {
         if (content == null) {
             throw new IllegalArgumentException("content must not be null");
         }
@@ -158,42 +184,15 @@ public final class PresetCardLayout {
             throw new IllegalArgumentException("scroll must not be negative: " + scroll);
         }
         int usable = content.width() - PAD_X * 2;
-        if (content.isEmpty() || usable <= 0) {
+        if (content.isEmpty() || usable <= 0 || count == 0) {
             return List.of();
         }
-
-        int[] pattern = rowPattern(count, usable);
-        int columns = perRow(usable);
-        int width = Math.min(MAX_CARD, (usable - GAP * (columns - 1)) / columns);
-        if (width < MIN_CARD && columns > 1) {
-            columns = 1;
-            width = Math.min(MAX_CARD, usable);
-            pattern = rowPattern(count, 0);
-        }
-
-        int height = cardHeight(breakpoint);
-        List<Rect> cards = new ArrayList<>(count);
-        int top = content.y() + TOP - scroll;
-        for (int row = 0; row < pattern.length; row++) {
-            int inRow = pattern[row];
-            int rowWidth = inRow * width + GAP * (inRow - 1);
-            int left = content.x() + PAD_X + (usable - rowWidth) / 2;
-            for (int column = 0; column < inRow; column++) {
-                cards.add(new Rect(left + column * (width + GAP), top + row * (height + GAP), width, height));
-            }
-        }
-        return List.copyOf(cards);
+        return grid(content, count, content.y() + TOP - scroll, breakpoint, tail);
     }
 
     public static int contentHeight(int count, Breakpoint breakpoint, int usableWidth) {
-        if (count < 0) {
-            throw new IllegalArgumentException("count must not be negative: " + count);
-        }
-        if (count == 0) {
-            return TOP + BOTTOM;
-        }
-        int rows = rowPattern(count, usableWidth).length;
-        return TOP + rows * (cardHeight(breakpoint) + GAP) - GAP + BOTTOM;
+        int grid = gridHeight(count, breakpoint, usableWidth);
+        return grid == 0 ? 0 : TOP + grid + BOTTOM;
     }
 
     public record Slots(Rect accent, Rect glyph, Rect name, Rect tier, Rect rule, Rect blurb,

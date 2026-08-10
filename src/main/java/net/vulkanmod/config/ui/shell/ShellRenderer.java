@@ -788,7 +788,8 @@ public final class ShellRenderer {
         }
         if (OVERVIEW.equals(current)) {
             return ScrollIndicator.of(body, PresetCardLayout.page(body, presenter.presetCards().size(),
-                    0, layout.breakpoint()).height(), scroll);
+                    0, layout.breakpoint(),
+                    PresetCardModel.customTail(presenter.presetCards())).height(), scroll);
         }
         return ScrollIndicator.of(body,
                 SettingRowLayout.contentHeight(presenter.contentRowCount(), layout.breakpoint()), scroll);
@@ -1232,7 +1233,7 @@ public final class ShellRenderer {
             throw new IllegalArgumentException("layout and presenter must not be null");
         }
         return PresetCardLayout.page(contentBody(layout, presenter), presenter.presetCards().size(), scroll,
-                layout.breakpoint()).cards();
+                layout.breakpoint(), PresetCardModel.customTail(presenter.presetCards())).cards();
     }
 
     public void pressPresetCard(int index, PresetCardModel.Card model) {
@@ -1245,7 +1246,7 @@ public final class ShellRenderer {
                                NavPresenter presenter, int contentScroll, int mouseX, int mouseY) {
         List<PresetCardModel.Card> cards = presenter.presetCards();
         PresetCardLayout.Page page = PresetCardLayout.page(contentBody(layout, presenter), cards.size(),
-                contentScroll, layout.breakpoint());
+                contentScroll, layout.breakpoint(), PresetCardModel.customTail(cards));
         paintProfilesLegend(painter, font, page.legend());
         for (int i = 0; i < cards.size() && i < page.cards().size(); i++) {
             Rect box = page.cards().get(i);
@@ -1304,7 +1305,7 @@ public final class ShellRenderer {
         if (effect == PresetFx.HAZE) {
             paintHaze(graphics, painter, font, box, model, hovered, index);
         } else {
-            float tilt = hovered && effect == PresetFx.NONE
+            float tilt = hovered && effect == PresetFx.NONE && box.height() > box.width()
                     ? PresetFx.tiltDegrees(PresetFx.tiltStep(box, mouseX)) : 0.0f;
             painter.setOffset(dx, dy);
             if (tilt == 0.0f) {
@@ -1326,8 +1327,8 @@ public final class ShellRenderer {
             painter.setOffset(0, 0);
         }
 
-        if (hovered && effect == PresetFx.NONE) {
-            paintCardGlare(painter, box, mouseX, mouseY);
+        if (hovered && effect == PresetFx.NONE && box.height() > box.width()) {
+            paintCardGlare(painter, box, PresetIcons.tone(model.key()), mouseX, mouseY);
         }
         paintCardEffect(painter, box, model, index, effect);
         painter.flush();
@@ -1385,18 +1386,28 @@ public final class ShellRenderer {
         }
     }
 
-    private void paintCardGlare(SurfacePainter painter, Rect box, int mouseX, int mouseY) {
-        int argb = theme.color(ColorToken.ACCENT, 0.30f);
-        int reach = Math.max(10, box.width() / 3);
-        for (int y = box.y() + 1; y < box.bottom() - 1; y += 2) {
-            for (int x = box.x() + 3; x < box.right() - 1; x += 2) {
-                int far = Math.abs(x - mouseX) + Math.abs(y - mouseY);
-                if (far > reach) {
+    private void paintCardGlare(SurfacePainter painter, Rect box, int tone, int mouseX, int mouseY) {
+        int reach = Math.min(56, box.width() * 2 / 3);
+        int outer = reach * reach;
+        int core = reach * 2 / 5;
+        int mid = reach * 7 / 10;
+        int argb = Motion.fade(tone, 0.17f);
+        for (Rect span : RoundedScanline.fillSpans(box.inset(1), SettingRowLayout.CARD_RADIUS - 1)) {
+            int dy = span.y() - mouseY;
+            if (dy * dy > outer) {
+                continue;
+            }
+            for (int x = span.x(); x < span.right(); x++) {
+                int dx = x - mouseX;
+                int far = dx * dx + dy * dy;
+                if (far > outer) {
                     continue;
                 }
-                boolean lit = far < reach / 3 || (far < reach * 2 / 3 ? ((x + y) % 4 == 0) : ((x + y) % 8 == 0));
+                boolean lit = far <= core * core ? ((x + span.y()) & 1) == 0
+                        : far <= mid * mid ? ((x + span.y() * 2) & 3) == 0
+                        : (x & 3) == 0 && (span.y() & 3) == 0;
                 if (lit) {
-                    painter.fill(new Rect(x, y, 1, 1), argb);
+                    painter.fill(new Rect(x, span.y(), 1, 1), argb);
                 }
             }
         }
@@ -1442,6 +1453,10 @@ public final class ShellRenderer {
         if (card.isEmpty()) {
             return;
         }
+        if (card.width() > card.height()) {
+            paintCustomBar(painter, font, card, model, hovered && model.selectable());
+            return;
+        }
         PresetCardLayout.Slots slots = PresetCardLayout.slots(card,
                 card.height() >= PresetCardLayout.CARD_HEIGHT);
         if (slots.name().isEmpty()) {
@@ -1464,7 +1479,9 @@ public final class ShellRenderer {
             paintRoundedOutline(painter, card.inset(2), SettingRowLayout.CARD_RADIUS - 2,
                     Motion.fade(tone, 0.4f));
         }
-        paintAccentStripe(painter, card, slots.accent(), model.playing() || lit ? tone : toneDeep);
+        paintAccentStripe(painter, card, slots.accent(),
+                model.staged() ? theme.color(ColorToken.WARNING)
+                        : model.playing() || lit ? tone : toneDeep);
 
         String[] icon = PresetIcons.of(model.key());
         if (icon != null) {
@@ -1489,6 +1506,73 @@ public final class ShellRenderer {
         paintCardStrip(painter, font, card, slots.strip(), model, lit, tone);
         if (model.playing()) {
             paintScanlines(painter, card);
+        }
+    }
+
+    private void paintCustomBar(SurfacePainter painter, Font font, Rect bar, PresetCardModel.Card model,
+                                boolean lit) {
+        int tone = PresetIcons.tone(model.key());
+        int radius = 5;
+        int edge = model.playing() ? tone
+                : model.staged() ? theme.color(ColorToken.WARNING)
+                : model.suggested() ? theme.color(ColorToken.BORDER_ACCENT)
+                : lit ? theme.color(ColorToken.BORDER_STRONG)
+                : theme.color(ColorToken.BORDER_SUBTLE);
+
+        paintRoundedFill(painter, bar, radius,
+                theme.color(lit ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD));
+        if (model.playing() || model.staged()) {
+            for (Rect span : RoundedScanline.fillSpans(bar, radius)) {
+                painter.fill(span, Motion.fade(model.staged()
+                        ? theme.color(ColorToken.WARNING) : tone, 0.10f));
+            }
+        }
+        paintRoundedOutline(painter, bar, radius, edge);
+        for (Rect span : RoundedScanline.fillSpans(bar, radius)) {
+            painter.fill(new Rect(span.x(), span.y(), Math.min(PresetCardLayout.ACCENT_WIDTH,
+                    span.width()), span.height()),
+                    model.staged() ? theme.color(ColorToken.WARNING)
+                            : model.playing() || lit ? tone
+                            : Motion.blend(tone, 0xFF000000, 0.45f));
+        }
+
+        int left = bar.x() + PresetCardLayout.ACCENT_WIDTH + 9;
+        String[] icon = PresetIcons.of(model.key());
+        if (icon != null) {
+            SettingRowRenderer.paintGlyph(painter,
+                    new Rect(left, bar.y() + (bar.height() - PresetCardLayout.GLYPH) / 2,
+                            PresetCardLayout.GLYPH, PresetCardLayout.GLYPH), icon, tone, true);
+            left += PresetCardLayout.GLYPH + 8;
+        }
+        int textY = bar.y() + (bar.height() - TEXT_HEIGHT) / 2;
+        String name = I18n.get(model.key()).toUpperCase(Locale.ROOT);
+        painter.text(left, textY, name,
+                model.playing() ? tone : theme.color(ColorToken.TEXT_PRIMARY), false);
+        int after = left + font.width(name) + 8;
+        painter.smallText(after, textY + 1, PresetIcons.tier(model.key()),
+                theme.color(ColorToken.TEXT_FAINT));
+        after += smallWidth(painter, font, PresetIcons.tier(model.key())) + 10;
+
+        String measured = OverviewSignals.fpsOf(model.key());
+        String status = model.playing() ? I18n.get(KEY_PLAYING_NOW)
+                : model.staged() ? I18n.get(KEY_PENDING)
+                : model.suggested() ? I18n.get(KEY_SUGGESTED)
+                : measured != null ? measured
+                : lit ? I18n.get(KEY_SELECT) : I18n.get(KEY_NOT_TRIED);
+        int statusArgb = model.playing() ? theme.color(ColorToken.SUCCESS)
+                : model.staged() ? theme.color(ColorToken.WARNING)
+                : model.suggested() ? theme.color(ColorToken.ACCENT)
+                : measured != null ? theme.color(ColorToken.SUCCESS)
+                : lit ? tone : theme.color(ColorToken.TEXT_FAINT);
+        int statusWidth = smallWidth(painter, font, status);
+        int statusX = bar.right() - 10 - statusWidth;
+        painter.smallText(statusX, textY + 1, status, statusArgb);
+
+        int room = statusX - 12 - after;
+        if (room > 40) {
+            painter.smallText(after, textY + 1,
+                    smallTrim(painter, font, I18n.get(model.key() + ".card"), room),
+                    theme.color(ColorToken.TEXT_MUTED));
         }
     }
 
@@ -1571,12 +1655,12 @@ public final class ShellRenderer {
             argb = theme.color(ColorToken.TEXT_FAINT);
         }
 
-        painter.fill(new Rect(strip.x(), strip.y() - 1, strip.width(), 1),
+        painter.fill(new Rect(strip.x() + 1, strip.y() - 1, strip.width() - 2, 1),
                 theme.color(ColorToken.BORDER_SUBTLE));
         for (Rect span : RoundedScanline.fillSpans(card, SettingRowLayout.CARD_RADIUS)) {
             if (span.y() >= strip.y() && span.y() < strip.bottom()) {
-                int from = Math.max(span.x(), strip.x());
-                int to = Math.min(span.right(), strip.right());
+                int from = Math.max(span.x() + 2, strip.x());
+                int to = Math.min(span.right() - 2, strip.right());
                 if (to > from) {
                     painter.fill(new Rect(from, span.y(), to - from, 1), band);
                 }
