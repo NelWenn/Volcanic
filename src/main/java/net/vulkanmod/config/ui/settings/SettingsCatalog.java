@@ -7,6 +7,11 @@ import net.minecraft.client.ParticleStatus;
 import net.minecraft.client.PrioritizeChunkUpdates;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.ResourceLocation;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.KeyMapping;
+import net.vulkanmod.gui.DebugOverlay;
+import net.vulkanmod.gui.HudHandler;
+import org.lwjgl.glfw.GLFW;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.particle.ParticleToggles;
 import net.vulkanmod.render.profiling.ProfilerOverlay;
@@ -77,6 +82,9 @@ public final class SettingsCatalog {
 
     private static final List<Integer> MIPMAP_LEVELS = List.of(0, 1, 2, 3, 4);
     private static final List<Integer> ANISOTROPY_LEVELS = List.of(1, 2, 4, 8, 16);
+    private static final List<Integer> DEBUG_MENU_KEYS = List.of(GLFW.GLFW_KEY_UNKNOWN,
+            GLFW.GLFW_KEY_F6, GLFW.GLFW_KEY_F7, GLFW.GLFW_KEY_F8, GLFW.GLFW_KEY_F9,
+            GLFW.GLFW_KEY_F10, GLFW.GLFW_KEY_END, GLFW.GLFW_KEY_HOME, GLFW.GLFW_KEY_INSERT);
     private static final int MIPMAP_LEVELS_DEFAULT = 4;
 
     private static final List<Integer> AMBIENT_OCCLUSION_MODES =
@@ -872,14 +880,21 @@ public final class SettingsCatalog {
                 })
                 .withDefault(() -> Boolean.FALSE));
 
-        bindings.put(SettingsDefinitions.PROFILER_OVERLAY, SettingBinding.of(
-                () -> ProfilerOverlay.shouldRender,
+        bindings.put(SettingsDefinitions.DEBUG_MENU, SettingBinding.of(
+                () -> debugMenu() != null && debugMenu().isEnabled(),
                 value -> {
-                    if (boolValue(value) != ProfilerOverlay.shouldRender) {
-                        ProfilerOverlay.toggle();
+                    DebugOverlay overlay = debugMenu();
+                    if (overlay != null) {
+                        overlay.setEnabled(boolValue(value));
                     }
                 })
                 .withDefault(() -> Boolean.FALSE));
+
+        bindings.put(SettingsDefinitions.DEBUG_MENU_KEY, SettingBinding.choosing(
+                SettingsCatalog::debugMenuKeyLabel,
+                value -> bindDebugMenuKey(label(value)),
+                () -> DEBUG_MENU_KEYS.stream().map(SettingsCatalog::keyLabel).toList())
+                .withDefault(() -> keyLabel(GLFW.GLFW_KEY_END)));
 
         bindings.put(SettingsDefinitions.VSR_DEBUG, SettingBinding.of(
                 () -> Initializer.CONFIG.vsrDebug,
@@ -934,6 +949,14 @@ public final class SettingsCatalog {
         bindings.put(SettingsDefinitions.CUSTOM_ITEM_TEXTURES, SettingBinding.of(
                 () -> Initializer.CONFIG.citEnabled,
                 value -> Initializer.CONFIG.citEnabled = boolValue(value))
+                .withDefault(() -> Boolean.TRUE));
+
+        bindings.put(SettingsDefinitions.CORE_SHADER_PACKS, SettingBinding.of(
+                () -> Initializer.CONFIG.sodiumCoreShaders,
+                value -> {
+                    Initializer.CONFIG.sodiumCoreShaders = boolValue(value);
+                    Minecraft.getInstance().delayTextureReload();
+                })
                 .withDefault(() -> Boolean.TRUE));
     }
 
@@ -1062,14 +1085,6 @@ public final class SettingsCatalog {
                 GlDrawOptions::fboViewportUsesFboConvention,
                 value -> Initializer.CONFIG.glFboViewport = boolValue(value))
                 .withDefault(() -> Boolean.TRUE));
-
-        bindings.put(SettingsDefinitions.CORE_SHADER_PACKS, SettingBinding.of(
-                () -> Initializer.CONFIG.sodiumCoreShaders,
-                value -> {
-                    Initializer.CONFIG.sodiumCoreShaders = boolValue(value);
-                    Minecraft.getInstance().delayTextureReload();
-                })
-                .withDefault(() -> Boolean.TRUE));
     }
 
     private void bindExperimental() {
@@ -1147,11 +1162,41 @@ public final class SettingsCatalog {
         throw new IllegalArgumentException("unknown graphics mode " + key);
     }
 
+    private static DebugOverlay debugMenu() {
+        return HudHandler.getInstance().get(DebugOverlay.class);
+    }
+
+    private static String keyLabel(int code) {
+        return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
+    }
+
+    private static String debugMenuKeyLabel() {
+        DebugOverlay overlay = debugMenu();
+        return overlay == null ? keyLabel(GLFW.GLFW_KEY_END)
+                : overlay.getToggleKeyMapping().getKey().getDisplayName().getString();
+    }
+
+    private static void bindDebugMenuKey(String label) {
+        DebugOverlay overlay = debugMenu();
+        if (overlay == null) {
+            return;
+        }
+        for (int code : DEBUG_MENU_KEYS) {
+            if (keyLabel(code).equals(label)) {
+                Minecraft.getInstance().options.setKey(overlay.getToggleKeyMapping(),
+                        InputConstants.Type.KEYSYM.getOrCreate(code));
+                KeyMapping.resetMapping();
+                return;
+            }
+        }
+        throw new IllegalArgumentException("unknown debug menu key " + label);
+    }
+
     private static String blockEntityDistanceLabel(Object value) {
         int distance = intValue(value);
         return distance >= SettingsDefinitions.BLOCK_ENTITY_DISTANCE_MAX
                 ? I18n.get("vulkanmod.options.blockEntityDistance.unlimited")
-                : Integer.toString(distance);
+                : I18n.get("vulkanmod.options.blockEntityDistance.blocks", distance);
     }
 
     private static String anisotropyKey(int level) {

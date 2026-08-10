@@ -54,7 +54,8 @@ public final class SettingsDefinitions {
     public static final SettingId GLINT_STRENGTH = SettingId.parse("minecraft:quality.glint_strength");
     public static final SettingId SHADOW_CASTERS = SettingId.parse("vulkanmod:entities.shadow_casters");
     public static final SettingId WIND_STRENGTH = SettingId.parse("vulkanmod:environment.wind_strength");
-    public static final SettingId PROFILER_OVERLAY = SettingId.parse("vulkanmod:developer.profiler_overlay");
+    public static final SettingId DEBUG_MENU = SettingId.parse("vulkanmod:developer.debug_menu");
+    public static final SettingId DEBUG_MENU_KEY = SettingId.parse("vulkanmod:developer.debug_menu_key");
     public static final SettingId SHOW_FPS = SettingId.parse("vulkanmod:developer.show_fps");
     public static final SettingId DEBUG_OVERLAY = SettingId.parse("vulkanmod:developer.debug_overlay");
     public static final SettingId SHOW_COORDINATES = SettingId.parse("vulkanmod:developer.show_coordinates");
@@ -119,7 +120,7 @@ public final class SettingsDefinitions {
     public static final SettingId EXTERNAL_LOD_DRAW = SettingId.parse("vulkanmod:advanced.external_lod_draw");
     public static final SettingId GL_LEGACY_BRIDGE = SettingId.parse("vulkanmod:advanced.gl_legacy_bridge");
     public static final SettingId GL_FBO_VIEWPORT = SettingId.parse("vulkanmod:advanced.gl_fbo_viewport");
-    public static final SettingId CORE_SHADER_PACKS = SettingId.parse("vulkanmod:advanced.core_shader_packs");
+    public static final SettingId CORE_SHADER_PACKS = SettingId.parse("vulkanmod:quality.core_shader_packs");
     public static final SettingId BLOCK_ENTITY_DISTANCE = SettingId.parse("vulkanmod:rendering.block_entity_distance");
     public static final SettingId ANISOTROPIC_FILTERING = SettingId.parse("vulkanmod:experimental.anisotropic_filtering");
 
@@ -441,6 +442,11 @@ public final class SettingsDefinitions {
                         .descriptionKey("vulkanmod.options.customItemTextures.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.NONE).visual(ImpactLevel.LOW).build(),
+                new SettingMeta.Builder(CORE_SHADER_PACKS, QUALITY_TEXTURES,
+                        "vulkanmod.options.coreShaderPacks", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.coreShaderPacks.tooltip")
+                        .scope(ApplyScope.TEXTURE_RELOAD)
+                        .performance(ImpactLevel.NONE).visual(ImpactLevel.MEDIUM).build(),
                 new SettingMeta.Builder(GLINT_STRENGTH, QUALITY_TEXTURES, "options.glintStrength",
                         SettingType.INT, SettingSource.MINECRAFT)
                         .scope(ApplyScope.INSTANT)
@@ -543,11 +549,16 @@ public final class SettingsDefinitions {
                         .descriptionKey("vulkanmod.options.debugOverlay.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.LOW).visual(ImpactLevel.NONE).build(),
-                new SettingMeta.Builder(PROFILER_OVERLAY, DEVELOPER_TOOLS, "vulkanmod.options.profilerOverlay",
+                new SettingMeta.Builder(DEBUG_MENU, DEVELOPER_TOOLS, "vulkanmod.options.debugMenu",
                         SettingType.BOOL, SettingSource.VOLCANIC)
-                        .descriptionKey("vulkanmod.options.profilerOverlay.tooltip")
+                        .descriptionKey("vulkanmod.options.debugMenu.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.LOW).visual(ImpactLevel.NONE).build(),
+                new SettingMeta.Builder(DEBUG_MENU_KEY, DEVELOPER_TOOLS, "vulkanmod.options.debugMenuKey",
+                        SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.debugMenuKey.tooltip")
+                        .scope(ApplyScope.INSTANT)
+                        .performance(ImpactLevel.NONE).visual(ImpactLevel.NONE).build(),
                 new SettingMeta.Builder(VSR_DEBUG, DEVELOPER_TOOLS, "vulkanmod.options.vsrDebug",
                         SettingType.BOOL, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.vsrDebug.tooltip")
@@ -602,11 +613,7 @@ public final class SettingsDefinitions {
                 new SettingMeta.Builder(GL_FBO_VIEWPORT, ADVANCED_COMPATIBILITY,
                         "vulkanmod.options.glFboViewport", SettingType.BOOL, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.glFboViewport.tooltip")
-                        .scope(ApplyScope.RESTART).advanced(true).build(),
-                new SettingMeta.Builder(CORE_SHADER_PACKS, ADVANCED_COMPATIBILITY,
-                        "vulkanmod.options.coreShaderPacks", SettingType.BOOL, SettingSource.VOLCANIC)
-                        .descriptionKey("vulkanmod.options.coreShaderPacks.tooltip")
-                        .scope(ApplyScope.TEXTURE_RELOAD).advanced(true).build());
+                        .scope(ApplyScope.RESTART).advanced(true).build());
     }
 
     public static List<SettingMeta> experimental() {

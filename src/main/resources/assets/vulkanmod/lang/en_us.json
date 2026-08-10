@@ -103,7 +103,6 @@
   "vulkanmod.options.glFboViewport.tooltip": "Uses the framebuffer-object viewport convention for mods that render to their own render targets. Requires restart.",
   "vulkanmod.keybind.toggle_debug_overlay": "Toggle Debug Overlay",
   "vulkanmod.keybind.toggle_fps_overlay": "Toggle FPS Display",
-  "vulkanmod.keybind.toggle_profiler_overlay": "Toggle Chunk Profiler",
   "vulkanmod.keybind.open_options": "Open Volcanic Settings",
   "vulkanmod.options.title": "Volcanic Graphics",
   "vulkanmod.applybar.chunk_rebuild": "%d held, Apply rebuilds the chunks, Esc discards",
@@ -191,8 +190,6 @@
   "vulkanmod.ui.disabled.vulkan_sdk": "Needs the Vulkan SDK under ~/VulkanSDK",
   "vulkanmod.options.debugOverlay": "Debug Screen",
   "vulkanmod.options.debugOverlay.tooltip": "The vanilla F3 screen. Toggling it here is the same as pressing F3.",
-  "vulkanmod.options.profilerOverlay": "Chunk Profiler Overlay",
-  "vulkanmod.options.profilerOverlay.tooltip": "Draws the section build and upload profiler on top of the world. Not remembered between launches.",
   "vulkanmod.options.vsrDebug": "Upscaler Debug View",
   "vulkanmod.options.vsrDebug.tooltip": "Shows what the resolution scaler is doing, split across the screen.",
   "vulkanmod.options.pbrDebugNormals": "Normal Map Debug View",
@@ -420,5 +417,10 @@
   "vulkanmod.options.anisotropicFiltering.tooltip": "Sharpens floors and walls seen at a grazing angle, which mipmaps otherwise blur into mush. On Minecraft's stitched block atlas it can bleed neighbouring sprites into each other at distance, which is why it lives here and not under Quality.",
   "vulkanmod.ui.disabled.vsync_off": "Needs V-Sync on. Turn V-Sync on under Display to use this.",
   "vulkanmod.ui.disabled.present_mode": "Your graphics driver does not offer adaptive V-Sync. MoltenVK on macOS never does.",
-  "vulkanmod.ui.disabled.anisotropy": "This GPU does not support anisotropic filtering."
+  "vulkanmod.ui.disabled.anisotropy": "This GPU does not support anisotropic filtering.",
+  "vulkanmod.options.debugMenu": "Debug Menu",
+  "vulkanmod.options.debugMenu.tooltip": "Volcanic's own debug panel: frame timings, hardware and build info. Separate from the vanilla F3 screen.",
+  "vulkanmod.options.debugMenuKey": "Debug Menu Key",
+  "vulkanmod.options.debugMenuKey.tooltip": "Which key opens and closes the debug panel. Set it to Not Bound to leave the panel to this menu alone.",
+  "vulkanmod.options.blockEntityDistance.blocks": "%s blocks"
 }
