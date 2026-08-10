@@ -1305,7 +1305,8 @@ public final class ShellRenderer {
         if (effect == PresetFx.HAZE) {
             paintHaze(graphics, painter, font, box, model, hovered, index);
         } else {
-            float tilt = hovered && effect == PresetFx.NONE && box.height() > box.width()
+            float tilt = effect == PresetFx.ROCK ? presetFx.rockAngle(index)
+                    : hovered && effect == PresetFx.NONE && box.height() > box.width()
                     ? PresetFx.tiltDegrees(PresetFx.tiltStep(box, mouseX)) : 0.0f;
             painter.setOffset(dx, dy);
             if (tilt == 0.0f) {
@@ -1421,18 +1422,28 @@ public final class ShellRenderer {
                 painter.fill(new Rect(box.x(), box.y() + presetFx.streakY(index, streak, box.height()),
                         box.width(), 1), argb);
             }
-        } else if (effect == PresetFx.DITHER) {
-            int radius = presetFx.ringRadius(index);
-            int argb = theme.color(ColorToken.ACCENT);
+        } else if (effect == PresetFx.ROCK) {
+            int tone = PresetIcons.tone(model.key());
+            int angle = presetFx.rockAngle(index);
             int cx = box.x() + box.width() / 2;
-            int cy = box.y() + box.height() / 2;
-            for (int step = 0; step < 180; step++) {
-                double a = step * (Math.PI / 90.0);
-                int x = cx + (int) Math.round(Math.cos(a) * radius);
-                int y = cy + (int) Math.round(Math.sin(a) * radius * 0.82);
-                if ((x + y) % 2 == 0 && box.contains(x, y)) {
-                    painter.fill(new Rect(x, y, 1, 1), argb);
+            if (angle != 0) {
+                int side = Integer.signum(angle);
+                int reach = box.width() / 2 - 6;
+                int drop = Math.abs(angle);
+                for (int step = 1; step <= 4; step++) {
+                    int x = cx + side * (reach * step / 4);
+                    int y = box.bottom() - 8 + drop * step / 4;
+                    painter.fill(new Rect(x - 1, y - 1, 2, 2), Motion.fade(tone, 0.30f + 0.12f * step));
                 }
+                painter.fill(new Rect(cx - 1, box.bottom() - 7, 2, 4), tone);
+            }
+            int flash = presetFx.levelFlash(index);
+            if (flash > 0) {
+                int argb = Motion.fade(tone, flash == 2 ? 0.85f : 0.35f);
+                int mid = box.y() + box.height() / 2;
+                painter.fill(new Rect(box.x() + 4, mid, box.width() - 8, 1), argb);
+                painter.fill(new Rect(box.x() + 4, mid - 2, 1, 5), argb);
+                painter.fill(new Rect(box.right() - 5, mid - 2, 1, 5), argb);
             }
         } else if (effect == PresetFx.ERUPT && presetFx.flashing(index)) {
             painter.fill(box, theme.color(ColorToken.TEXT_PRIMARY));

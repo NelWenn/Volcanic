@@ -11,13 +11,13 @@ public final class PresetFx {
 
     public static final int NONE = -1;
     public static final int SKIP = 0;
-    public static final int DITHER = 1;
+    public static final int ROCK = 1;
     public static final int HAZE = 2;
     public static final int ERUPT = 3;
     public static final int SCAN = 4;
 
-    private static final int[] LENGTH = {7, 11, 18, 20, 9};
-    private static final int[] RING = {6, 14, 22, 30, 38};
+    private static final int[] LENGTH = {7, 10, 18, 20, 9};
+    private static final int[] ROCK_ANGLES = {-4, -4, 3, 3, -2, -2, 1, 1, 0, 0};
 
     private int kind = NONE;
     private int card = -1;
@@ -74,7 +74,7 @@ public final class PresetFx {
         String name = key.substring(key.lastIndexOf('.') + 1).toLowerCase(java.util.Locale.ROOT);
         return switch (name) {
             case "performance" -> SKIP;
-            case "balanced" -> DITHER;
+            case "balanced" -> ROCK;
             case "quality" -> HAZE;
             case "ultra" -> ERUPT;
             default -> SCAN;
@@ -125,11 +125,18 @@ public final class PresetFx {
         return height <= 0 ? 0 : ((frame(cardIndex) * 5 + streak * 11) % height);
     }
 
-    public int ringRadius(int cardIndex) {
-        if (!playing(cardIndex) || kind != DITHER) {
+    public int rockAngle(int cardIndex) {
+        if (!playing(cardIndex) || kind != ROCK) {
             return 0;
         }
-        return frame >= RING.length * 2 ? 0 : RING[Math.min(RING.length - 1, frame / 2)];
+        return ROCK_ANGLES[Math.min(ROCK_ANGLES.length - 1, frame)];
+    }
+
+    public int levelFlash(int cardIndex) {
+        if (!playing(cardIndex) || kind != ROCK || frame < 8) {
+            return 0;
+        }
+        return frame == 8 ? 2 : 1;
     }
 
     public int heat(int cardIndex) {

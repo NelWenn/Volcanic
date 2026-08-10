@@ -84,7 +84,7 @@ class PresetFxTest {
     @Test
     void eachPresetGetsItsOwnEffectAndAnUnknownOneFallsBackToTheScanner() {
         assertEquals(PresetFx.SKIP, PresetFx.effectFor("vulkanmod.options.performancePreset.performance"));
-        assertEquals(PresetFx.DITHER, PresetFx.effectFor("vulkanmod.options.performancePreset.balanced"));
+        assertEquals(PresetFx.ROCK, PresetFx.effectFor("vulkanmod.options.performancePreset.balanced"));
         assertEquals(PresetFx.HAZE, PresetFx.effectFor("vulkanmod.options.performancePreset.quality"));
         assertEquals(PresetFx.ERUPT, PresetFx.effectFor("vulkanmod.options.performancePreset.ultra"));
         assertEquals(PresetFx.SCAN, PresetFx.effectFor("vulkanmod.options.performancePreset.custom"));
@@ -120,18 +120,35 @@ class PresetFxTest {
     }
 
     @Test
-    void theRingGrowsInWholeStepsAndNeverShrinksWhileItRuns() {
-        int previous = 0;
+    void theBalanceRocksBothWaysWithShrinkingSwingsAndComesToRestLevel() {
+        int previousSwing = Integer.MAX_VALUE;
+        int direction = 0;
+        int reversals = 0;
         for (int frame = 0; frame < 10; frame++) {
-            PresetFx fx = running(PresetFx.DITHER, frame);
-            int radius = fx.ringRadius(0);
-            if (radius == 0) {
-                continue;
+            int angle = running(PresetFx.ROCK, frame).rockAngle(0);
+            assertTrue(Math.abs(angle) <= 4, "frame " + frame + " leaned " + angle + " degrees");
+            if (angle != 0) {
+                assertTrue(Math.abs(angle) <= previousSwing, "the swing grew back at frame " + frame);
+                previousSwing = Math.abs(angle);
+                if (direction != 0 && Integer.signum(angle) != direction) {
+                    reversals++;
+                }
+                direction = Integer.signum(angle);
             }
-            assertTrue(radius >= previous, "the ring shrank at frame " + frame);
-            previous = radius;
         }
-        assertTrue(previous > 30, "the ring never reached its outer step");
+        assertTrue(reversals >= 2, "a balance must tip back and forth, got " + reversals + " reversals");
+        assertEquals(0, running(PresetFx.ROCK, 9).rockAngle(0), "it must end perfectly level");
+    }
+
+    @Test
+    void theLevelLineOnlyFlashesOnceTheRockingIsOver() {
+        for (int frame = 0; frame < 8; frame++) {
+            assertEquals(0, running(PresetFx.ROCK, frame).levelFlash(0),
+                    "the line showed while still tipping, frame " + frame);
+        }
+        assertEquals(2, running(PresetFx.ROCK, 8).levelFlash(0));
+        assertEquals(1, running(PresetFx.ROCK, 9).levelFlash(0), "the line fades rather than cutting");
+        assertEquals(0, new PresetFx().levelFlash(0));
     }
 
     @Test
