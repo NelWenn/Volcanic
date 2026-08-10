@@ -117,7 +117,7 @@ public class VolcanicScreen extends Screen {
                         search.query(), searchSelection, mouseX, mouseY);
             } else if (!layout.hasDetailsPanel() && !drawerOpen) {
                 renderer.renderCard(painter, this.font, layout, presenter, contentScroll, mouseX, mouseY,
-                        keyboardMode, dragged);
+                        keyboardMode, dragged, deltaMs);
             }
         });
         renderer.paintBrand(guiGraphics, layout);

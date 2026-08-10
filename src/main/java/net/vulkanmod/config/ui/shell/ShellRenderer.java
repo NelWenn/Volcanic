@@ -499,8 +499,15 @@ public final class ShellRenderer {
         return lastCard;
     }
 
+    private static final long CARD_HOVER_DELAY_MS = 450L;
+    private SettingId cardShown;
+    private long cardElapsed = 9_999L;
+    private SettingId cardArmed;
+    private long cardArmedMs;
+
     public void renderCard(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                           int contentScroll, int mouseX, int mouseY, boolean keyboardMode, SettingId dragged) {
+                           int contentScroll, int mouseX, int mouseY, boolean keyboardMode, SettingId dragged,
+                           long deltaMs) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
         }
@@ -515,7 +522,27 @@ public final class ShellRenderer {
                 ? settingById(presenter, dragged)
                 : cardTarget(layout, presenter, contentScroll, mouseX, mouseY, keyboardMode, dragged);
         if (meta == null) {
+            this.cardShown = null;
+            this.cardArmed = null;
             return;
+        }
+        if (!sheet && !keyboardMode && dragged == null
+                && cardShown == null && !meta.id().equals(cardShown)) {
+            if (meta.id().equals(cardArmed)) {
+                this.cardArmedMs += Math.max(0L, deltaMs);
+            } else {
+                this.cardArmed = meta.id();
+                this.cardArmedMs = 0L;
+            }
+            if (cardArmedMs < CARD_HOVER_DELAY_MS) {
+                return;
+            }
+        }
+        if (meta.id().equals(cardShown)) {
+            this.cardElapsed = Math.min(9_999L, cardElapsed + Math.max(0L, deltaMs));
+        } else {
+            this.cardShown = meta.id();
+            this.cardElapsed = 0L;
         }
         Rect bounds = layout.content();
         Rect anchor = anchorOf(layout, presenter, contentScroll, meta);
@@ -542,10 +569,18 @@ public final class ShellRenderer {
         }
 
         int radius = sheet ? OVERLAY_RADIUS : TOOLTIP_RADIUS;
-        paintRoundedFill(painter, box, radius, theme.color(ColorToken.SURFACE_CHROME));
-        paintRoundedOutline(painter, box, radius, theme.color(ColorToken.BORDER_ACCENT));
-        paintDetailItems(painter, box, items);
-        painter.flush();
+        float reveal = motionEnabled() ? Motion.easeOut(cardElapsed, 140) : 1.0f;
+        painter.setOffset(0, Motion.slide(reveal, 1, 5));
+        painter.setAlpha(reveal);
+        try {
+            paintRoundedFill(painter, box, radius, theme.color(ColorToken.SURFACE_CHROME));
+            paintRoundedOutline(painter, box, radius, theme.color(ColorToken.BORDER_ACCENT));
+            paintDetailItems(painter, box, items);
+            painter.flush();
+        } finally {
+            painter.setOffset(0, 0);
+            painter.setAlpha(1.0f);
+        }
         this.lastCard = box;
     }
 
