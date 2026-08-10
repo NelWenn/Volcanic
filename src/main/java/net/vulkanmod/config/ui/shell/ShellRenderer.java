@@ -39,7 +39,7 @@ import net.vulkanmod.config.ui.core.EmberField;
 import net.vulkanmod.config.ui.core.Glide;
 import net.vulkanmod.config.ui.core.HoverState;
 import net.vulkanmod.config.ui.core.ImpactLevel;
-import net.vulkanmod.config.ui.core.LavaBed;
+import net.vulkanmod.config.ui.core.CoalBed;
 import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.OverviewModel;
@@ -219,7 +219,7 @@ public final class ShellRenderer {
     private final Glide tabMarkerWidth = new Glide(55.0f);
     private boolean tabMarkerPlaced;
     private final EmberField embers = new EmberField(0x5A1F);
-    private final LavaBed lava = new LavaBed(0x5A1FL);
+    private final CoalBed coals = new CoalBed(0x5A1FL);
     private final Glide drawerSlide = new Glide(60.0f);
     private RouteId enteredRoute;
     private int enteredDepth;
@@ -961,22 +961,39 @@ public final class ShellRenderer {
     }
 
     private void paintEmbers(SurfacePainter painter, Rect content, long deltaMs) {
-        lava.advance(deltaMs);
-        painter.gradient(new Rect(content.x(), lava.glowTop(content), content.width(),
-                        content.bottom() - lava.glowTop(content)),
-                lava.glowArgb() & 0x00FFFFFF, lava.glowArgb());
+        coals.advance(deltaMs);
+        int glowTop = coals.glowTop(content);
+        painter.gradient(new Rect(content.x(), glowTop, content.width(), content.bottom() - glowTop),
+                coals.glowArgb() & 0x00FFFFFF, coals.glowArgb());
 
-        for (int patch = 0; patch < LavaBed.PATCHES; patch++) {
-            int argb = lava.colorOf(patch);
+        Rect band = coals.lavaBand(content);
+        painter.gradient(band, coals.lavaTopArgb(), coals.lavaBottomArgb());
+        for (int vent = 0; vent < CoalBed.VENTS; vent++) {
+            int argb = coals.ventArgb(vent);
             if ((argb >>> 24) == 0) {
                 continue;
             }
-            int left = lava.xOf(patch, content);
-            int wide = Math.min(lava.widthOf(patch), content.right() - left);
+            int left = coals.ventX(vent, content);
+            int wide = Math.min(coals.ventWidth(vent), content.right() - left);
+            if (wide > 0) {
+                painter.fill(new Rect(left, coals.ventY(vent, content), wide,
+                        coals.ventHeight(vent)), argb);
+            }
+        }
+
+        for (int chunk = 0; chunk < CoalBed.CHUNKS; chunk++) {
+            int left = coals.chunkX(chunk, content);
+            int wide = Math.min(coals.chunkWidth(chunk), content.right() - left);
             if (wide <= 0) {
                 continue;
             }
-            painter.fill(new Rect(left, lava.yOf(patch, content), wide, lava.heightOf(patch)), argb);
+            int top = coals.chunkY(chunk, content);
+            int tall = coals.chunkHeight(chunk);
+            int argb = coals.chunkArgb(chunk);
+            int cap = coals.capHeight(chunk);
+            int inset = Math.min(coals.capInset(chunk), Math.max(0, (wide - 1) / 2));
+            painter.fill(new Rect(left, top + cap, wide, tall - cap), argb);
+            painter.fill(new Rect(left + inset, top, wide - inset * 2, cap), argb);
         }
 
         embers.advance(deltaMs, content.height());
