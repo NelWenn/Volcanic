@@ -2756,7 +2756,7 @@ public final class ShellRenderer {
                 }
             }
 
-            int shadeTop = frame.y() + frame.height() * 2 / 5;
+            int shadeTop = frame.y() + frame.height() / 4;
             painter.gradient(new Rect(frame.x(), shadeTop, frame.width(), frame.bottom() - shadeTop),
                     theme.color(ColorToken.SURFACE_BASE, 0.0f), theme.color(ColorToken.SURFACE_BASE, 0.92f));
             painter.fill(new Rect(frame.x(), frame.y(), frame.width(), 1),

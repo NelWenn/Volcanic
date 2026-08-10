@@ -2,12 +2,12 @@ package net.vulkanmod.config.ui.core;
 
 public final class PluginShowcase {
     public static final int PAD = 12;
-    public static final int ICON = 32;
-    public static final int ICON_GAP = 10;
+    public static final int ICON = 40;
+    public static final int ICON_GAP = 12;
     public static final int BUTTON_W = 68;
     public static final int BUTTON_H = 16;
     public static final int TAG_H = 11;
-    public static final int MAX_H = 300;
+    public static final int MAX_H = 210;
     public static final int NAME_LINE = 9;
     public static final int SMALL_LINE = 7;
 
@@ -52,24 +52,31 @@ public final class PluginShowcase {
         }
         Rect button = new Rect(frame.right() - PAD - BUTTON_W, frame.bottom() - PAD - BUTTON_H,
                 BUTTON_W, BUTTON_H);
-        Rect icon = new Rect(frame.x() + PAD, frame.bottom() - PAD - ICON, ICON, ICON);
+        Rect tags = new Rect(frame.x() + PAD + 2, frame.bottom() - PAD - TAG_H,
+                button.x() - 8 - frame.x() - PAD - 2, TAG_H);
 
+        int stackTop = frame.y() + Math.max(PAD + 4, Math.round(frame.height() * 0.34f));
+        Rect icon = new Rect(frame.x() + PAD + 2, stackTop, ICON, ICON);
         int left = icon.right() + ICON_GAP;
-        int width = button.x() - ICON_GAP - left;
+        int width = frame.right() - PAD - left;
         if (width <= 0) {
-            return new Slots(icon, Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, button);
+            return new Slots(icon, Rect.EMPTY, Rect.EMPTY, Rect.EMPTY, tags, button);
         }
 
-        Rect tags = new Rect(left, frame.bottom() - PAD - TAG_H, width, TAG_H);
-        int descLines = frame.height() >= 150 ? 3 : frame.height() >= 115 ? 2 : 1;
-        Rect desc = new Rect(left, tags.y() - 3 - descLines * SMALL_LINE, width,
-                descLines * SMALL_LINE);
-        Rect byline = new Rect(left, desc.y() - 2 - SMALL_LINE, width, SMALL_LINE);
-        Rect title = new Rect(left, byline.y() - 2 - NAME_LINE, width, NAME_LINE);
-        if (title.y() < frame.y() + PAD) {
-            return new Slots(icon, new Rect(left, frame.y() + PAD, width, NAME_LINE),
-                    Rect.EMPTY, Rect.EMPTY, tags, button);
+        Rect title = new Rect(left, stackTop + 3, width, NAME_LINE);
+        Rect byline = new Rect(left, title.bottom() + 4, width, SMALL_LINE);
+        int descTop = byline.bottom() + 7;
+        int descLines = Math.min(4, (tags.y() - 5 - descTop) / SMALL_LINE);
+        if (descLines < 1) {
+            int squeezeTop = frame.y() + PAD + 2;
+            icon = new Rect(frame.x() + PAD + 2, squeezeTop, ICON, ICON);
+            title = new Rect(left, squeezeTop + 3, width, NAME_LINE);
+            byline = new Rect(left, title.bottom() + 2, width, SMALL_LINE);
+            descTop = byline.bottom() + 4;
+            descLines = Math.min(2, (tags.y() - 4 - descTop) / SMALL_LINE);
         }
+        Rect desc = descLines >= 1 ? new Rect(left, descTop, width, descLines * SMALL_LINE)
+                : Rect.EMPTY;
         return new Slots(icon, title, byline, desc, tags, button);
     }
 }

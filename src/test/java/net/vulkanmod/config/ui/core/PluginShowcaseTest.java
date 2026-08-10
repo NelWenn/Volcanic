@@ -11,9 +11,10 @@ class PluginShowcaseTest {
 
     @Test
     void theFrameKeepsSixteenNinthsUntilTheCapAndNeverBelowIt() {
-        assertEquals(243, PluginShowcase.height(432));
+        assertEquals(180, PluginShowcase.height(320));
         assertEquals(144, PluginShowcase.height(256));
-        assertEquals(PluginShowcase.MAX_H, PluginShowcase.height(2000), "a wide window caps the frame");
+        assertEquals(PluginShowcase.MAX_H, PluginShowcase.height(432), "a wide frame hits the cap");
+        assertEquals(PluginShowcase.MAX_H, PluginShowcase.height(2000));
         assertEquals(0, PluginShowcase.height(0));
     }
 
@@ -61,12 +62,11 @@ class PluginShowcaseTest {
     }
 
     @Test
-    void theSlotsReadBottomUpWithoutOverlapAndStayInsideTheFrame() {
+    void theSlotsReadTopDownWithoutOverlapAndStayInsideTheFrame() {
         PluginShowcase.Slots slots = PluginShowcase.slots(FRAME);
-        assertTrue(slots.icon().bottom() <= FRAME.bottom() - PluginShowcase.PAD + 1);
         assertTrue(slots.button().right() <= FRAME.right() - PluginShowcase.PAD + 1);
         assertTrue(slots.title().y() < slots.byline().y());
-        assertTrue(slots.byline().y() < slots.desc().y());
+        assertTrue(slots.byline().bottom() < slots.desc().y());
         assertTrue(slots.desc().bottom() <= slots.tags().y());
         assertTrue(slots.title().x() >= slots.icon().right());
         assertTrue(slots.tags().right() <= slots.button().x());
@@ -74,11 +74,26 @@ class PluginShowcaseTest {
     }
 
     @Test
+    void theContentSitsInTheMiddleBandNotCrushedAgainstTheBottom() {
+        PluginShowcase.Slots slots = PluginShowcase.slots(FRAME);
+        assertTrue(slots.title().y() < FRAME.y() + FRAME.height() / 2,
+                "the title must start before the vertical middle");
+        assertTrue(slots.title().y() > FRAME.y() + FRAME.height() / 5,
+                "and still leave the banner some open sky above it");
+        assertTrue(slots.desc().height() >= PluginShowcase.SMALL_LINE * 3,
+                "a full frame affords at least three description lines");
+        assertTrue(slots.tags().y() - slots.desc().bottom() >= 4,
+                "the tag row keeps clear air under the description");
+    }
+
+    @Test
     void aTightFrameGivesUpLinesBeforeItGivesUpTheTitle() {
         PluginShowcase.Slots tight = PluginShowcase.slots(new Rect(0, 0, 260, 100));
         assertTrue(!tight.title().isEmpty(), "the title must survive any playable frame");
-        assertTrue(tight.desc().height() <= PluginShowcase.SMALL_LINE,
-                "a squat frame keeps at most one description line");
+        assertTrue(tight.desc().isEmpty() || tight.desc().height() <= PluginShowcase.SMALL_LINE * 2,
+                "a squat frame keeps at most two description lines");
+        assertTrue(tight.desc().isEmpty() || tight.desc().bottom() <= tight.tags().y(),
+                "even squeezed, the description never runs into the tags");
         assertTrue(PluginShowcase.slots(new Rect(0, 0, 90, 40)).title().isEmpty(),
                 "an impossible frame yields empty slots, not overlap");
         assertThrows(IllegalArgumentException.class, () -> PluginShowcase.slots(null));
