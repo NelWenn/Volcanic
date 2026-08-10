@@ -35,6 +35,7 @@ import net.vulkanmod.config.ui.core.Recommendation;
 import net.vulkanmod.config.ui.settings.OverviewSignals;
 import net.vulkanmod.vulkan.SessionSamples;
 import net.vulkanmod.config.ui.core.Gradient;
+import net.vulkanmod.config.ui.core.EmberField;
 import net.vulkanmod.config.ui.core.Glide;
 import net.vulkanmod.config.ui.core.HoverState;
 import net.vulkanmod.config.ui.core.ImpactLevel;
@@ -208,9 +209,15 @@ public final class ShellRenderer {
     private final HoverState focus = new HoverState(Motion.SELECTION_MS);
     private final Glide applyBarSlide = new Glide(80.0f);
     private ApplyBarModel lastBar;
-    private final Glide navMarkerTop = new Glide(65.0f);
-    private final Glide navMarkerHeight = new Glide(65.0f);
+    private final Glide navMarkerTop = new Glide(55.0f);
+    private final Glide navMarkerHeight = new Glide(55.0f);
     private boolean navMarkerPlaced;
+    private float navMarkerOffset;
+    private float navMarkerSpan;
+    private final Glide tabMarkerX = new Glide(55.0f);
+    private final Glide tabMarkerWidth = new Glide(55.0f);
+    private boolean tabMarkerPlaced;
+    private final EmberField embers = new EmberField(0x5A1F);
     private RouteId enteredRoute;
     private int enteredDepth;
     private long pageElapsed = Motion.SEQUENCE_MS;
@@ -262,13 +269,18 @@ public final class ShellRenderer {
             float reveal = Motion.easeOut(pageElapsed, Motion.PAGE_MS);
             graphics.enableScissor(content.x(), content.y(), content.right(), content.bottom());
             try {
+                paintEmbers(painter, content, deltaMs);
+                painter.flush();
                 painter.setOffset(Motion.slide(reveal, pageDirection, Motion.PAGE_TRAVEL), 0);
-                painter.setAlpha(reveal);
                 paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
+                painter.flush();
+                painter.setOffset(pageDirection == 0
+                        ? Motion.slide(reveal, 0, Motion.PAGE_TRAVEL) : 0, 0);
+                paintBand(painter, font, layout, presenter, deltaMs);
+                paintScrollIndicator(painter, layout, presenter, contentScroll);
                 painter.flush();
             } finally {
                 painter.setOffset(0, 0);
-                painter.setAlpha(1.0f);
                 graphics.disableScissor();
             }
         }
@@ -301,6 +313,7 @@ public final class ShellRenderer {
 
         hover.endFrame();
         focus.endFrame();
+        rowRenderer.endFrame();
     }
 
     private void advancePage(NavPresenter presenter, long deltaMs) {
@@ -905,11 +918,13 @@ public final class ShellRenderer {
                     paintRowSurface(painter, box, false,
                             hover.advance(key, index == hoveredIndex, deltaMs),
                             focus.advance(key, key.equals(focusedId), deltaMs));
-                    ColorToken token = presenter.rowGreyed(route) ? ColorToken.TEXT_MUTED
-                            : active ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_SECONDARY;
+                    int argb = presenter.rowGreyed(route) ? theme.color(ColorToken.TEXT_MUTED)
+                            : Motion.blend(theme.color(ColorToken.TEXT_SECONDARY),
+                                    theme.color(ColorToken.TEXT_PRIMARY),
+                                    volcanic$markerOn(model.offsetOf(index), height));
                     painter.text(sidebar.x() + SidebarModel.ROW_TEXT_X
                                     + (depth - 1) * SidebarModel.ROW_INDENT,
-                            top + (height - TEXT_HEIGHT) / 2, I18n.get(titleKey), theme.color(token), false);
+                            top + (height - TEXT_HEIGHT) / 2, I18n.get(titleKey), argb, false);
                 }
             }
         }
@@ -931,6 +946,27 @@ public final class ShellRenderer {
         for (Rect tick : rail.ticks()) {
             painter.fill(tick, argb);
         }
+    }
+
+    private void paintEmbers(SurfacePainter painter, Rect content, long deltaMs) {
+        embers.advance(deltaMs, content.height());
+        for (int index = 0; index < EmberField.SPARKS; index++) {
+            int argb = embers.colorOf(index);
+            if ((argb >>> 24) == 0) {
+                continue;
+            }
+            int side = embers.sizeOf(index);
+            painter.fill(new Rect(embers.xOf(index, content), embers.yOf(index, content), side, side), argb);
+        }
+    }
+
+    private float volcanic$markerOn(int rowOffset, int rowHeight) {
+        if (!navMarkerPlaced || rowHeight <= 0) {
+            return 0.0f;
+        }
+        float low = Math.max(rowOffset, navMarkerOffset);
+        float high = Math.min(rowOffset + rowHeight, navMarkerOffset + navMarkerSpan);
+        return Math.max(0.0f, (high - low) / rowHeight);
     }
 
     private void paintNavMarker(SurfacePainter painter, Rect sidebar, SidebarModel model,
@@ -957,8 +993,10 @@ public final class ShellRenderer {
             navMarkerTop.jumpTo(offset);
             navMarkerHeight.jumpTo(height);
         }
-        int top = viewport.screenTop(Math.round(navMarkerTop.advance(offset, deltaMs)));
-        int span = Math.round(navMarkerHeight.advance(height, deltaMs));
+        this.navMarkerOffset = navMarkerTop.advance(offset, deltaMs);
+        this.navMarkerSpan = navMarkerHeight.advance(height, deltaMs);
+        int top = viewport.screenTop(Math.round(navMarkerOffset));
+        int span = Math.round(navMarkerSpan);
         Rect box = SidebarModel.rowBox(sidebar, top, span, depth);
         paintRoundedGradient(painter, box, NAV_RADIUS,
                 theme.color(ColorToken.SURFACE_NAV_ACTIVE), theme.color(ColorToken.SURFACE_SIDEBAR_BOTTOM));
@@ -997,8 +1035,6 @@ public final class ShellRenderer {
             paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
         }
         painter.flush();
-        paintBand(painter, font, layout, presenter);
-        paintScrollIndicator(painter, layout, presenter, contentScroll);
     }
 
     public PageHeader.Band headerBand(ShellLayout layout, NavPresenter presenter) {
@@ -1893,7 +1929,8 @@ public final class ShellRenderer {
         SettingMeta pointed = hoveredSetting(layout, presenter, contentScroll, mouseX, mouseY);
         for (int i = 0; i < boxes.size() && i < rows.size(); i++) {
             Rect box = boxes.get(i);
-            painter.setAlpha(Motion.rowReveal(pageElapsed, i));
+            painter.setOffset(Motion.slide(Motion.rowReveal(pageElapsed, i), pageDirection,
+                    Motion.PAGE_TRAVEL), 0);
             if (rows.get(i) instanceof NavPresenter.GroupRow group) {
                 paintGroupRow(painter, font, box, group, mouseX, mouseY);
                 continue;
@@ -1910,7 +1947,7 @@ public final class ShellRenderer {
                     presenter.isFavorite(meta.id()),
                     onRow && SettingRowLayout.starBox(box).contains(mouseX, mouseY),
                     onRow && SettingRowLayout.cyclerPrevBox(box).contains(mouseX, mouseY),
-                    onRow && SettingRowLayout.cyclerNextBox(box).contains(mouseX, mouseY));
+                    onRow && SettingRowLayout.cyclerNextBox(box).contains(mouseX, mouseY), deltaMs);
 
             float focused = focus.advance(key, key.equals(focusedId), deltaMs);
             if (focused > 0.0f) {
@@ -1918,7 +1955,7 @@ public final class ShellRenderer {
                         theme.color(ColorToken.ACCENT, focused));
             }
         }
-        painter.setAlpha(Motion.easeOut(pageElapsed, Motion.PAGE_MS));
+        painter.setOffset(0, 0);
     }
 
     private boolean paintEmptyPage(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
@@ -2134,7 +2171,8 @@ public final class ShellRenderer {
         return new Crumbs(BreadcrumbModel.layout(widths, box.x(), box.y()), List.copyOf(labels));
     }
 
-    private void paintBand(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
+    private void paintBand(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                           long deltaMs) {
         PageHeader.Band band = headerBand(layout, presenter);
         if (band.bounds().isEmpty()) {
             return;
@@ -2153,7 +2191,7 @@ public final class ShellRenderer {
         if (subtitle != null) {
             paintSmallLines(painter, font, band.subtitle(), I18n.get(subtitle), ColorToken.TEXT_MUTED);
         }
-        paintTabStrip(painter, font, layout, presenter);
+        paintTabStrip(painter, font, layout, presenter, deltaMs);
         painter.fill(band.rule(), theme.color(ColorToken.BORDER_SUBTLE));
     }
 
@@ -2176,7 +2214,32 @@ public final class ShellRenderer {
         }
     }
 
-    private void paintTabStrip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter) {
+    private void paintTabMarker(SurfacePainter painter, List<Rect> boxes, List<NavNode> tabs,
+                                RouteId current, long deltaMs) {
+        Rect target = null;
+        for (int i = 0; i < boxes.size() && i < tabs.size(); i++) {
+            if (tabs.get(i).route().equals(current)) {
+                target = boxes.get(i);
+                break;
+            }
+        }
+        if (target == null) {
+            this.tabMarkerPlaced = false;
+            return;
+        }
+        if (!tabMarkerPlaced) {
+            this.tabMarkerPlaced = true;
+            tabMarkerX.jumpTo(target.x());
+            tabMarkerWidth.jumpTo(target.width());
+        }
+        Rect box = new Rect(Math.round(tabMarkerX.advance(target.x(), deltaMs)), target.y(),
+                Math.round(tabMarkerWidth.advance(target.width(), deltaMs)), target.height());
+        paintRoundedGradient(painter, box, PILL_RADIUS,
+                theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
+    }
+
+    private void paintTabStrip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                               long deltaMs) {
         List<NavNode> tabs = presenter.subTabs();
         if (tabs.isEmpty()) {
             return;
@@ -2187,15 +2250,13 @@ public final class ShellRenderer {
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
         int gradientTop = theme.color(ColorToken.ACCENT_BRIGHT);
         int gradientBottom = theme.color(ColorToken.ACCENT_DEEP);
+        paintTabMarker(painter, boxes, tabs, current, deltaMs);
 
         for (int i = 0; i < boxes.size(); i++) {
             Rect box = boxes.get(i);
             NavNode tab = tabs.get(i);
             boolean active = tab.route().equals(current);
 
-            if (active) {
-                paintRoundedGradient(painter, box, PILL_RADIUS, gradientTop, gradientBottom);
-            }
             if (tab.route().toString().equals(focusedId)) {
                 paintRoundedOutline(painter, box, PILL_RADIUS, theme.color(ColorToken.ACCENT));
             }

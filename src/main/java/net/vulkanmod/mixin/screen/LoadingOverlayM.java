@@ -42,10 +42,6 @@ public class LoadingOverlayM {
     private static final int VOLCANIC_TITLE_W = 512;
     @Unique
     private static final int VOLCANIC_TITLE_H = 96;
-    @Unique
-    private static final int VOLCANIC_MARK_W = 128;
-    @Unique
-    private static final int VOLCANIC_MARK_H = 113;
 
     @Shadow
     private long fadeInStart;
@@ -67,8 +63,6 @@ public class LoadingOverlayM {
 
     @Unique
     private ResourceLocation volcanic$titleTex;
-    @Unique
-    private ResourceLocation volcanic$markTex;
 
     @Unique
     private final List<Ember> volcanic$embers = new ArrayList<>();
@@ -107,7 +101,6 @@ public class LoadingOverlayM {
     @Inject(method = "<init>", at = @At("TAIL"))
     public void init(CallbackInfo ci) {
         this.volcanic$titleTex = ResourceLocation.fromNamespaceAndPath(Initializer.MOD_ID, "textures/gui/volcanic_wordmark.png");
-        this.volcanic$markTex = ResourceLocation.fromNamespaceAndPath(Initializer.MOD_ID, "textures/gui/volcanic_mark.png");
     }
 
     @Inject(method = "render", at = @At("TAIL"))
@@ -228,29 +221,9 @@ public class LoadingOverlayM {
 
     @Unique
     private void volcanic$drawMark(GuiGraphics guiGraphics, int w, int h, float alpha) {
-        int barBottom = (int) (h * 0.8325) + 5;
-        int room = h - barBottom - 6;
-        int markH = Math.min(Math.round(h * 0.145f), room);
-
-        if (markH < 24 || this.volcanic$markTex == null) {
-            this.volcanic$ventX = w * 0.5f;
-            this.volcanic$ventY = h - 2.0f;
-            this.volcanic$ventSpread = Math.max(12.0f, w * 0.04f);
-            return;
-        }
-
-        int markW = Math.round(markH * ((float) VOLCANIC_MARK_W / VOLCANIC_MARK_H));
-        int markX = (w - markW) / 2;
-        int markY = h - markH;
-
-        this.volcanic$ventX = markX + markW * 0.53f;
-        this.volcanic$ventY = markY + markH * 0.13f;
-        this.volcanic$ventSpread = Math.max(8.0f, markW * 0.20f);
-
-        guiGraphics.setColor(0.72f, 0.57f, 0.51f, alpha);
-        guiGraphics.blit(this.volcanic$markTex, markX, markY, markW, markH,
-                0.0f, 0.0f, VOLCANIC_MARK_W, VOLCANIC_MARK_H, VOLCANIC_MARK_W, VOLCANIC_MARK_H);
-        guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+        this.volcanic$ventX = w * 0.5f;
+        this.volcanic$ventY = h - 2.0f;
+        this.volcanic$ventSpread = Math.max(16.0f, w * 0.10f);
     }
 
     @Unique
@@ -264,7 +237,7 @@ public class LoadingOverlayM {
             return;
         }
 
-        int titleW = Math.min(Math.round(w * 0.42f), VOLCANIC_TITLE_W);
+        int titleW = Math.min(Math.round(w * 0.24f), VOLCANIC_TITLE_W);
         int titleH = titleW * VOLCANIC_TITLE_H / VOLCANIC_TITLE_W;
         int maxH = band - 12;
 

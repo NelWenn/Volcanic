@@ -3,6 +3,7 @@ package net.vulkanmod.config.ui.shell;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.resources.language.I18n;
 import net.vulkanmod.config.ui.core.ColorToken;
+import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRowLayout;
@@ -21,6 +22,8 @@ public final class SettingRowRenderer {
     private static final int PILL_WIDTH = 22;
     private static final int PILL_HEIGHT = 12;
     private static final int KNOB_INSET = 2;
+    private final net.vulkanmod.config.ui.core.HoverState pills =
+            new net.vulkanmod.config.ui.core.HoverState(Motion.SELECTION_MS);
 
     private static final int TRACK_HEIGHT = 3;
     private static final int TRACK_GAP = 8;
@@ -72,6 +75,18 @@ public final class SettingRowRenderer {
     public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, SettingBinding binding,
                        Object value, boolean enabled, float hovered, boolean resettable, boolean resetHovered,
                        boolean favorite, boolean starHovered, boolean prevHovered, boolean nextHovered) {
+        render(painter, font, box, meta, binding, value, enabled, hovered, resettable, resetHovered,
+                favorite, starHovered, prevHovered, nextHovered, 0L);
+    }
+
+    public void endFrame() {
+        this.pills.endFrame();
+    }
+
+    public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, SettingBinding binding,
+                       Object value, boolean enabled, float hovered, boolean resettable, boolean resetHovered,
+                       boolean favorite, boolean starHovered, boolean prevHovered, boolean nextHovered,
+                       long deltaMs) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
         }
@@ -120,7 +135,8 @@ public final class SettingRowRenderer {
 
         int right = card.right() - ShellRenderer.CARD_PAD_X;
         switch (meta.type()) {
-            case BOOL -> paintPill(painter, card, right, booleanValue(meta, value));
+            case BOOL -> paintPill(painter, card, right, booleanValue(meta, value),
+                    meta.id().toString(), deltaMs);
             case INT -> paintSlider(painter, font, box, card, right, binding.display(value),
                     intValue(meta, value), binding.min(), binding.max(), enabled, highlighted);
             case ENUM -> paintCycler(painter, font, box, I18n.get(binding.display(value)),
@@ -220,16 +236,18 @@ public final class SettingRowRenderer {
                 && lit(pattern, row, column - 1) && lit(pattern, row, column + 1);
     }
 
-    private void paintPill(SurfacePainter painter, Rect box, int right, boolean on) {
+    private void paintPill(SurfacePainter painter, Rect box, int right, boolean on, String key, long deltaMs) {
         Rect pill = new Rect(right - PILL_WIDTH, box.y() + (box.height() - PILL_HEIGHT) / 2,
                 PILL_WIDTH, PILL_HEIGHT);
+        float t = pills.advance(key, on, deltaMs);
         ShellRenderer.paintRoundedFill(painter, pill, PILL_HEIGHT / 2,
-                theme.color(on ? ColorToken.SUCCESS : ColorToken.BORDER_DEFAULT));
+                Motion.blend(theme.color(ColorToken.BORDER_DEFAULT), theme.color(ColorToken.SUCCESS), t));
 
         int knob = PILL_HEIGHT - KNOB_INSET * 2;
-        int knobX = on ? pill.right() - KNOB_INSET - knob : pill.x() + KNOB_INSET;
+        int travel = PILL_WIDTH - KNOB_INSET * 2 - knob;
+        int knobX = pill.x() + KNOB_INSET + Math.round(travel * t);
         ShellRenderer.paintRoundedFill(painter, new Rect(knobX, pill.y() + KNOB_INSET, knob, knob), knob / 2,
-                theme.color(on ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_MUTED));
+                Motion.blend(theme.color(ColorToken.TEXT_MUTED), theme.color(ColorToken.TEXT_PRIMARY), t));
     }
 
     private void paintSlider(SurfacePainter painter, Font font, Rect row, Rect card, int right, String text,
