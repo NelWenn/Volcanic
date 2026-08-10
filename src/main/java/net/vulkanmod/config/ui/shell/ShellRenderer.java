@@ -989,30 +989,33 @@ public final class ShellRenderer {
                     0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
         }
 
+        int glow = coals.glowSize();
         for (int tile = 0; tile < tiles; tile++) {
             for (int site = 0; site < CoalScene.GLOW_SITES; site++) {
                 int argb = coals.glowArgb(site);
                 if ((argb >>> 24) == 0) {
                     continue;
                 }
-                int size = coals.glowSize(site);
                 int left = coals.glowX(site, tile, content);
                 if (left >= content.right()) {
                     continue;
                 }
                 painter.fill(new Rect(left, coals.glowY(site, content),
-                        Math.min(size, content.right() - left), size), argb);
+                        Math.min(glow, content.right() - left), glow), argb);
             }
         }
 
         for (int index = 0; index < CoalScene.PARTICLES; index++) {
-            int argb = coals.particleArgb(index);
+            int argb = coals.argbOf(index);
             if ((argb >>> 24) == 0) {
                 continue;
             }
-            int side = coals.particleSize(index);
-            painter.fill(new Rect(coals.particleX(index, content), coals.particleY(index, content),
-                    side, side), argb);
+            int left = coals.xOf(index, content);
+            int side = coals.sizeOf(index);
+            if (left >= content.right() || left + side <= content.x()) {
+                continue;
+            }
+            painter.fill(new Rect(left, coals.yOf(index, content), side, side), argb);
         }
     }
 
