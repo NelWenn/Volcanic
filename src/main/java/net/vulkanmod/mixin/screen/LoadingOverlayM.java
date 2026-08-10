@@ -7,9 +7,9 @@ import net.minecraft.client.gui.screens.LoadingOverlay;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.vulkanmod.Initializer;
-import net.vulkanmod.render.gui.splash.SplashParticles;
-import net.vulkanmod.render.gui.splash.SplashParticles.Ember;
-import net.vulkanmod.render.gui.splash.SplashParticles.Smoke;
+import net.vulkanmod.config.ui.core.CoalArt;
+import net.vulkanmod.config.ui.core.CoalScene;
+import net.vulkanmod.config.ui.core.Rect;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
@@ -19,9 +19,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.function.IntSupplier;
 
 @Mixin(LoadingOverlay.class)
@@ -65,14 +62,47 @@ public class LoadingOverlayM {
     private ResourceLocation volcanic$titleTex;
 
     @Unique
-    private final List<Ember> volcanic$embers = new ArrayList<>();
-    @Unique
-    private final List<Smoke> volcanic$smokes = new ArrayList<>();
+    private final CoalScene volcanic$coals = new CoalScene(0x5A1FL);
 
     @Unique
-    private float volcanic$emberBudget;
+    private static final ResourceLocation VOLCANIC_BED =
+            ResourceLocation.fromNamespaceAndPath("vulkanmod", "textures/gui/coalbed.png");
+
     @Unique
-    private float volcanic$smokeBudget;
+    private static final ResourceLocation VOLCANIC_SPARK =
+            ResourceLocation.withDefaultNamespace("textures/particle/flame.png");
+
+    @Unique
+    private static final ResourceLocation VOLCANIC_LAVA =
+            ResourceLocation.withDefaultNamespace("textures/particle/lava.png");
+
+    @Unique
+    private static final ResourceLocation[] VOLCANIC_ZONES = volcanic$zones();
+
+    @Unique
+    private static final ResourceLocation[] VOLCANIC_SMOKE = volcanic$smoke();
+
+    @Unique
+    private static ResourceLocation[] volcanic$zones() {
+        ResourceLocation[] zones = new ResourceLocation[CoalScene.ZONES];
+        for (int zone = 0; zone < zones.length; zone++) {
+            zones[zone] = ResourceLocation.fromNamespaceAndPath("vulkanmod",
+                    "textures/gui/coal_zone_" + zone + ".png");
+        }
+        return zones;
+    }
+
+    @Unique
+    private static ResourceLocation[] volcanic$smoke() {
+        ResourceLocation[] frames = new ResourceLocation[CoalScene.SMOKE_FRAMES];
+        for (int frame = 0; frame < frames.length; frame++) {
+            frames[frame] = ResourceLocation.withDefaultNamespace(
+                    "textures/particle/big_smoke_" + frame + ".png");
+        }
+        return frames;
+    }
+
+
 
     @Unique
     private long volcanic$lastMillis;
@@ -103,6 +133,57 @@ public class LoadingOverlayM {
         this.volcanic$titleTex = ResourceLocation.fromNamespaceAndPath(Initializer.MOD_ID, "textures/gui/volcanic_wordmark.png");
     }
 
+    @Unique
+    private void volcanic$drawCoals(GuiGraphics guiGraphics, int w, int h, float dt, float alpha) {
+        try {
+            Rect screen = new Rect(0, 0, w, h);
+            this.volcanic$coals.advance(Math.round(dt * 1000.0f), screen);
+            Rect bed = this.volcanic$coals.bedRect(screen);
+            if (bed.isEmpty()) {
+                return;
+            }
+
+            guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
+            guiGraphics.blit(VOLCANIC_BED, bed.x(), bed.y(), bed.width(), bed.height(),
+                    0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
+
+            for (int zone = 0; zone < CoalScene.ZONES; zone++) {
+                int tint = this.volcanic$coals.zoneTint(zone);
+                guiGraphics.setColor(((tint >> 16) & 0xFF) / 255.0f, ((tint >> 8) & 0xFF) / 255.0f,
+                        (tint & 0xFF) / 255.0f, ((tint >>> 24) & 0xFF) / 255.0f * alpha);
+                guiGraphics.blit(VOLCANIC_ZONES[zone], bed.x(), bed.y(), bed.width(), bed.height(),
+                        0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
+            }
+
+            float grow = this.volcanic$coals.particleScale(screen);
+            for (int index = 0; index < CoalScene.PARTICLES; index++) {
+                if (this.volcanic$coals.waiting(index)) {
+                    continue;
+                }
+                int argb = this.volcanic$coals.argbOf(index);
+                int shade = argb >>> 24;
+                if (shade == 0) {
+                    continue;
+                }
+                int side = Math.max(2, Math.round(this.volcanic$coals.sizeOf(index) * grow));
+                guiGraphics.setColor(((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f,
+                        (argb & 0xFF) / 255.0f, shade / 255.0f * alpha);
+                int source = this.volcanic$coals.kindOf(index) == CoalScene.SMOKE ? 16 : 8;
+                ResourceLocation tex = switch (this.volcanic$coals.kindOf(index)) {
+                    case CoalScene.SPARK -> VOLCANIC_SPARK;
+                    case CoalScene.LAVA -> VOLCANIC_LAVA;
+                    default -> VOLCANIC_SMOKE[this.volcanic$coals.smokeFrame(index)];
+                };
+                guiGraphics.blit(tex, this.volcanic$coals.xOf(index, screen),
+                        this.volcanic$coals.yOf(index, screen) - side / 2, side, side,
+                        0.0f, 0.0f, source, source, source, source);
+            }
+        } catch (Throwable ignored) {
+            guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+        }
+        guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+    }
+
     @Inject(method = "render", at = @At("TAIL"))
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         long now = Util.getMillis();
@@ -129,9 +210,7 @@ public class LoadingOverlayM {
         RenderSystem.defaultBlendFunc();
 
         this.volcanic$drawCaldera(guiGraphics, w, h, mojangBottom, alpha);
-        this.volcanic$drawMark(guiGraphics, w, h, alpha);
-        this.volcanic$updateSmoke(guiGraphics, w, dt, alpha);
-        this.volcanic$updateEmbers(guiGraphics, w, h, now, dt, alpha);
+        this.volcanic$drawCoals(guiGraphics, w, h, dt, alpha);
         this.volcanic$drawTitle(guiGraphics, w, mojangBottom, barTop, alpha);
 
         RenderSystem.disableBlend();
@@ -219,12 +298,6 @@ public class LoadingOverlayM {
         guiGraphics.fillGradient(0, glowTop, w, h, VOLCANIC_ACCENT, (glowA << 24) | VOLCANIC_ACCENT);
     }
 
-    @Unique
-    private void volcanic$drawMark(GuiGraphics guiGraphics, int w, int h, float alpha) {
-        this.volcanic$ventX = w * 0.5f;
-        this.volcanic$ventY = h - 2.0f;
-        this.volcanic$ventSpread = Math.max(16.0f, w * 0.10f);
-    }
 
     @Unique
     private void volcanic$drawTitle(GuiGraphics guiGraphics, int w, int top, int bottom, float alpha) {
@@ -259,148 +332,5 @@ public class LoadingOverlayM {
         guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    @Unique
-    private void volcanic$updateEmbers(GuiGraphics guiGraphics, int w, int h, long now, float dt, float alpha) {
-        this.volcanic$emberBudget = Math.min(this.volcanic$emberBudget + dt * 26.0f, 6.0f);
 
-        boolean barLive = now - this.volcanic$barTipMillis < 250L;
-
-        while (this.volcanic$emberBudget >= 1.0f && this.volcanic$embers.size() < 72) {
-            this.volcanic$emberBudget -= 1.0f;
-
-            float roll = SplashParticles.RANDOM.nextFloat();
-            float sx;
-            float sy;
-            float vx;
-            float vy;
-            float span;
-
-            if (barLive && roll < 0.22f) {
-                sx = this.volcanic$barTipX;
-                sy = this.volcanic$barTipY;
-                vx = (SplashParticles.RANDOM.nextFloat() - 0.5f) * 26.0f;
-                vy = -(30.0f + SplashParticles.RANDOM.nextFloat() * 55.0f);
-                span = 0.7f + SplashParticles.RANDOM.nextFloat() * 0.8f;
-            } else if (roll < 0.62f) {
-                float side = SplashParticles.RANDOM.nextFloat() - 0.5f;
-                sx = this.volcanic$ventX + side * this.volcanic$ventSpread;
-                sy = this.volcanic$ventY + SplashParticles.RANDOM.nextFloat() * 4.0f;
-                vx = side * 34.0f + (SplashParticles.RANDOM.nextFloat() - 0.5f) * 14.0f;
-                vy = -(70.0f + SplashParticles.RANDOM.nextFloat() * 75.0f);
-                span = 2.6f + SplashParticles.RANDOM.nextFloat() * 2.4f;
-            } else {
-                sx = SplashParticles.RANDOM.nextFloat() * w;
-                sy = h + 2.0f;
-                vx = (SplashParticles.RANDOM.nextFloat() - 0.5f) * 10.0f;
-                vy = -(34.0f + SplashParticles.RANDOM.nextFloat() * 46.0f);
-                span = 3.4f + SplashParticles.RANDOM.nextFloat() * 3.0f;
-            }
-
-            int size = SplashParticles.RANDOM.nextFloat() < 0.18f ? 3 : (SplashParticles.RANDOM.nextFloat() < 0.5f ? 1 : 2);
-            this.volcanic$embers.add(new Ember(sx, sy, vx, vy, span, size));
-        }
-
-        Iterator<Ember> it = this.volcanic$embers.iterator();
-        while (it.hasNext()) {
-            Ember e = it.next();
-
-            e.life += dt / e.lifeSpan;
-            e.vy += 30.0f * dt;
-            e.x += e.vx * dt;
-            e.y += e.vy * dt;
-
-            if (e.life >= 1.0f || e.y < -6.0f) {
-                it.remove();
-                continue;
-            }
-
-            float heat = 1.0f - e.life;
-            float flicker = 0.68f + 0.32f * Mth.sin(e.swayPhase + this.volcanic$time * e.swaySpeed * 3.4f);
-            float fade = e.life < 0.1f
-                    ? e.life / 0.1f
-                    : Mth.clamp((1.0f - e.life) / 0.42f, 0.0f, 1.0f);
-
-            int a = Math.round(255.0f * fade * flicker * alpha);
-            if (a <= 2) {
-                continue;
-            }
-
-            int r = (int) Mth.lerp(heat, 122.0f, 255.0f);
-            int g = (int) Mth.lerp(heat * heat, 24.0f, 206.0f);
-            int b = (int) Mth.lerp(heat * heat * heat, 8.0f, 128.0f);
-
-            int sx = Mth.floor(e.x + Mth.sin(e.swayPhase + this.volcanic$time * e.swaySpeed) * e.swayAmp);
-            int sy = Mth.floor(e.y);
-            int s = e.size;
-
-            guiGraphics.fill(sx, sy, sx + s, sy + s, (a << 24) | (r << 16) | (g << 8) | b);
-
-            if (s == 3 && heat > 0.55f) {
-                guiGraphics.fill(sx + 1, sy + 1, sx + 2, sy + 2, (a << 24) | 0xFFE6BE);
-            }
-        }
-    }
-
-    @Unique
-    private void volcanic$updateSmoke(GuiGraphics guiGraphics, int w, float dt, float alpha) {
-        this.volcanic$smokeBudget = Math.min(this.volcanic$smokeBudget + dt * 1.3f, 2.0f);
-
-        while (this.volcanic$smokeBudget >= 1.0f && this.volcanic$smokes.size() < 10) {
-            this.volcanic$smokeBudget -= 1.0f;
-
-            float sx = this.volcanic$ventX + (SplashParticles.RANDOM.nextFloat() - 0.5f) * this.volcanic$ventSpread;
-            float vx = (SplashParticles.RANDOM.nextFloat() - 0.5f) * 7.0f;
-            float vy = -(16.0f + SplashParticles.RANDOM.nextFloat() * 13.0f);
-            float span = 5.5f + SplashParticles.RANDOM.nextFloat() * 3.5f;
-            float base = Math.max(7.0f, w * 0.012f) * (0.8f + SplashParticles.RANDOM.nextFloat() * 0.7f);
-
-            this.volcanic$smokes.add(new Smoke(sx, this.volcanic$ventY, vx, vy, span, base));
-        }
-
-        Iterator<Smoke> it = this.volcanic$smokes.iterator();
-        while (it.hasNext()) {
-            Smoke s = it.next();
-
-            s.life += dt / s.lifeSpan;
-            s.x += (s.vx + Mth.sin(s.wobblePhase + this.volcanic$time * 0.55f) * 5.0f) * dt;
-            s.y += s.vy * dt;
-
-            if (s.life >= 1.0f) {
-                it.remove();
-                continue;
-            }
-
-            float fadeIn = Mth.clamp(s.life / 0.18f, 0.0f, 1.0f);
-            float fadeOut = Mth.clamp((1.0f - s.life) / 0.55f, 0.0f, 1.0f);
-            float puffAlpha = 0.36f * fadeIn * fadeOut * alpha;
-            if (puffAlpha <= 0.012f) {
-                continue;
-            }
-
-            float spread = s.baseSize * (0.55f + s.life * 2.1f);
-            int r = (int) Mth.lerp(s.life, 128.0f, 48.0f);
-            int g = (int) Mth.lerp(s.life, 96.0f, 40.0f);
-            int b = (int) Mth.lerp(s.life, 82.0f, 38.0f);
-            int rgb = (r << 16) | (g << 8) | b;
-
-            for (int i = 0; i < s.lobeX.length; i++) {
-                float wobble = Mth.sin(s.wobblePhase + i * 1.7f + this.volcanic$time * 0.8f);
-                float radius = s.lobeR[i] * spread * (0.88f + 0.12f * wobble);
-                if (radius < 1.0f) {
-                    continue;
-                }
-
-                int lobeA = Math.round(255.0f * puffAlpha * (0.55f + 0.45f * s.lobeR[i]));
-                if (lobeA <= 2) {
-                    continue;
-                }
-
-                int lx = Mth.floor(s.x + s.lobeX[i] * spread + wobble * spread * 0.07f);
-                int ly = Mth.floor(s.y + s.lobeY[i] * spread);
-                int half = Mth.floor(radius);
-
-                guiGraphics.fill(lx - half, ly - half, lx + half, ly + half, (lobeA << 24) | rgb);
-            }
-        }
-    }
 }
