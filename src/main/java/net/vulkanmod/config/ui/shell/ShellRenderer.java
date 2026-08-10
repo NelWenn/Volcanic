@@ -305,6 +305,7 @@ public final class ShellRenderer {
         }
         deltaMs = motionEnabled() ? deltaMs : INSTANT_MS;
         this.lastCard = Rect.EMPTY;
+        rowRenderer.tick(deltaMs);
         this.searchElapsed = searchFocused == searchWasOpen
                 ? Math.min(this.searchElapsed + deltaMs, Motion.PAGE_MS) : 0L;
         this.searchWasOpen = searchFocused;
@@ -2560,11 +2561,11 @@ public final class ShellRenderer {
                                boolean keyboardFocus, long deltaMs) {
         List<SettingMeta> settings = presenter.settings();
         if (settings.isEmpty()
-                && paintEmptyPage(painter, font, layout, presenter, contentScroll, mouseX, mouseY)) {
+                && paintEmptyPage(painter, font, layout, presenter, keyboardFocus, deltaMs,
+                        contentScroll, mouseX, mouseY)) {
             return;
         }
 
-        rowRenderer.tick(deltaMs);
         List<Rect> boxes = settingRowBoxes(layout, presenter, contentScroll);
         List<NavPresenter.ContentRow> rows = presenter.contentRows();
         SettingsCatalog catalog = presenter.catalog();
@@ -2600,6 +2601,7 @@ public final class ShellRenderer {
     }
 
     private boolean paintEmptyPage(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
+                                   boolean keyboardFocus, long deltaMs,
                                    int contentScroll, int mouseX, int mouseY) {
         RouteId current = presenter.stack().current();
         if (FAVORITES.equals(current)) {
@@ -2611,7 +2613,8 @@ public final class ShellRenderer {
             return true;
         }
         if (PLUGINS.equals(current)) {
-            paintPluginsPage(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
+            paintPluginsPage(painter, font, layout, presenter, keyboardFocus, deltaMs,
+                    contentScroll, mouseX, mouseY);
             return true;
         }
         if (PLUGINS.equals(current.parent())) {
@@ -2634,7 +2637,20 @@ public final class ShellRenderer {
 
     public List<Rect> pluginRowBoxes(ShellLayout layout, NavPresenter presenter, int scroll) {
         PluginPageLayout.Block block = pluginPage(layout, presenter, scroll).plugins();
-        return block.placeholder() ? List.of() : block.rows();
+        return block.placeholder() ? List.of() : shiftedRows(block.rows(), 0);
+    }
+
+    private List<Rect> shiftedRows(List<Rect> rows, int indexBase) {
+        if (pageElapsed >= Motion.SEQUENCE_MS && rowsElapsed >= Motion.SEQUENCE_MS) {
+            return rows;
+        }
+        List<Rect> shifted = new ArrayList<>(rows.size());
+        for (int index = 0; index < rows.size(); index++) {
+            shifted.add(rows.get(index).translated(
+                    Motion.slide(Motion.rowReveal(pageElapsed, indexBase + index), pageDirection,
+                            Motion.PAGE_TRAVEL), 0));
+        }
+        return List.copyOf(shifted);
     }
 
     private PluginPageLayout.Page pluginPage(ShellLayout layout, NavPresenter presenter, int scroll) {
@@ -2643,7 +2659,8 @@ public final class ShellRenderer {
     }
 
     private void paintPluginsPage(SurfacePainter painter, Font font, ShellLayout layout,
-                                  NavPresenter presenter, int scroll, int mouseX, int mouseY) {
+                                  NavPresenter presenter, boolean keyboardFocus, long deltaMs,
+                                  int scroll, int mouseX, int mouseY) {
         PluginPageLayout.Page page = pluginPage(layout, presenter, scroll);
         if (!page.empty().isEmpty()) {
             paintPluginEmptyCard(painter, font, page.empty());
@@ -2658,9 +2675,10 @@ public final class ShellRenderer {
             paintPluginNote(painter, font, block.rows().get(0), I18n.get(KEY_PLUGINS_NONE));
         } else {
             String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
-            for (int index = 0; index < block.rows().size() && index < plugins.size(); index++) {
-                paintPluginRow(painter, font, block.rows().get(index), plugins.get(index),
-                        focusedId, mouseX, mouseY);
+            List<Rect> rows = shiftedRows(block.rows(), 0);
+            for (int index = 0; index < rows.size() && index < plugins.size(); index++) {
+                paintPluginRow(painter, font, rows.get(index), plugins.get(index),
+                        keyboardFocus ? focusedId : null, deltaMs, mouseX, mouseY);
             }
         }
 
@@ -2671,8 +2689,9 @@ public final class ShellRenderer {
         }
         paintPluginHeading(painter, font, modBlock, I18n.get(KEY_PLUGINS_MODS),
                 mods.size(), ColorToken.TEXT_FAINT, false);
-        for (int index = 0; index < modBlock.rows().size() && index < mods.size(); index++) {
-            paintPluginNote(painter, font, modBlock.rows().get(index),
+        List<Rect> modRows = shiftedRows(modBlock.rows(), plugins.size());
+        for (int index = 0; index < modRows.size() && index < mods.size(); index++) {
+            paintPluginNote(painter, font, modRows.get(index),
                     NavPresenter.modName(mods.get(index)));
         }
     }
@@ -2697,18 +2716,25 @@ public final class ShellRenderer {
     }
 
     private void paintPluginRow(SurfacePainter painter, Font font, Rect row,
-                                NavPresenter.PluginPage plugin, String focusedId,
+                                NavPresenter.PluginPage plugin, String focusedId, long deltaMs,
                                 int mouseX, int mouseY) {
         if (row.isEmpty()) {
             return;
         }
         boolean on = plugin.enabled();
         boolean hovered = row.contains(mouseX, mouseY);
-        paintRoundedFill(painter, row, SettingRowLayout.CARD_RADIUS, theme.color(on
-                ? hovered ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD
-                : hovered ? ColorToken.SURFACE_CARD : ColorToken.SURFACE_SUNKEN));
-        paintRoundedOutline(painter, row, SettingRowLayout.CARD_RADIUS,
-                theme.color(on ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_SUBTLE));
+        String hoverKey = "plugin:" + plugin.id();
+        float lit = hover.advance(hoverKey, hovered, deltaMs);
+        paintRoundedFill(painter, row, SettingRowLayout.CARD_RADIUS, Motion.blend(
+                theme.color(on ? ColorToken.SURFACE_CARD : ColorToken.SURFACE_SUNKEN),
+                theme.color(on ? ColorToken.SURFACE_CARD_HOVER : ColorToken.SURFACE_CARD), lit));
+        if (on) {
+            paintCardWash(painter, row, SettingRowLayout.CARD_RADIUS,
+                    theme.color(ColorToken.ACCENT), 0.03f + 0.05f * lit, row.height() / 2);
+        }
+        paintRoundedOutline(painter, row, SettingRowLayout.CARD_RADIUS, Motion.blend(
+                theme.color(on ? ColorToken.BORDER_DEFAULT : ColorToken.BORDER_SUBTLE),
+                theme.color(ColorToken.BORDER_ACCENT), lit));
 
         PluginPageLayout.Slots slots = PluginPageLayout.slots(row, plugin.toggleable());
         paintAccentStripe(painter, row, slots.accent(),
@@ -2733,26 +2759,12 @@ public final class ShellRenderer {
                     slots.state().y(), state,
                     theme.color(on ? ColorToken.SUCCESS : ColorToken.TEXT_FAINT));
         }
-        paintTogglePill(painter, slots.toggle(), on);
+        rowRenderer.paintToggle(painter, slots.toggle(), on, hoverKey, deltaMs);
 
         if (PluginSettings.routeOf(plugin.id()).toString().equals(focusedId)) {
             paintRoundedOutline(painter, row, SettingRowLayout.CARD_RADIUS,
                     theme.color(ColorToken.ACCENT));
         }
-    }
-
-    private void paintTogglePill(SurfacePainter painter, Rect pill, boolean on) {
-        if (pill.isEmpty()) {
-            return;
-        }
-        paintRoundedFill(painter, pill, pill.height() / 2,
-                theme.color(on ? ColorToken.SUCCESS_BG : ColorToken.SURFACE_SUNKEN));
-        paintRoundedOutline(painter, pill, pill.height() / 2,
-                theme.color(on ? ColorToken.SUCCESS : ColorToken.BORDER_STRONG));
-        int knob = pill.height() - 4;
-        int x = on ? pill.right() - 2 - knob : pill.x() + 2;
-        paintRoundedFill(painter, new Rect(x, pill.y() + 2, knob, knob), knob / 2,
-                theme.color(on ? ColorToken.SUCCESS : ColorToken.TEXT_MUTED));
     }
 
     private void paintPluginNote(SurfacePainter painter, Font font, Rect row, String text) {

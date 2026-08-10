@@ -313,23 +313,30 @@ public final class SettingRowRenderer {
     }
 
     private void paintPill(SurfacePainter painter, Rect box, int right, boolean on, String key, long deltaMs) {
-        Rect pill = new Rect(right - PILL_WIDTH, box.y() + (box.height() - PILL_HEIGHT) / 2,
-                PILL_WIDTH, PILL_HEIGHT);
+        paintToggle(painter, new Rect(right - PILL_WIDTH, box.y() + (box.height() - PILL_HEIGHT) / 2,
+                PILL_WIDTH, PILL_HEIGHT), on, key, deltaMs);
+    }
+
+    public void paintToggle(SurfacePainter painter, Rect pill, boolean on, String key, long deltaMs) {
+        if (pill.isEmpty()) {
+            return;
+        }
+        seen.add(key);
         Boolean was = pillWas.put(key, on);
         if (was != null && was != on) {
             bursts.trigger(key);
         }
         float t = Motion.step(pills.advance(key, on, deltaMs), 4);
 
-        int half = PILL_HEIGHT / 2;
+        int half = pill.height() / 2;
         notched(painter, pill, Motion.blend(theme.color(ColorToken.BORDER_DEFAULT),
                 theme.color(ColorToken.ACCENT_BRIGHT), t));
-        painter.fill(new Rect(pill.x() + 1, pill.y() + half, pill.width() - 2, PILL_HEIGHT - half - 1),
+        painter.fill(new Rect(pill.x() + 1, pill.y() + half, pill.width() - 2, pill.height() - half - 1),
                 Motion.blend(theme.color(ColorToken.SURFACE_SUNKEN),
                         theme.color(ColorToken.ACCENT_DEEP), t));
 
-        int knob = PILL_HEIGHT - KNOB_INSET * 2;
-        int travel = PILL_WIDTH - KNOB_INSET * 2 - knob;
+        int knob = pill.height() - KNOB_INSET * 2;
+        int travel = pill.width() - KNOB_INSET * 2 - knob;
         Rect grip = new Rect(pill.x() + KNOB_INSET + Math.round(travel * t),
                 pill.y() + KNOB_INSET, knob, knob);
         notched(painter, grip, Motion.blend(theme.color(ColorToken.TEXT_MUTED), 0xFFFFE7C4, t));
