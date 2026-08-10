@@ -45,6 +45,7 @@ import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.OverviewModel;
 import net.vulkanmod.config.ui.core.ProfileChipRow;
+import net.vulkanmod.config.ui.core.PresetFx;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;
 import net.vulkanmod.config.ui.core.RouteId;
@@ -257,6 +258,7 @@ public final class ShellRenderer {
     private boolean tabMarkerPlaced;
     private int tabStripOrigin;
     private final CoalScene coals = new CoalScene(0x5A1FL);
+    private final PresetFx presetFx = new PresetFx();
     private final Glide drawerSlide = new Glide(60.0f);
     private RouteId enteredRoute;
     private int enteredDepth;
@@ -301,6 +303,7 @@ public final class ShellRenderer {
         this.searchWasOpen = searchFocused;
 
         advancePage(presenter, deltaMs);
+        presetFx.advance(deltaMs);
 
         paintChrome(painter, layout, drawerOpen, searchFocused);
         painter.flush();
@@ -321,7 +324,8 @@ public final class ShellRenderer {
                 paintCoals(graphics, painter, content, deltaMs);
                 painter.flush();
                 painter.setOffset(Motion.slide(reveal, pageDirection, Motion.PAGE_TRAVEL), 0);
-                paintContent(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
+                paintContent(graphics, painter, font, layout, presenter, contentScroll, mouseX, mouseY,
+                        dragged, deltaMs);
                 painter.flush();
                 painter.setOffset(pageDirection == 0
                         ? Motion.slide(reveal, 0, Motion.PAGE_TRAVEL) : 0, 0);
@@ -1169,8 +1173,9 @@ public final class ShellRenderer {
         }
     }
 
-    private void paintContent(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                              int contentScroll, int mouseX, int mouseY, SettingId dragged, long deltaMs) {
+    private void paintContent(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
+                              NavPresenter presenter, int contentScroll, int mouseX, int mouseY,
+                              SettingId dragged, long deltaMs) {
         Rect content = layout.content();
         if (content.isEmpty()) {
             return;
@@ -1181,7 +1186,7 @@ public final class ShellRenderer {
         } else if (presenter.isDeveloperStats()) {
             paintStatsPage(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
         } else if (OVERVIEW.equals(presenter.stack().current())) {
-            paintOverview(painter, font, layout, presenter, contentScroll, mouseX, mouseY);
+            paintOverview(graphics, painter, font, layout, presenter, contentScroll, mouseX, mouseY);
         } else {
             paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
         }
@@ -1230,15 +1235,22 @@ public final class ShellRenderer {
                 layout.breakpoint()).cards();
     }
 
-    private void paintOverview(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                               int contentScroll, int mouseX, int mouseY) {
+    public void pressPresetCard(int index, PresetCardModel.Card model) {
+        if (model != null) {
+            presetFx.trigger(index, PresetFx.effectFor(model.key()));
+        }
+    }
+
+    private void paintOverview(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
+                               NavPresenter presenter, int contentScroll, int mouseX, int mouseY) {
         List<PresetCardModel.Card> cards = presenter.presetCards();
         PresetCardLayout.Page page = PresetCardLayout.page(contentBody(layout, presenter), cards.size(),
                 contentScroll, layout.breakpoint());
         paintProfilesLegend(painter, font, page.legend());
         for (int i = 0; i < cards.size() && i < page.cards().size(); i++) {
-            paintPresetCard(painter, font, page.cards().get(i), cards.get(i),
-                    page.cards().get(i).contains(mouseX, mouseY));
+            Rect box = page.cards().get(i);
+            boolean over = box.contains(mouseX, mouseY);
+            paintCardWithFx(graphics, painter, font, box, cards.get(i), over, i, mouseX, mouseY);
         }
         paintSuggestionLine(painter, font, page.suggestion(), presenter);
     }
@@ -1265,6 +1277,142 @@ public final class ShellRenderer {
         painter.smallText(box.x() + Math.max(0, (box.width() - drawn) / 2), box.y(),
                 trimToWidth(font, text, Math.round(box.width() / scale)),
                 theme.color(suggested == null ? ColorToken.TEXT_FAINT : ColorToken.TEXT_SECONDARY));
+    }
+
+    private void paintCardWithFx(GuiGraphics graphics, SurfacePainter painter, Font font, Rect box,
+                                 PresetCardModel.Card model, boolean hovered, int index,
+                                 int mouseX, int mouseY) {
+        int effect = presetFx.effect(index);
+        int dx = presetFx.shakeX(index);
+        int dy = presetFx.shakeY(index);
+
+        if (effect == PresetFx.ERUPT && presetFx.shattered(index)) {
+            paintShards(painter, box, model, index);
+            return;
+        }
+
+        if (effect == PresetFx.SKIP) {
+            for (int ghost = 0; ghost < PresetFx.GHOSTS; ghost++) {
+                painter.setOffset(presetFx.ghostOffset(index, ghost), 0);
+                painter.setAlpha(0.3f);
+                paintPresetCard(painter, font, box, model, false);
+            }
+            painter.setOffset(0, 0);
+            painter.setAlpha(1.0f);
+        }
+
+        if (effect == PresetFx.HAZE) {
+            paintHaze(painter, font, box, model, hovered, index);
+        } else {
+            float tilt = hovered && effect == PresetFx.NONE
+                    ? PresetFx.tiltDegrees(PresetFx.tiltStep(box, mouseX)) : 0.0f;
+            painter.setOffset(dx, dy);
+            if (tilt == 0.0f) {
+                paintPresetCard(painter, font, box, model, hovered);
+                painter.flush();
+            } else {
+                painter.flush();
+                graphics.pose().pushPose();
+                graphics.pose().translate(box.x() + box.width() / 2.0f,
+                        box.y() + box.height() / 2.0f, 0.0f);
+                graphics.pose().mulPose(com.mojang.math.Axis.ZP.rotationDegrees(tilt * 0.35f));
+                graphics.pose().scale(1.0f + Math.abs(tilt) * 0.004f, 1.0f, 1.0f);
+                graphics.pose().translate(-(box.x() + box.width() / 2.0f),
+                        -(box.y() + box.height() / 2.0f), 0.0f);
+                paintPresetCard(painter, font, box, model, hovered);
+                painter.flush();
+                graphics.pose().popPose();
+            }
+            painter.setOffset(0, 0);
+        }
+
+        if (hovered && effect == PresetFx.NONE) {
+            paintCardGlare(painter, box, mouseX, mouseY);
+        }
+        paintCardEffect(painter, box, model, index, effect);
+        painter.flush();
+    }
+
+    private void paintShards(SurfacePainter painter, Rect box, PresetCardModel.Card model, int index) {
+        int argb = theme.color(model.playing() ? ColorToken.ACCENT : ColorToken.SURFACE_CARD_HOVER);
+        int side = Math.max(3, Math.min(box.width(), box.height()) / 7);
+        for (int block = 0; block < PresetFx.BLOCKS; block++) {
+            painter.fill(new Rect(presetFx.blockX(index, block, box) - side / 2,
+                    presetFx.blockY(index, block, box) - side / 2, side, side),
+                    block % 3 == 0 ? theme.color(ColorToken.ACCENT) : argb);
+        }
+    }
+
+    private void paintHaze(SurfacePainter painter, Font font, Rect box, PresetCardModel.Card model,
+                           boolean hovered, int index) {
+        int band = Math.max(2, box.height() / PresetFx.BANDS);
+        for (int slice = 0; slice < PresetFx.BANDS; slice++) {
+            int top = box.y() + slice * band;
+            int tall = Math.min(band, box.bottom() - top);
+            if (tall <= 0) {
+                continue;
+            }
+            painter.setOffset(presetFx.bandShift(index, slice), 0);
+            paintPresetCard(painter, font, new Rect(box.x(), top, box.width(), tall), model, hovered);
+            painter.flush();
+        }
+        painter.setOffset(0, 0);
+        int heat = presetFx.heat(index);
+        if (heat > 0) {
+            painter.fill(box, theme.color(ColorToken.ACCENT, heat * 0.05f));
+        }
+    }
+
+    private void paintCardGlare(SurfacePainter painter, Rect box, int mouseX, int mouseY) {
+        int argb = theme.color(ColorToken.ACCENT, 0.30f);
+        int reach = Math.max(10, box.width() / 3);
+        for (int y = box.y() + 1; y < box.bottom() - 1; y += 2) {
+            for (int x = box.x() + 3; x < box.right() - 1; x += 2) {
+                int far = Math.abs(x - mouseX) + Math.abs(y - mouseY);
+                if (far > reach) {
+                    continue;
+                }
+                boolean lit = far < reach / 3 || (far < reach * 2 / 3 ? ((x + y) % 4 == 0) : ((x + y) % 8 == 0));
+                if (lit) {
+                    painter.fill(new Rect(x, y, 1, 1), argb);
+                }
+            }
+        }
+    }
+
+    private void paintCardEffect(SurfacePainter painter, Rect box, PresetCardModel.Card model,
+                                 int index, int effect) {
+        if (effect == PresetFx.SKIP) {
+            int argb = theme.color(ColorToken.ACCENT, 0.55f);
+            for (int streak = 0; streak < PresetFx.STREAKS; streak++) {
+                painter.fill(new Rect(box.x(), box.y() + presetFx.streakY(index, streak, box.height()),
+                        box.width(), 1), argb);
+            }
+        } else if (effect == PresetFx.DITHER) {
+            int radius = presetFx.ringRadius(index);
+            int argb = theme.color(ColorToken.ACCENT);
+            int cx = box.x() + box.width() / 2;
+            int cy = box.y() + box.height() / 2;
+            for (int step = 0; step < 180; step++) {
+                double a = step * (Math.PI / 90.0);
+                int x = cx + (int) Math.round(Math.cos(a) * radius);
+                int y = cy + (int) Math.round(Math.sin(a) * radius * 0.82);
+                if ((x + y) % 2 == 0 && box.contains(x, y)) {
+                    painter.fill(new Rect(x, y, 1, 1), argb);
+                }
+            }
+        } else if (effect == PresetFx.ERUPT && presetFx.flashing(index)) {
+            painter.fill(box, theme.color(ColorToken.TEXT_PRIMARY));
+        } else if (effect == PresetFx.SCAN) {
+            int y = presetFx.scanY(index, box);
+            if (y >= 0) {
+                painter.fill(new Rect(box.x(), y, box.width(), 1), theme.color(ColorToken.TEXT_PRIMARY));
+                for (int x = box.x(); x < box.right(); x += 2) {
+                    painter.fill(new Rect(x, box.y(), 1, y - box.y()),
+                            theme.color(ColorToken.BORDER_ACCENT, 0.5f));
+                }
+            }
+        }
     }
 
     private void paintPresetCard(SurfacePainter painter, Font font, Rect card, PresetCardModel.Card model,

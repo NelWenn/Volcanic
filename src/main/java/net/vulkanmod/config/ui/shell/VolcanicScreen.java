@@ -532,6 +532,7 @@ public class VolcanicScreen extends Screen {
             if (!cards.get(index).selectable()) {
                 return true;
             }
+            renderer.pressPresetCard(index, cards.get(index));
             presenter.applyProfile(cards.get(index).key());
             return true;
         }
