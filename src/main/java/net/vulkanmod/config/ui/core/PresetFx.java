@@ -16,7 +16,7 @@ public final class PresetFx {
     public static final int ERUPT = 3;
     public static final int SCAN = 4;
 
-    private static final int[] LENGTH = {7, 16, 18, 20, 9};
+    private static final int[] LENGTH = {7, 17, 18, 20, 9};
     private static final int[] ROCK_ANGLES = {-4, -4, 3, 3, -2, -2, 1, 1};
 
     private int kind = NONE;
@@ -132,18 +132,19 @@ public final class PresetFx {
         return ROCK_ANGLES[frame];
     }
 
-    public int levelSpread(int cardIndex) {
+    public int convergeStep(int cardIndex) {
         if (!playing(cardIndex) || kind != ROCK || frame < ROCK_ANGLES.length) {
             return 0;
         }
-        return Math.min(4, frame - ROCK_ANGLES.length + 1);
+        int step = frame - ROCK_ANGLES.length + 1;
+        return step <= 4 ? step : 0;
     }
 
-    public int levelGlow(int cardIndex) {
-        if (!playing(cardIndex) || kind != ROCK || frame < ROCK_ANGLES.length) {
-            return 0;
+    public int blastAge(int cardIndex) {
+        if (!playing(cardIndex) || kind != ROCK || frame < ROCK_ANGLES.length + 4) {
+            return -1;
         }
-        return Math.max(1, 4 - (frame - ROCK_ANGLES.length) / 2);
+        return frame - ROCK_ANGLES.length - 4;
     }
 
     public int heat(int cardIndex) {

@@ -142,32 +142,31 @@ class PresetFxTest {
     }
 
     @Test
-    void theLevelLineOnlyAppearsOnceTheRockingIsOverAndThenGrowsToFullWidth() {
+    void theWaveFrontsOnlyMarchOnceTheRockingIsOverAndMeetInTheMiddle() {
         for (int frame = 0; frame < 8; frame++) {
-            assertEquals(0, running(PresetFx.ROCK, frame).levelSpread(0),
-                    "the line showed while still tipping, frame " + frame);
+            assertEquals(0, running(PresetFx.ROCK, frame).convergeStep(0),
+                    "a front moved while still tipping, frame " + frame);
         }
-        int previous = 0;
-        for (int frame = 8; frame < 16; frame++) {
-            int spread = running(PresetFx.ROCK, frame).levelSpread(0);
-            assertTrue(spread >= previous, "the line shrank at frame " + frame);
-            previous = spread;
+        for (int frame = 8; frame < 12; frame++) {
+            assertEquals(frame - 7, running(PresetFx.ROCK, frame).convergeStep(0),
+                    "the fronts must advance one whole step per frame");
         }
-        assertEquals(4, previous, "the line never reached the card edges");
-        assertEquals(0, new PresetFx().levelSpread(0));
+        assertEquals(0, running(PresetFx.ROCK, 12).convergeStep(0),
+                "once they have met there is nothing left to march");
+        assertEquals(0, new PresetFx().convergeStep(0));
     }
 
     @Test
-    void theSettleGlowFadesInsteadOfCuttingOut() {
-        assertEquals(4, running(PresetFx.ROCK, 8).levelGlow(0), "the settle must open bright");
-        int previous = 4;
-        for (int frame = 9; frame < 16; frame++) {
-            int glow = running(PresetFx.ROCK, frame).levelGlow(0);
-            assertTrue(glow <= previous, "the glow brightened at frame " + frame);
-            previous = glow;
+    void theBlastFiresExactlyWhenTheFrontsMeetAndThenBurnsOut() {
+        for (int frame = 0; frame < 12; frame++) {
+            assertEquals(-1, running(PresetFx.ROCK, frame).blastAge(0),
+                    "the collision happened before the fronts met, frame " + frame);
         }
-        assertEquals(1, previous, "it must still be visible on its last frame, then end");
-        assertEquals(0, running(PresetFx.ROCK, 16).levelGlow(0));
+        for (int frame = 12; frame < 17; frame++) {
+            assertEquals(frame - 12, running(PresetFx.ROCK, frame).blastAge(0));
+        }
+        assertFalse(running(PresetFx.ROCK, 17).playing(0), "the effect must end after the blast");
+        assertEquals(-1, new PresetFx().blastAge(0));
     }
 
     @Test

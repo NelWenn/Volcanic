@@ -1437,37 +1437,59 @@ public final class ShellRenderer {
                 }
                 painter.fill(new Rect(cx - 1, box.bottom() - 7, 2, 4), tone);
             }
-            int spread = presetFx.levelSpread(index);
-            if (spread > 0) {
-                int glow = presetFx.levelGlow(index);
+            int step = presetFx.convergeStep(index);
+            if (step > 0) {
+                int top = box.y() + 3;
+                int tall = box.height() - 6;
+                int start = box.x() + 3;
+                int goal = cx - 2;
+                int front = start + (goal - start) * step / 4;
+                int mirror = box.right() - 3 - (front - start);
+                for (int side = 0; side < 2; side++) {
+                    int x = side == 0 ? front : mirror - 2;
+                    painter.fill(new Rect(x, top, 2, tall), Motion.fade(tone, 0.85f));
+                    for (int tail = 1; tail <= 3; tail++) {
+                        int tx = side == 0 ? x - tail * 3 : x + 1 + tail * 3;
+                        if (tx <= box.x() + 1 || tx >= box.right() - 1) {
+                            continue;
+                        }
+                        int from = top + Math.floorMod(tx + top, 2);
+                        for (int y = from; y < top + tall; y += 2) {
+                            painter.fill(new Rect(tx, y, 1, 1),
+                                    Motion.fade(tone, 0.5f - 0.13f * tail));
+                        }
+                    }
+                }
+            }
+
+            int age = presetFx.blastAge(index);
+            if (age >= 0) {
                 int mid = box.y() + box.height() / 2;
-                int half = (box.width() / 2 - 5) * spread / 4;
-                int argb = Motion.fade(tone, 0.25f + 0.15f * glow);
-
+                if (age == 0) {
+                    for (Rect span : RoundedScanline.fillSpans(box, SettingRowLayout.CARD_RADIUS)) {
+                        painter.fill(span, Motion.fade(tone, 0.4f));
+                    }
+                }
+                int beam = Math.max(1, 4 - age);
+                painter.fill(new Rect(cx - beam / 2, box.y() + 2, Math.max(1, beam),
+                        box.height() - 4), Motion.fade(age == 0 ? 0xFFFFF3D6 : tone,
+                        0.95f - 0.18f * age));
                 paintRoundedOutline(painter, box, SettingRowLayout.CARD_RADIUS,
-                        Motion.fade(tone, 0.14f * glow));
+                        Motion.fade(tone, 0.5f - 0.1f * age));
 
-                int wash = Motion.fade(tone, 0.045f * glow);
-                int reach = 4 + spread * 5;
-                for (int y = mid - reach; y <= mid + reach; y += 2) {
-                    if (y <= box.y() + 3 || y >= box.bottom() - 3) {
+                for (int i = 0; i < 18; i++) {
+                    int dir = (i & 1) == 0 ? -1 : 1;
+                    int lane = cx - 7 + (i * 5) % 15;
+                    int speed = 5 + (i * 7) % 9;
+                    int y = mid + dir * (3 + age * speed);
+                    if (y <= box.y() + 2 || y >= box.bottom() - 3) {
                         continue;
                     }
-                    int inset = 5 + Math.abs(y - mid) / 2;
-                    int from = box.x() + inset + Math.floorMod(box.x() + inset + y, 2);
-                    for (int x = from; x < box.right() - inset; x += 2) {
-                        painter.fill(new Rect(x, y, 1, 1), wash);
-                    }
-                }
-
-                painter.fill(new Rect(cx - half, mid - 1, half * 2, 2), argb);
-                if (spread >= 2) {
-                    painter.fill(new Rect(cx - half, mid - 4, 2, 8), argb);
-                    painter.fill(new Rect(cx + half - 2, mid - 4, 2, 8), argb);
-                }
-                if (spread == 4 && glow >= 3) {
-                    painter.fill(new Rect(cx - 2, mid - 6, 4, 2), Motion.fade(tone, 0.9f));
-                    painter.fill(new Rect(cx - 2, mid + 4, 4, 2), Motion.fade(tone, 0.9f));
+                    int size = i % 5 == 0 ? 2 : 1;
+                    int argb = i % 3 == 0 ? 0xFFFFF3D6 : age >= 3
+                            ? Motion.blend(tone, 0xFF000000, 0.35f) : tone;
+                    painter.fill(new Rect(lane, y, size, size),
+                            Motion.fade(argb, 1.0f - 0.18f * age));
                 }
             }
         } else if (effect == PresetFx.ERUPT && presetFx.flashing(index)) {
