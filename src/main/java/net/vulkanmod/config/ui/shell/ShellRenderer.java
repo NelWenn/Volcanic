@@ -259,6 +259,8 @@ public final class ShellRenderer {
     private int enteredDepth;
     private long pageElapsed = Motion.SEQUENCE_MS;
     private int pageDirection;
+    private long rowsElapsed = Motion.SEQUENCE_MS;
+    private int rowCount = -1;
 
     public ShellRenderer(Theme theme) {
         if (theme == null) {
@@ -366,10 +368,16 @@ public final class ShellRenderer {
 
     private void advancePage(NavPresenter presenter, long deltaMs) {
         RouteId current = presenter.stack().current();
+        int rows = presenter.contentRowCount();
         if (current.equals(enteredRoute)) {
             this.pageElapsed = Math.min(this.pageElapsed + deltaMs, Motion.SEQUENCE_MS);
+            this.rowsElapsed = rows == rowCount
+                    ? Math.min(this.rowsElapsed + deltaMs, Motion.SEQUENCE_MS) : 0L;
+            this.rowCount = rows;
             return;
         }
+        this.rowCount = rows;
+        this.rowsElapsed = Motion.SEQUENCE_MS;
         this.pageDirection = enteredRoute == null || current.depth() >= enteredDepth ? 1 : -1;
         this.enteredRoute = current;
         this.enteredDepth = current.depth();
@@ -696,13 +704,15 @@ public final class ShellRenderer {
         }
         List<Rect> rows = SettingRowLayout.rows(contentBody(layout, presenter),
                 presenter.contentRowCount(), scroll, layout.breakpoint());
-        if (pageElapsed >= Motion.SEQUENCE_MS) {
+        if (pageElapsed >= Motion.SEQUENCE_MS && rowsElapsed >= Motion.SEQUENCE_MS) {
             return rows;
         }
         List<Rect> shifted = new ArrayList<>(rows.size());
         for (int index = 0; index < rows.size(); index++) {
             shifted.add(rows.get(index).translated(
-                    Motion.slide(Motion.rowReveal(pageElapsed, index), pageDirection, Motion.PAGE_TRAVEL), 0));
+                    Motion.slide(Motion.rowReveal(pageElapsed, index), pageDirection, Motion.PAGE_TRAVEL),
+                    Motion.slide(Motion.easeOut(rowsElapsed - index * 12L, Motion.ROWS_MS), 1,
+                            Motion.ROW_TRAVEL)));
         }
         return List.copyOf(shifted);
     }

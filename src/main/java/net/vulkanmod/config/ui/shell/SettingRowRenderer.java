@@ -3,6 +3,7 @@ package net.vulkanmod.config.ui.shell;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.resources.language.I18n;
 import net.vulkanmod.config.ui.core.ColorToken;
+import net.vulkanmod.config.ui.core.Glide;
 import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.SettingMeta;
@@ -24,6 +25,8 @@ public final class SettingRowRenderer {
     private static final int KNOB_INSET = 2;
     private final net.vulkanmod.config.ui.core.HoverState pills =
             new net.vulkanmod.config.ui.core.HoverState(Motion.SELECTION_MS, true);
+    private final java.util.Map<String, Glide> fills = new java.util.HashMap<>();
+    private final java.util.Set<String> seen = new java.util.HashSet<>();
 
     private static final int TRACK_HEIGHT = 3;
     private static final int TRACK_GAP = 8;
@@ -81,6 +84,8 @@ public final class SettingRowRenderer {
 
     public void endFrame() {
         this.pills.endFrame();
+        this.fills.keySet().retainAll(seen);
+        this.seen.clear();
     }
 
     public void render(SurfacePainter painter, Font font, Rect box, SettingMeta meta, SettingBinding binding,
@@ -138,7 +143,8 @@ public final class SettingRowRenderer {
             case BOOL -> paintPill(painter, card, right, booleanValue(meta, value),
                     meta.id().toString(), deltaMs);
             case INT -> paintSlider(painter, font, box, card, right, binding.display(value),
-                    intValue(meta, value), binding.min(), binding.max(), enabled, highlighted);
+                    intValue(meta, value), binding.min(), binding.max(), enabled, highlighted,
+                    meta.id().toString(), deltaMs);
             case ENUM -> paintCycler(painter, font, box, I18n.get(binding.display(value)),
                     enabled, highlighted, prevHovered, nextHovered);
         }
@@ -251,7 +257,8 @@ public final class SettingRowRenderer {
     }
 
     private void paintSlider(SurfacePainter painter, Font font, Rect row, Rect card, int right, String text,
-                             int value, int min, int max, boolean enabled, float active) {
+                             int value, int min, int max, boolean enabled, float active,
+                             String key, long deltaMs) {
         Rect zone = max > min ? ShellRenderer.sliderTrack(row) : Rect.EMPTY;
         paintValue(painter, font, card, zone.isEmpty() ? right : zone.x() - TRACK_GAP, text, valueArgb(enabled));
         if (zone.isEmpty()) {
@@ -261,14 +268,19 @@ public final class SettingRowRenderer {
         Rect track = new Rect(zone.x(), zone.y() + (zone.height() - TRACK_HEIGHT) / 2,
                 zone.width(), TRACK_HEIGHT);
         painter.fill(track, theme.color(ColorToken.BORDER_DEFAULT));
-        int filled = SettingRowLayout.trackFill(track.width(), value, min, max);
+
+        Glide glide = fills.computeIfAbsent(key, name -> new Glide(55.0f));
+        int target = SettingRowLayout.trackFill(track.width(), value, min, max);
+        int filled = Math.round(glide.advance(target, deltaMs));
+        seen.add(key);
         if (filled > 0) {
-            painter.fill(new Rect(track.x(), track.y(), filled, TRACK_HEIGHT), theme.color(ColorToken.ACCENT));
+            painter.fill(new Rect(track.x(), track.y(), Math.min(filled, track.width()), TRACK_HEIGHT),
+                    theme.color(ColorToken.ACCENT));
         }
 
+        Rect knob = SliderGeometry.knob(zone, value, min, max, SliderGeometry.KNOB_WIDTH);
         ShellRenderer.paintRoundedFill(painter,
-                SliderGeometry.knob(zone, value, min, max, SliderGeometry.KNOB_WIDTH),
-                KNOB_RADIUS, knobArgb(enabled, active));
+                knob.translated(filled - target, 0), KNOB_RADIUS, knobArgb(enabled, active));
     }
 
     private int knobArgb(boolean enabled, float active) {

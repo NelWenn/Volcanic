@@ -8,6 +8,8 @@ public final class Motion {
     public static final int STAGGER_MS = 20;
     public static final int STAGGER_CAP = 8;
     public static final int PAGE_TRAVEL = 14;
+    public static final int ROW_TRAVEL = 7;
+    public static final int ROWS_MS = 190;
     public static final int SEQUENCE_MS = REVEAL_MS + STAGGER_CAP * STAGGER_MS;
 
     private Motion() {
