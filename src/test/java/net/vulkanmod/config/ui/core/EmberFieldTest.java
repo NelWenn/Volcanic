@@ -52,7 +52,7 @@ class EmberFieldTest {
             field.advance(16, AREA.height());
             for (int index = 0; index < EmberField.SPARKS; index++) {
                 int alpha = field.colorOf(index) >>> 24;
-                assertTrue(alpha <= 40, "a spark reached alpha " + alpha + ", which would draw attention");
+                assertTrue(alpha <= 110, "a spark reached alpha " + alpha + ", which would draw attention");
             }
         }
     }

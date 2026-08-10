@@ -3,11 +3,11 @@ package net.vulkanmod.config.ui.core;
 import java.util.Random;
 
 public final class EmberField {
-    public static final int SPARKS = 26;
+    public static final int SPARKS = 34;
     private static final float RISE_MIN = 7.0f;
     private static final float RISE_MAX = 20.0f;
     private static final float SWAY_PX = 5.0f;
-    private static final float PEAK_ALPHA = 0.15f;
+    private static final float PEAK_ALPHA = 0.42f;
     private static final int HOT = 0xFFB05A;
     private static final int COLD = 0xC2440E;
 

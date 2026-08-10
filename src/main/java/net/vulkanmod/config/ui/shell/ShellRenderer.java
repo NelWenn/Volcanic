@@ -39,6 +39,7 @@ import net.vulkanmod.config.ui.core.EmberField;
 import net.vulkanmod.config.ui.core.Glide;
 import net.vulkanmod.config.ui.core.HoverState;
 import net.vulkanmod.config.ui.core.ImpactLevel;
+import net.vulkanmod.config.ui.core.LavaBed;
 import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.OverviewModel;
@@ -218,6 +219,8 @@ public final class ShellRenderer {
     private final Glide tabMarkerWidth = new Glide(55.0f);
     private boolean tabMarkerPlaced;
     private final EmberField embers = new EmberField(0x5A1F);
+    private final LavaBed lava = new LavaBed(0x5A1FL);
+    private final Glide drawerSlide = new Glide(60.0f);
     private RouteId enteredRoute;
     private int enteredDepth;
     private long pageElapsed = Motion.SEQUENCE_MS;
@@ -299,13 +302,22 @@ public final class ShellRenderer {
             }
         }
 
-        if (layout.hasDrawer() && !nav.isEmpty()) {
-            painter.fill(layout.content(), theme.color(ColorToken.SURFACE_SUNKEN, SCRIM_ALPHA));
-            painter.flush();
-            paintNav(graphics, painter, nav, presenter, scroll, mouseX, mouseY, deltaMs);
-            painter.fill(new Rect(nav.right(), nav.y(), 1, nav.height()),
-                    theme.color(ColorToken.BORDER_ACCENT));
-            painter.flush();
+        Rect drawer = layout.sidebarOrDrawer(true);
+        if (layout.hasDrawer() && !drawer.isEmpty()) {
+            float hidden = drawer.width() + 1;
+            int shift = Math.round(drawerSlide.advance(drawerOpen ? 0.0f : hidden, deltaMs));
+            if (shift < hidden) {
+                float openness = 1.0f - shift / hidden;
+                painter.fill(layout.content(),
+                        theme.color(ColorToken.SURFACE_SUNKEN, SCRIM_ALPHA * openness));
+                painter.flush();
+                painter.setOffset(-shift, 0);
+                paintNav(graphics, painter, drawer, presenter, scroll, mouseX, mouseY, deltaMs);
+                painter.fill(new Rect(drawer.right(), drawer.y(), 1, drawer.height()),
+                        theme.color(ColorToken.BORDER_ACCENT));
+                painter.flush();
+                painter.setOffset(0, 0);
+            }
         }
 
         paintApplyBar(painter, font, layout, presenter, mouseX, mouseY, deltaMs);
@@ -949,6 +961,23 @@ public final class ShellRenderer {
     }
 
     private void paintEmbers(SurfacePainter painter, Rect content, long deltaMs) {
+        lava.advance(deltaMs);
+        painter.gradient(new Rect(content.x(), lava.glowTop(content), content.width(),
+                        content.bottom() - lava.glowTop(content)),
+                lava.glowArgb() & 0x00FFFFFF, lava.glowArgb());
+
+        int cells = lava.cells(content.width());
+        for (int cell = 0; cell < cells; cell++) {
+            int argb = lava.colorOf(cell);
+            if ((argb >>> 24) == 0) {
+                continue;
+            }
+            int tall = lava.heightOf(cell);
+            int left = content.x() + cell * LavaBed.CELL_W;
+            int wide = Math.min(LavaBed.CELL_W, content.right() - left);
+            painter.fill(new Rect(left, content.bottom() - tall, wide, tall), argb);
+        }
+
         embers.advance(deltaMs, content.height());
         for (int index = 0; index < EmberField.SPARKS; index++) {
             int argb = embers.colorOf(index);
