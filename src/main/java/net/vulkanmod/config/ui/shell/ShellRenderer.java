@@ -244,7 +244,6 @@ public final class ShellRenderer {
     private final SettingRowRenderer rowRenderer;
     private Rect lastCard = Rect.EMPTY;
     private final HoverState hover = new HoverState(Motion.HOVER_MS);
-    private final HoverState focus = new HoverState(Motion.SELECTION_MS);
     private final Glide applyBarSlide = new Glide(80.0f);
     private ApplyBarModel lastBar;
     private boolean barOnScreen;
@@ -286,7 +285,8 @@ public final class ShellRenderer {
 
     public void render(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
                        NavPresenter presenter, int scroll, int contentScroll, int mouseX, int mouseY,
-                       SettingId dragged, boolean drawerOpen, boolean searchFocused, long deltaMs) {
+                       SettingId dragged, boolean drawerOpen, boolean searchFocused, boolean keyboardMode,
+                       long deltaMs) {
         if (graphics == null) {
             throw new IllegalArgumentException("graphics must not be null");
         }
@@ -332,7 +332,7 @@ public final class ShellRenderer {
                 painter.flush();
                 painter.setOffset(Motion.slide(reveal, pageDirection, Motion.PAGE_TRAVEL), 0);
                 paintContent(graphics, painter, font, layout, presenter, contentScroll, mouseX, mouseY,
-                        dragged, deltaMs);
+                        dragged, keyboardMode, deltaMs);
                 painter.flush();
                 painter.setOffset(pageDirection == 0
                         ? Motion.slide(reveal, 0, Motion.PAGE_TRAVEL) : 0, 0);
@@ -351,7 +351,7 @@ public final class ShellRenderer {
             try {
                 SettingMeta target = searchFocused
                         ? presenter.focusedSetting()
-                        : cardTarget(layout, presenter, contentScroll, mouseX, mouseY, null, dragged);
+                        : cardTarget(layout, presenter, contentScroll, mouseX, mouseY, keyboardMode, dragged);
                 paintDetailItems(painter, details, detailsItems(font, presenter, target, details));
                 painter.flush();
             } finally {
@@ -383,7 +383,6 @@ public final class ShellRenderer {
         painter.flush();
 
         hover.endFrame();
-        focus.endFrame();
         rowRenderer.endFrame();
     }
 
@@ -444,13 +443,16 @@ public final class ShellRenderer {
     }
 
     private SettingMeta cardTarget(ShellLayout layout, NavPresenter presenter, int contentScroll,
-                                   int mouseX, int mouseY, SettingId pinned, SettingId dragged) {
-        SettingMeta held = settingById(presenter, dragged != null ? dragged : pinned);
+                                   int mouseX, int mouseY, boolean keyboardMode, SettingId dragged) {
+        SettingMeta held = settingById(presenter, dragged);
         if (held != null) {
             return held;
         }
         SettingMeta hovered = hoveredSetting(layout, presenter, contentScroll, mouseX, mouseY);
-        return hovered != null ? hovered : presenter.focusedSetting();
+        if (hovered != null) {
+            return hovered;
+        }
+        return keyboardMode ? presenter.focusedSetting() : null;
     }
 
     private SettingMeta hoveredSetting(ShellLayout layout, NavPresenter presenter, int contentScroll,
@@ -498,7 +500,7 @@ public final class ShellRenderer {
     }
 
     public void renderCard(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                           int contentScroll, int mouseX, int mouseY, SettingId pinned, SettingId dragged) {
+                           int contentScroll, int mouseX, int mouseY, boolean keyboardMode, SettingId dragged) {
         if (painter == null) {
             throw new IllegalArgumentException("painter must not be null");
         }
@@ -510,8 +512,8 @@ public final class ShellRenderer {
 
         boolean sheet = layout.breakpoint() == Breakpoint.COMPACT;
         SettingMeta meta = sheet
-                ? settingById(presenter, dragged != null ? dragged : pinned)
-                : cardTarget(layout, presenter, contentScroll, mouseX, mouseY, pinned, dragged);
+                ? settingById(presenter, dragged)
+                : cardTarget(layout, presenter, contentScroll, mouseX, mouseY, keyboardMode, dragged);
         if (meta == null) {
             return;
         }
@@ -1200,7 +1202,7 @@ public final class ShellRenderer {
 
     private void paintContent(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
                               NavPresenter presenter, int contentScroll, int mouseX, int mouseY,
-                              SettingId dragged, long deltaMs) {
+                              SettingId dragged, boolean keyboardFocus, long deltaMs) {
         Rect content = layout.content();
         if (content.isEmpty()) {
             return;
@@ -1213,7 +1215,8 @@ public final class ShellRenderer {
         } else if (OVERVIEW.equals(presenter.stack().current())) {
             paintOverview(graphics, painter, font, layout, presenter, contentScroll, mouseX, mouseY);
         } else {
-            paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged, deltaMs);
+            paintSettings(painter, font, layout, presenter, contentScroll, mouseX, mouseY, dragged,
+                    keyboardFocus, deltaMs);
         }
         painter.flush();
     }
@@ -2492,7 +2495,8 @@ public final class ShellRenderer {
     }
 
     private void paintSettings(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                               int contentScroll, int mouseX, int mouseY, SettingId dragged, long deltaMs) {
+                               int contentScroll, int mouseX, int mouseY, SettingId dragged,
+                               boolean keyboardFocus, long deltaMs) {
         List<SettingMeta> settings = presenter.settings();
         if (settings.isEmpty()
                 && paintEmptyPage(painter, font, layout, presenter, contentScroll, mouseX, mouseY)) {
@@ -2526,10 +2530,9 @@ public final class ShellRenderer {
                     onRow && SettingRowLayout.cyclerPrevBox(box).contains(mouseX, mouseY),
                     onRow && SettingRowLayout.cyclerNextBox(box).contains(mouseX, mouseY), deltaMs);
 
-            float focused = focus.advance(key, key.equals(focusedId), deltaMs);
-            if (focused > 0.0f) {
+            if (keyboardFocus && key.equals(focusedId)) {
                 paintRoundedOutline(painter, SettingRowLayout.cardBox(box), SettingRowLayout.CARD_RADIUS,
-                        theme.color(ColorToken.ACCENT, focused));
+                        theme.color(ColorToken.ACCENT));
             }
         }
         painter.setOffset(0, 0);

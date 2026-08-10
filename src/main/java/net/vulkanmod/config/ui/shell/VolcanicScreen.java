@@ -57,7 +57,7 @@ public class VolcanicScreen extends Screen {
     private final Glide sidebarGlide = new Glide(70.0f);
     private RouteId scrolledRoute;
     private SettingId dragged;
-    private SettingId pinned;
+    private boolean keyboardMode;
     private boolean drawerOpen;
     private int searchSelection = -1;
     private long frameNanos;
@@ -111,13 +111,13 @@ public class VolcanicScreen extends Screen {
         this.sidebarScroll = Math.round(sidebarGlide.advance(sidebarScrollTarget, deltaMs));
         guiGraphics.drawManaged(() -> {
             renderer.render(guiGraphics, painter, this.font, layout, presenter, sidebarScroll, contentScroll,
-                    mouseX, mouseY, dragged, drawerOpen, searchFocused(), deltaMs);
+                    mouseX, mouseY, dragged, drawerOpen, searchFocused(), keyboardMode, deltaMs);
             if (searchFocused()) {
                 renderer.renderSearchOverlay(painter, this.font, layout, presenter, searchResults(),
                         search.query(), searchSelection, mouseX, mouseY);
             } else if (!layout.hasDetailsPanel() && !drawerOpen) {
                 renderer.renderCard(painter, this.font, layout, presenter, contentScroll, mouseX, mouseY,
-                        pinned, dragged);
+                        keyboardMode, dragged);
             }
         });
         renderer.paintBrand(guiGraphics, layout);
@@ -144,6 +144,7 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        this.keyboardMode = false;
         boolean handled = handleClick(mouseX, mouseY, button);
         if (handled && button == PRIMARY_BUTTON) {
             UiSounds.playClick();
@@ -196,7 +197,6 @@ public class VolcanicScreen extends Screen {
                 || clickSettingRow(x, y)) {
             return true;
         }
-        this.pinned = null;
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
@@ -218,7 +218,14 @@ public class VolcanicScreen extends Screen {
     }
 
     @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        this.keyboardMode = false;
+        super.mouseMoved(mouseX, mouseY);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        this.keyboardMode = false;
         if (dragged != null || searchFocused()) {
             return true;
         }
@@ -256,10 +263,6 @@ public class VolcanicScreen extends Screen {
         }
         switch (action) {
             case CLOSE -> {
-                if (pinned != null) {
-                    this.pinned = null;
-                    return true;
-                }
                 if (drawerOpen) {
                     setDrawerOpen(false);
                 } else {
@@ -279,12 +282,13 @@ public class VolcanicScreen extends Screen {
                 return true;
             }
             case NEXT, PREVIOUS, UP, DOWN, HOME, END -> {
+                this.keyboardMode = true;
                 presenter.focus().apply(action);
                 revealFocusedSetting();
-                pinFocused();
                 return true;
             }
             case ACTIVATE -> {
+                this.keyboardMode = true;
                 RouteId route = presenter.focusedRoute();
                 if (route != null) {
                     select(route, presenter.focus().activeRegion());
@@ -573,7 +577,6 @@ public class VolcanicScreen extends Screen {
         SettingMeta meta = ((NavPresenter.SettingRow) rows.get(index)).meta();
         presenter.focus().focusRegion(NavPresenter.REGION_CONTENT);
         presenter.focus().ring(NavPresenter.REGION_CONTENT).focus(meta.id().toString());
-        this.pinned = meta.id();
         if (SettingRowLayout.starBox(boxes.get(index)).contains(mouseX, mouseY)) {
             presenter.toggleFavorite(meta.id());
             return true;
@@ -644,11 +647,6 @@ public class VolcanicScreen extends Screen {
 
         presenter.navigate(presenter.stack().trail().get(index));
         return true;
-    }
-
-    private void pinFocused() {
-        SettingMeta focused = presenter.focusedSetting();
-        this.pinned = focused == null ? null : focused.id();
     }
 
     private void select(RouteId route, String regionId) {
