@@ -126,7 +126,7 @@ class CoalSceneTest {
         float narrow = scene.particleScale(new Rect(0, 0, 400, 600));
         float wide = scene.particleScale(new Rect(0, 0, 1800, 900));
         assertTrue(wide > narrow, "a wider page must not leave the particles tiny");
-        assertTrue(narrow >= 0.7f && wide <= 2.2f, "the scale must stay inside sane bounds");
+        assertTrue(narrow >= 0.7f && wide <= 1.5f, "the scale must stay inside sane bounds");
     }
 
     @Test
@@ -187,7 +187,7 @@ class CoalSceneTest {
             assertTrue(scene.sizeOf(index) >= 5, "a lava blob must be chunkier than a spark");
         }
         for (int index = CoalScene.SPARKS + CoalScene.LAVAS; index < CoalScene.PARTICLES; index++) {
-            assertTrue(scene.sizeOf(index) >= 8, "a puff of smoke must be the fattest of the three");
+            assertTrue(scene.sizeOf(index) >= 7, "a puff of smoke must be the fattest of the three");
         }
     }
 

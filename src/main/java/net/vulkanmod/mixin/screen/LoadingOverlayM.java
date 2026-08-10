@@ -25,11 +25,9 @@ import java.util.function.IntSupplier;
 public class LoadingOverlayM {
 
     @Unique
-    private static final int VOLCANIC_SURFACE = 0x241511;
+    private static final int VOLCANIC_SURFACE = 0x140D0B;
     @Unique
     private static final int VOLCANIC_SURFACE_DEEP = 0x0E0A09;
-    @Unique
-    private static final int VOLCANIC_CALDERA = 0x5A3025;
     @Unique
     private static final int VOLCANIC_BORDER = 0x3A231D;
     @Unique
@@ -146,11 +144,8 @@ public class LoadingOverlayM {
         if (alpha <= 0.004f) {
             return;
         }
-        int mojangBottom = h / 2 + (int) (Math.min(w * 0.75, h) * 0.25 * 0.5);
-
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        this.volcanic$drawCaldera(guiGraphics, w, h, mojangBottom, alpha);
         this.volcanic$drawCoals(guiGraphics, w, h, this.volcanic$frameSeconds, alpha);
         RenderSystem.disableBlend();
     }
@@ -302,24 +297,6 @@ public class LoadingOverlayM {
         return 1.0f;
     }
 
-    @Unique
-    private void volcanic$drawCaldera(GuiGraphics guiGraphics, int w, int h, int top, float alpha) {
-        if (top >= h) {
-            return;
-        }
-
-        int warmA = Math.round(148.0f * alpha);
-        guiGraphics.fillGradient(0, top, w, h, VOLCANIC_CALDERA, (warmA << 24) | VOLCANIC_CALDERA);
-
-        float pulse = 0.5f + 0.5f * Mth.sin(this.volcanic$time * 1.2f);
-        int glowA = Math.round((30.0f + 16.0f * pulse) * alpha);
-        if (glowA <= 0) {
-            return;
-        }
-
-        int glowTop = top + (h - top) / 2;
-        guiGraphics.fillGradient(0, glowTop, w, h, VOLCANIC_ACCENT, (glowA << 24) | VOLCANIC_ACCENT);
-    }
 
 
     @Unique

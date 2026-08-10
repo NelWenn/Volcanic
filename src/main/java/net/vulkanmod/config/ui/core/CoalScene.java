@@ -12,7 +12,7 @@ public final class CoalScene {
 
     public static final int SPARKS = 3;
     public static final int LAVAS = 2;
-    public static final int SMOKES = 16;
+    public static final int SMOKES = 10;
     public static final int ZONES = 8;
     public static final int SMOKE_FRAMES = 12;
     public static final int PARTICLES = SPARKS + LAVAS + SMOKES;
@@ -27,8 +27,8 @@ public final class CoalScene {
     private static final int SPARK_COLD = 0xFF6A12;
     private static final int LAVA_HOT = 0xFFC24A;
     private static final int LAVA_COLD = 0x6E1904;
-    private static final int SMOKE_WARM = 0x6A5B54;
-    private static final int SMOKE_COLD = 0x322B28;
+    private static final int SMOKE_WARM = 0x4A3C35;
+    private static final int SMOKE_COLD = 0x231D1B;
 
     private final float[] px = new float[PARTICLES];
     private final float[] py = new float[PARTICLES];
@@ -63,7 +63,7 @@ public final class CoalScene {
 
     public float particleScale(Rect content) {
         float ratio = bedHeight(content) / (float) REFERENCE_HEIGHT;
-        return Math.max(0.7f, Math.min(2.2f, ratio));
+        return Math.max(0.7f, Math.min(1.5f, ratio));
     }
 
     public float zoneHeat(int zone) {
@@ -125,7 +125,7 @@ public final class CoalScene {
         return switch (kindOf(index)) {
             case SPARK -> 4;
             case LAVA -> py[index] > REFERENCE_HEIGHT ? 5 : 7;
-            default -> 8 + Math.round(life(index) * 14.0f);
+            default -> 7 + Math.round(life(index) * 10.0f);
         };
     }
 
@@ -137,7 +137,7 @@ public final class CoalScene {
             case LAVA -> Motion.fade(Motion.blend(LAVA_HOT | 0xFF000000, LAVA_COLD | 0xFF000000, t * t),
                     Math.min(1.0f, 2.6f - 2.2f * t) * 0.9f);
             default -> Motion.fade(Motion.blend(SMOKE_WARM | 0xFF000000, SMOKE_COLD | 0xFF000000, t),
-                    (float) Math.sin(t * 3.1415927f) * 0.32f);
+                    (float) Math.sin(t * 3.1415927f) * 0.15f);
         };
     }
 
