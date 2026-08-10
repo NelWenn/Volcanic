@@ -352,6 +352,12 @@ public final class ShellRenderer {
                 SettingMeta target = searchFocused
                         ? presenter.focusedSetting()
                         : cardTarget(layout, presenter, contentScroll, mouseX, mouseY, keyboardMode, dragged);
+                if (target != null) {
+                    paintCardWash(painter, details, 0, theme.color(ColorToken.ACCENT), 0.06f,
+                            DetailsLayout.PAD_Y + DetailsLayout.TEXT_HEIGHT);
+                    painter.fill(new Rect(details.x(), details.y(), 3, details.height()),
+                            theme.color(ColorToken.ACCENT_DEEP));
+                }
                 paintDetailItems(painter, details, detailsItems(font, presenter, target, details));
                 painter.flush();
             } finally {
@@ -574,7 +580,13 @@ public final class ShellRenderer {
         painter.setAlpha(reveal);
         try {
             paintRoundedFill(painter, box, radius, theme.color(ColorToken.SURFACE_CHROME));
+            paintCardWash(painter, box, radius, theme.color(ColorToken.ACCENT), 0.07f,
+                    DetailsLayout.PAD_Y + DetailsLayout.TEXT_HEIGHT);
             paintRoundedOutline(painter, box, radius, theme.color(ColorToken.BORDER_ACCENT));
+            for (Rect span : RoundedScanline.fillSpans(box, radius)) {
+                painter.fill(new Rect(span.x(), span.y(), Math.min(3, span.width()), span.height()),
+                        theme.color(ColorToken.ACCENT_DEEP));
+            }
             paintDetailItems(painter, box, items);
             painter.flush();
         } finally {
@@ -612,15 +624,24 @@ public final class ShellRenderer {
         if (track.isEmpty()) {
             return;
         }
-        painter.fill(track, theme.color(ColorToken.IMPACT_TRACK));
-        Rect fill = DetailsLayout.barFill(track, item.bar());
-        if (fill.isEmpty()) {
-            return;
-        }
-        if (item.accentBar()) {
-            painter.gradient(fill, theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
-        } else {
-            painter.fill(fill, theme.color(ColorToken.IMPACT_VISUAL));
+        int lit = Math.round(item.bar().fill() * PresetCardLayout.SEGMENTS);
+        int bright = item.accentBar() ? theme.color(ColorToken.ACCENT_BRIGHT)
+                : theme.color(ColorToken.IMPACT_VISUAL);
+        int deep = item.accentBar() ? theme.color(ColorToken.ACCENT_DEEP)
+                : Motion.blend(theme.color(ColorToken.IMPACT_VISUAL), 0xFF000000, 0.45f);
+        int half = track.height() / 2;
+        for (int cell = 0; cell < PresetCardLayout.SEGMENTS; cell++) {
+            Rect seg = PresetCardLayout.segment(track, cell);
+            if (seg.isEmpty()) {
+                continue;
+            }
+            if (cell < lit) {
+                painter.fill(new Rect(seg.x(), seg.y(), seg.width(), half), bright);
+                painter.fill(new Rect(seg.x(), seg.y() + half, seg.width(), seg.height() - half), deep);
+            } else {
+                painter.fill(seg, theme.color(ColorToken.IMPACT_TRACK));
+                painter.fill(seg.inset(1), theme.color(ColorToken.SURFACE_SUNKEN));
+            }
         }
     }
 
@@ -1697,9 +1718,14 @@ public final class ShellRenderer {
     }
 
     private void paintCardWash(SurfacePainter painter, Rect card, int tone, float alpha) {
-        int depth = PresetCardLayout.CARD_PAD + PresetCardLayout.GLYPH + 6;
+        paintCardWash(painter, card, SettingRowLayout.CARD_RADIUS, tone, alpha,
+                PresetCardLayout.CARD_PAD + PresetCardLayout.GLYPH + 6);
+    }
+
+    private void paintCardWash(SurfacePainter painter, Rect card, int radius, int tone, float alpha,
+                               int depth) {
         int argb = Motion.fade(tone, alpha);
-        for (Rect span : RoundedScanline.fillSpans(card, SettingRowLayout.CARD_RADIUS)) {
+        for (Rect span : RoundedScanline.fillSpans(card, radius)) {
             int row = span.y() - card.y();
             if (row < depth) {
                 painter.fill(span, argb);

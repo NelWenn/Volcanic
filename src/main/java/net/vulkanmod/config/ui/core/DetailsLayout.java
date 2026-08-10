@@ -4,7 +4,7 @@ public final class DetailsLayout {
     public static final int PAD_X = 14;
     public static final int PAD_Y = 12;
     public static final int TEXT_HEIGHT = 9;
-    public static final int BAR_HEIGHT = 4;
+    public static final int BAR_HEIGHT = 5;
 
     private DetailsLayout() {
     }
