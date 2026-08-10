@@ -926,6 +926,7 @@ public final class NavPresenter {
                 .add(new NavNode(RouteId.parse("display.general"), "vulkanmod.ui.page.display.general", null, false))
                 .add(new NavNode(RouteId.parse("display.interface"), "vulkanmod.ui.page.display.interface", null, false))
                 .add(new NavNode(RouteId.parse("display.advanced"), "vulkanmod.ui.page.display.advanced", null, false))
+                .add(new NavNode(RouteId.parse("display.volcanic"), "vulkanmod.ui.page.display.volcanic", null, false))
                 .add(new NavNode(RouteId.parse("rendering"), "vulkanmod.ui.page.rendering", null, true))
                 .add(new NavNode(RouteId.parse("rendering.general"), "vulkanmod.ui.page.rendering.general", null, false))
                 .add(new NavNode(RouteId.parse("rendering.resolution"), "vulkanmod.ui.page.rendering.resolution", null, false))

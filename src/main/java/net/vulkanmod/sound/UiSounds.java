@@ -48,7 +48,18 @@ public final class UiSounds {
         play(INTRO, 1.0f, INTRO_VOLUME);
     }
 
+    private static boolean enabled() {
+        try {
+            return Initializer.CONFIG == null || Initializer.CONFIG.uiSounds;
+        } catch (Throwable unavailable) {
+            return true;
+        }
+    }
+
     private static void play(DeferredHolder<SoundEvent, SoundEvent> holder, float pitch, float volume) {
+        if (!enabled()) {
+            return;
+        }
         try {
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft == null || minecraft.getSoundManager() == null || !holder.isBound()) {

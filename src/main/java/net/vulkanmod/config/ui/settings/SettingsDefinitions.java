@@ -29,6 +29,7 @@ public final class SettingsDefinitions {
     public static final RouteId DISPLAY_GENERAL = RouteId.parse("display.general");
     public static final RouteId DISPLAY_INTERFACE = RouteId.parse("display.interface");
     public static final RouteId DISPLAY_ADVANCED = RouteId.parse("display.advanced");
+    public static final RouteId DISPLAY_VOLCANIC = RouteId.parse("display.volcanic");
     public static final RouteId RENDERING_GENERAL = RouteId.parse("rendering.general");
     public static final RouteId RENDERING_RESOLUTION = RouteId.parse("rendering.resolution");
     public static final RouteId RENDERING_CULLING = RouteId.parse("rendering.culling");
@@ -75,6 +76,9 @@ public final class SettingsDefinitions {
     public static final SettingId DISTORTION_EFFECTS = SettingId.parse("minecraft:display.distortion_effects");
     public static final SettingId FOV_EFFECTS = SettingId.parse("minecraft:display.fov_effects");
     public static final SettingId DISABLE_HIDPI = SettingId.parse("vulkanmod:display.disable_hidpi");
+    public static final SettingId UI_ANIMATIONS = SettingId.parse("vulkanmod:display.ui_animations");
+    public static final SettingId BACKGROUND_ANIMATION = SettingId.parse("vulkanmod:display.background_animation");
+    public static final SettingId UI_SOUNDS = SettingId.parse("vulkanmod:display.ui_sounds");
 
     public static final SettingId RENDER_DISTANCE = SettingId.parse("minecraft:rendering.render_distance");
     public static final SettingId SIMULATION_DISTANCE = SettingId.parse("minecraft:rendering.simulation_distance");
@@ -282,6 +286,25 @@ public final class SettingsDefinitions {
                         .descriptionKey("vulkanmod.options.disableHiDPI.tooltip")
                         .scope(ApplyScope.RESTART).advanced(true)
                         .performance(ImpactLevel.HIGH).visual(ImpactLevel.MEDIUM).build());
+    }
+
+    public static List<SettingMeta> displayVolcanic() {
+        return List.of(
+                new SettingMeta.Builder(UI_ANIMATIONS, DISPLAY_VOLCANIC, "vulkanmod.options.uiAnimations",
+                        SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.uiAnimations.tooltip")
+                        .scope(ApplyScope.INSTANT)
+                        .performance(ImpactLevel.LOW).visual(ImpactLevel.MEDIUM).build(),
+                new SettingMeta.Builder(BACKGROUND_ANIMATION, DISPLAY_VOLCANIC,
+                        "vulkanmod.options.backgroundAnimation", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.backgroundAnimation.tooltip")
+                        .scope(ApplyScope.INSTANT)
+                        .performance(ImpactLevel.LOW).visual(ImpactLevel.MEDIUM).build(),
+                new SettingMeta.Builder(UI_SOUNDS, DISPLAY_VOLCANIC, "vulkanmod.options.uiSounds",
+                        SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.uiSounds.tooltip")
+                        .scope(ApplyScope.INSTANT)
+                        .performance(ImpactLevel.NONE).visual(ImpactLevel.NONE).build());
     }
 
     public static List<SettingMeta> renderingGeneral() {

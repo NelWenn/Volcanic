@@ -422,5 +422,12 @@
   "vulkanmod.options.debugMenu.tooltip": "Volcanic's own debug panel: frame timings, hardware and build info. Separate from the vanilla F3 screen.",
   "vulkanmod.options.debugMenuKey": "Debug Menu Key",
   "vulkanmod.options.debugMenuKey.tooltip": "Which key opens and closes the debug panel. Set it to Not Bound to leave the panel to this menu alone.",
-  "vulkanmod.options.blockEntityDistance.blocks": "%s blocks"
+  "vulkanmod.options.blockEntityDistance.blocks": "%s blocks",
+  "vulkanmod.ui.page.display.volcanic": "Volcanic",
+  "vulkanmod.options.uiAnimations": "Interface Animation",
+  "vulkanmod.options.uiAnimations.tooltip": "Sliding pages, travelling selection, easing scroll and the rest of the menu's motion. Turn it off and every state change lands instantly.",
+  "vulkanmod.options.backgroundAnimation": "Background Animation",
+  "vulkanmod.options.backgroundAnimation.tooltip": "The embers breathing behind the settings, with their sparks, lava pops and smoke. Turn it off to keep the artwork without anything moving on it.",
+  "vulkanmod.options.uiSounds": "Volcanic Sounds",
+  "vulkanmod.options.uiSounds.tooltip": "The click on every menu control and the theme that plays once the game reaches the title screen. Minecraft's own sounds are untouched."
 }

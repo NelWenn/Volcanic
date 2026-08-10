@@ -32,6 +32,9 @@ public class Config {
     public boolean vsrDebug = false;
 
     public boolean disableHiDPI = false;
+    public boolean uiAnimations = true;
+    public boolean backgroundAnimation = true;
+    public boolean uiSounds = true;
 
     public int advCulling = 2;
 

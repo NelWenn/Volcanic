@@ -38,6 +38,7 @@ import net.vulkanmod.config.ui.core.Gradient;
 import net.vulkanmod.config.ui.core.Glide;
 import net.vulkanmod.config.ui.core.HoverState;
 import net.vulkanmod.config.ui.core.ImpactLevel;
+import net.vulkanmod.Initializer;
 import net.vulkanmod.config.ui.core.CoalArt;
 import net.vulkanmod.config.ui.core.CoalScene;
 import net.vulkanmod.config.ui.core.Motion;
@@ -85,6 +86,7 @@ public final class ShellRenderer {
 
 
     private static final float SCRIM_ALPHA = 0.72f;
+    private static final long INSTANT_MS = 10_000L;
     private static final ResourceLocation COAL_BED =
             ResourceLocation.fromNamespaceAndPath("vulkanmod", "textures/gui/coalbed.png");
     private static final ResourceLocation[] COAL_ZONES = coalZones();
@@ -289,6 +291,7 @@ public final class ShellRenderer {
         if (deltaMs < 0) {
             throw new IllegalArgumentException("deltaMs must not be negative: " + deltaMs);
         }
+        deltaMs = motionEnabled() ? deltaMs : INSTANT_MS;
 
         advancePage(presenter, deltaMs);
 
@@ -1021,8 +1024,27 @@ public final class ShellRenderer {
         }
     }
 
+    private static boolean motionEnabled() {
+        try {
+            return Initializer.CONFIG == null || Initializer.CONFIG.uiAnimations;
+        } catch (Throwable unavailable) {
+            return true;
+        }
+    }
+
+    private static boolean backgroundEnabled() {
+        try {
+            return Initializer.CONFIG == null || Initializer.CONFIG.backgroundAnimation;
+        } catch (Throwable unavailable) {
+            return true;
+        }
+    }
+
     private void paintCoals(GuiGraphics graphics, SurfacePainter painter, Rect content, long deltaMs) {
-        coals.advance(deltaMs, content);
+        boolean alive = backgroundEnabled();
+        if (alive) {
+            coals.advance(deltaMs, content);
+        }
 
         Rect bed = coals.bedRect(content);
         if (bed.isEmpty()) {
@@ -1039,6 +1061,10 @@ public final class ShellRenderer {
                     0.0f, 0.0f, CoalArt.TEX_W, CoalArt.TEX_H, CoalArt.TEX_W, CoalArt.TEX_H);
         }
         graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+        if (!alive) {
+            return;
+        }
 
         float grow = coals.particleScale(content);
         for (int index = 0; index < CoalScene.PARTICLES; index++) {

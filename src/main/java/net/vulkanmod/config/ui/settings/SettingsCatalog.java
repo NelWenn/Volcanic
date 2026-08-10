@@ -105,6 +105,7 @@ public final class SettingsCatalog {
         bindDisplayGeneral();
         bindDisplayInterface();
         bindDisplayAdvanced();
+        bindDisplayVolcanic();
         bindRenderingGeneral();
         bindRenderingResolution();
         bindRenderingCulling();
@@ -130,6 +131,7 @@ public final class SettingsCatalog {
         registerAll(SettingsDefinitions.displayGeneral());
         registerAll(SettingsDefinitions.displayInterface());
         registerAll(SettingsDefinitions.displayAdvanced());
+        registerAll(SettingsDefinitions.displayVolcanic());
         registerAll(SettingsDefinitions.renderingGeneral());
         registerAll(SettingsDefinitions.renderingResolution());
         registerAll(SettingsDefinitions.renderingCulling());
@@ -658,6 +660,23 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.disableHiDPI,
                 value -> Initializer.CONFIG.disableHiDPI = boolValue(value))
                 .withDefault(() -> Boolean.FALSE));
+    }
+
+    private void bindDisplayVolcanic() {
+        bindings.put(SettingsDefinitions.UI_ANIMATIONS, SettingBinding.of(
+                () -> Initializer.CONFIG.uiAnimations,
+                value -> Initializer.CONFIG.uiAnimations = boolValue(value))
+                .withDefault(() -> Boolean.TRUE));
+
+        bindings.put(SettingsDefinitions.BACKGROUND_ANIMATION, SettingBinding.of(
+                () -> Initializer.CONFIG.backgroundAnimation,
+                value -> Initializer.CONFIG.backgroundAnimation = boolValue(value))
+                .withDefault(() -> Boolean.TRUE));
+
+        bindings.put(SettingsDefinitions.UI_SOUNDS, SettingBinding.of(
+                () -> Initializer.CONFIG.uiSounds,
+                value -> Initializer.CONFIG.uiSounds = boolValue(value))
+                .withDefault(() -> Boolean.TRUE));
     }
 
     private void bindRenderingGeneral() {

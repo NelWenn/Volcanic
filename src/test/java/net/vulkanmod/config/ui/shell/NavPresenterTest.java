@@ -189,7 +189,7 @@ class NavPresenterTest {
     void everyNavigationKeyResolvesInEnUs() throws IOException {
         Map<String, String> lang = readLang();
         List<String> keys = navigationKeys(new NavPresenter().tree());
-        assertEquals(40, keys.size());
+        assertEquals(41, keys.size());
 
         List<String> unresolved = new ArrayList<>();
         for (String key : keys) {
@@ -271,15 +271,15 @@ class NavPresenterTest {
         presenter.navigate(RouteId.parse("display.general"));
 
         FocusRing ring = presenter.focus().ring(NavPresenter.REGION_CONTENT);
-        assertEquals(3, presenter.subTabs().size());
+        assertEquals(4, presenter.subTabs().size());
         assertEquals(5, presenter.settings().size());
-        assertEquals(9, ring.size(), "three tabs, five rows, plus the favourites button");
+        assertEquals(10, ring.size(), "four tabs, five rows, plus the favourites button");
         for (SettingMeta meta : presenter.settings()) {
             assertTrue(ring.focus(meta.id().toString()), "row not focusable: " + meta.id());
         }
 
         presenter.navigate(RouteId.parse("display.advanced"));
-        assertEquals(5, ring.size(), "three tabs, one row, plus the favourites button");
+        assertEquals(6, ring.size(), "four tabs, one row, plus the favourites button");
     }
 
     @Test
