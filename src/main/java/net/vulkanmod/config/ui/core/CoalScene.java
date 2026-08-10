@@ -4,7 +4,7 @@ import java.util.Random;
 
 public final class CoalScene {
     public static final int SCALE = 2;
-    public static final int GLOW_SITES = 52;
+    public static final int GLOW_SITES = 56;
     public static final int PARTICLES = 34;
     private static final float GLOW_ALPHA = 0.34f;
     private static final int GLOW_CORE = 0xFFD022;
