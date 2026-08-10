@@ -248,18 +248,18 @@ public final class ShellRenderer {
     private final Glide applyBarSlide = new Glide(80.0f);
     private ApplyBarModel lastBar;
     private boolean barOnScreen;
-    private static final int MARKER_LAND_MS = 150;
-    private static final int MARKER_OVERSHOOT = 3;
+    private static final int MARKER_LAND_MS = 110;
+    private static final int MARKER_OVERSHOOT = 2;
     private Rect tabPillNow = Rect.EMPTY;
-    private final Glide navMarkerTop = new Glide(55.0f);
-    private final Glide navMarkerHeight = new Glide(55.0f);
+    private final Glide navMarkerTop = new Glide(42.0f);
+    private final Glide navMarkerHeight = new Glide(42.0f);
     private boolean navMarkerPlaced;
     private float navMarkerOffset;
     private float navMarkerSpan;
     private long navLand;
     private int navDir;
-    private final Glide tabMarkerX = new Glide(55.0f);
-    private final Glide tabMarkerWidth = new Glide(55.0f);
+    private final Glide tabMarkerX = new Glide(42.0f);
+    private final Glide tabMarkerWidth = new Glide(42.0f);
     private boolean tabMarkerPlaced;
     private long tabLand;
     private int tabDir;
@@ -1024,8 +1024,9 @@ public final class ShellRenderer {
                     boolean active = route.equals(activeRoute);
                     String key = route.toString();
                     float hovered = hover.advance(key, index == hoveredIndex, deltaMs);
+                    float focused = focus.advance(key, key.equals(focusedId), deltaMs);
                     paintRowSurface(painter, box, false, active ? 0.0f : hovered,
-                            focus.advance(key, key.equals(focusedId), deltaMs));
+                            active ? 0.0f : focused);
                     int argb = presenter.rowGreyed(route) ? theme.color(ColorToken.TEXT_MUTED)
                             : Motion.blend(theme.color(ColorToken.TEXT_SECONDARY),
                                     theme.color(ColorToken.TEXT_PRIMARY),
@@ -1167,10 +1168,10 @@ public final class ShellRenderer {
             this.navLand = MARKER_LAND_MS;
         }
 
-        float settle = navLand / (float) MARKER_LAND_MS;
+        float landT = 1.0f - navLand / (float) MARKER_LAND_MS;
         int bounce = navLand > 0L
                 ? Math.round(navDir * MARKER_OVERSHOOT
-                        * (float) Math.sin(Math.PI * (1.0f - settle))) : 0;
+                        * (float) Math.sin(Math.PI * landT) * (1.0f - landT)) : 0;
         int top = viewport.screenTop(Math.round(navMarkerOffset) + bounce);
         int spanNow = Math.round(navMarkerSpan);
         Rect box = SidebarModel.rowBox(sidebar, top, spanNow, depth);
@@ -1178,7 +1179,7 @@ public final class ShellRenderer {
                 theme.color(ColorToken.SURFACE_NAV_ACTIVE), theme.color(ColorToken.SURFACE_SIDEBAR_BOTTOM));
         if (navLand > 0L) {
             paintRoundedFill(painter, box, NAV_RADIUS,
-                    Motion.fade(theme.color(ColorToken.ACCENT), 0.13f * settle));
+                    Motion.fade(theme.color(ColorToken.ACCENT), 0.13f * (1.0f - landT)));
         }
         paintRoundedOutline(painter, box, NAV_RADIUS, theme.color(ColorToken.BORDER_ACCENT));
         paintLeadingEdge(painter, box, NAV_RADIUS, theme.color(ColorToken.ACCENT));
@@ -2825,17 +2826,17 @@ public final class ShellRenderer {
         if (travelling && tabMarkerX.settled(target.x()) && tabMarkerWidth.settled(target.width())) {
             this.tabLand = MARKER_LAND_MS;
         }
-        float settle = tabLand / (float) MARKER_LAND_MS;
+        float landT = 1.0f - tabLand / (float) MARKER_LAND_MS;
         int bounce = tabLand > 0L
                 ? Math.round(tabDir * MARKER_OVERSHOOT
-                        * (float) Math.sin(Math.PI * (1.0f - settle))) : 0;
+                        * (float) Math.sin(Math.PI * landT) * (1.0f - landT)) : 0;
         Rect box = new Rect(drawnX + bounce, target.y(), drawnW, target.height());
         this.tabPillNow = box;
         paintRoundedGradient(painter, box, PILL_RADIUS,
                 theme.color(ColorToken.ACCENT_BRIGHT), theme.color(ColorToken.ACCENT_DEEP));
         if (tabLand > 0L) {
             paintRoundedFill(painter, box, PILL_RADIUS,
-                    Motion.fade(theme.color(ColorToken.ACCENT_BRIGHT), 0.35f * settle));
+                    Motion.fade(theme.color(ColorToken.ACCENT_BRIGHT), 0.35f * (1.0f - landT)));
         }
     }
 
@@ -2857,7 +2858,7 @@ public final class ShellRenderer {
             Rect box = boxes.get(i);
             NavNode tab = tabs.get(i);
 
-            if (tab.route().toString().equals(focusedId)) {
+            if (tab.route().toString().equals(focusedId) && !tab.route().equals(current)) {
                 paintRoundedOutline(painter, box, PILL_RADIUS, theme.color(ColorToken.ACCENT));
             }
 
