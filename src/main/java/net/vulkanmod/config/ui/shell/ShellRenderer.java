@@ -1287,7 +1287,7 @@ public final class ShellRenderer {
         int dy = presetFx.shakeY(index);
 
         if (effect == PresetFx.ERUPT && presetFx.shattered(index)) {
-            paintShards(painter, box, model, index);
+            paintShards(graphics, painter, font, box, model, index);
             return;
         }
 
@@ -1302,7 +1302,7 @@ public final class ShellRenderer {
         }
 
         if (effect == PresetFx.HAZE) {
-            paintHaze(painter, font, box, model, hovered, index);
+            paintHaze(graphics, painter, font, box, model, hovered, index);
         } else {
             float tilt = hovered && effect == PresetFx.NONE
                     ? PresetFx.tiltDegrees(PresetFx.tiltStep(box, mouseX)) : 0.0f;
@@ -1333,18 +1333,24 @@ public final class ShellRenderer {
         painter.flush();
     }
 
-    private void paintShards(SurfacePainter painter, Rect box, PresetCardModel.Card model, int index) {
-        int argb = theme.color(model.playing() ? ColorToken.ACCENT : ColorToken.SURFACE_CARD_HOVER);
-        int side = Math.max(3, Math.min(box.width(), box.height()) / 7);
+    private void paintShards(GuiGraphics graphics, SurfacePainter painter, Font font, Rect box,
+                             PresetCardModel.Card model, int index) {
+        int columns = 3;
+        int rows = PresetFx.BLOCKS / columns;
+        int pieceW = Math.max(1, box.width() / columns);
+        int pieceH = Math.max(1, box.height() / rows);
         for (int block = 0; block < PresetFx.BLOCKS; block++) {
-            painter.fill(new Rect(presetFx.blockX(index, block, box) - side / 2,
-                    presetFx.blockY(index, block, box) - side / 2, side, side),
-                    block % 3 == 0 ? theme.color(ColorToken.ACCENT) : argb);
+            int sx = box.x() + (block % columns) * pieceW;
+            int sy = box.y() + (block / columns) * pieceH;
+            int dx = presetFx.blockX(index, block, box) - box.width() / 2 + (sx - box.x());
+            int dy = presetFx.blockY(index, block, box) - box.height() / 2 + (sy - box.y());
+            slice(graphics, painter, new Rect(dx, dy, pieceW, pieceH), dx - sx, dy - sy,
+                    () -> paintPresetCard(painter, font, box, model, false));
         }
     }
 
-    private void paintHaze(SurfacePainter painter, Font font, Rect box, PresetCardModel.Card model,
-                           boolean hovered, int index) {
+    private void paintHaze(GuiGraphics graphics, SurfacePainter painter, Font font, Rect box,
+                           PresetCardModel.Card model, boolean hovered, int index) {
         int band = Math.max(2, box.height() / PresetFx.BANDS);
         for (int slice = 0; slice < PresetFx.BANDS; slice++) {
             int top = box.y() + slice * band;
@@ -1352,14 +1358,30 @@ public final class ShellRenderer {
             if (tall <= 0) {
                 continue;
             }
-            painter.setOffset(presetFx.bandShift(index, slice), 0);
-            paintPresetCard(painter, font, new Rect(box.x(), top, box.width(), tall), model, hovered);
-            painter.flush();
+            int shift = presetFx.bandShift(index, slice);
+            slice(graphics, painter, new Rect(box.x() + shift, top, box.width(), tall), shift, 0,
+                    () -> paintPresetCard(painter, font, box, model, hovered));
         }
-        painter.setOffset(0, 0);
         int heat = presetFx.heat(index);
         if (heat > 0) {
             painter.fill(box, theme.color(ColorToken.ACCENT, heat * 0.05f));
+            painter.flush();
+        }
+    }
+
+    private void slice(GuiGraphics graphics, SurfacePainter painter, Rect window, int dx, int dy,
+                       Runnable body) {
+        if (window.isEmpty()) {
+            return;
+        }
+        graphics.enableScissor(window.x(), window.y(), window.right(), window.bottom());
+        try {
+            painter.setOffset(dx, dy);
+            body.run();
+            painter.flush();
+        } finally {
+            painter.setOffset(0, 0);
+            graphics.disableScissor();
         }
     }
 

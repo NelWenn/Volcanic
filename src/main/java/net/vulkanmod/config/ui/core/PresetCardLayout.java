@@ -8,8 +8,8 @@ public final class PresetCardLayout {
     public static final int TOP = 20;
     public static final int OVERVIEW_MARGIN = 8;
     public static final int GAP = 6;
-    public static final int CARD_HEIGHT = 90;
-    public static final int CARD_HEIGHT_COMPACT = 74;
+    public static final int CARD_HEIGHT = 150;
+    public static final int CARD_HEIGHT_COMPACT = 122;
     public static final int CARD_PAD = 10;
     public static final int BANNER_HEIGHT = 40;
     public static final int LEGEND_H = 7;
@@ -25,9 +25,10 @@ public final class PresetCardLayout {
     public static final int NAME_LINE = 9;
     public static final int SMALL_LINE = 7;
     public static final int BAR_ROW = 9;
+    public static final int MAX_CARD = 108;
     public static final int THREE_WIDE_AT = 640;
     public static final int TWO_WIDE_AT = 380;
-    private static final int MIN_CARD = 118;
+    private static final int MIN_CARD = 88;
 
     private PresetCardLayout() {
     }
@@ -40,7 +41,7 @@ public final class PresetCardLayout {
         if (count == 0) {
             return new int[0];
         }
-        if (perRow >= 3 && count == 5) {
+        if (perRow == 3 && count == 5) {
             return new int[] {3, 2};
         }
         List<Integer> rows = new ArrayList<>();
@@ -58,10 +59,7 @@ public final class PresetCardLayout {
     }
 
     public static int perRow(int usableWidth) {
-        if (usableWidth >= THREE_WIDE_AT) {
-            return 3;
-        }
-        return usableWidth >= TWO_WIDE_AT ? 2 : 1;
+        return Math.max(1, Math.min(5, (usableWidth + GAP) / (MIN_CARD + GAP)));
     }
 
     public static int cardHeight(Breakpoint breakpoint) {
@@ -128,10 +126,10 @@ public final class PresetCardLayout {
         int usable = content.width() - PAD_X * 2;
         int[] pattern = rowPattern(count, usable);
         int columns = perRow(usable);
-        int width = (usable - GAP * (columns - 1)) / columns;
+        int width = Math.min(MAX_CARD, (usable - GAP * (columns - 1)) / columns);
         if (width < MIN_CARD && columns > 1) {
             columns = 1;
-            width = usable;
+            width = Math.min(MAX_CARD, usable);
             pattern = rowPattern(count, 0);
         }
         int height = cardHeight(breakpoint);
@@ -164,10 +162,10 @@ public final class PresetCardLayout {
 
         int[] pattern = rowPattern(count, usable);
         int columns = perRow(usable);
-        int width = (usable - GAP * (columns - 1)) / columns;
+        int width = Math.min(MAX_CARD, (usable - GAP * (columns - 1)) / columns);
         if (width < MIN_CARD && columns > 1) {
             columns = 1;
-            width = usable;
+            width = Math.min(MAX_CARD, usable);
             pattern = rowPattern(count, 0);
         }
 

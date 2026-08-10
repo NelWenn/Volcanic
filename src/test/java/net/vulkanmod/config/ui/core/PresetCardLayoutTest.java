@@ -11,13 +11,26 @@ class PresetCardLayoutTest {
     private static final Rect NARROW = new Rect(0, 32, 420, 240);
 
     @Test
-    void fivePresetsSitThreeAboveTwoWhenThereIsRoom() {
-        assertArrayEquals(new int[] {3, 2}, PresetCardLayout.rowPattern(5, 660));
+    void fivePresetsStandSideBySideWhenThereIsRoomForFive() {
+        assertArrayEquals(new int[] {5}, PresetCardLayout.rowPattern(5, 660));
+        assertArrayEquals(new int[] {3, 2}, PresetCardLayout.rowPattern(5, 300));
+    }
+
+    @Test
+    void aCardIsAlwaysTallerThanItIsWideHoweverMuchRoomThereIs() {
+        for (int width : new int[] {300, 480, 700, 1200, 2400}) {
+            List<Rect> cards = PresetCardLayout.cards(new Rect(0, 0, width, 700), 5, 0, Breakpoint.WIDE);
+            for (Rect card : cards) {
+                assertTrue(card.height() > card.width(),
+                        "at " + width + "px a card was " + card.width() + "x" + card.height());
+                assertTrue(card.width() <= PresetCardLayout.MAX_CARD);
+            }
+        }
     }
 
     @Test
     void theBottomRowIsCentredUnderTheTop() {
-        List<Rect> cards = PresetCardLayout.cards(WIDE, 5, 0, Breakpoint.WIDE);
+        List<Rect> cards = PresetCardLayout.cards(new Rect(132, 32, 330, 460), 5, 0, Breakpoint.WIDE);
         assertEquals(5, cards.size());
 
         int topLeft = cards.get(0).x();
@@ -32,7 +45,7 @@ class PresetCardLayoutTest {
 
     @Test
     void theThreeCardsOnTheTopRowAreEqualAndAdjacent() {
-        List<Rect> cards = PresetCardLayout.cards(WIDE, 5, 0, Breakpoint.WIDE);
+        List<Rect> cards = PresetCardLayout.cards(new Rect(132, 32, 330, 460), 5, 0, Breakpoint.WIDE);
 
         assertEquals(cards.get(0).width(), cards.get(1).width());
         assertEquals(cards.get(1).width(), cards.get(2).width());
@@ -44,19 +57,21 @@ class PresetCardLayoutTest {
 
     @Test
     void aNarrowShellFallsBackRatherThanSquashingTheCards() {
-        assertArrayEquals(new int[] {2, 2, 1}, PresetCardLayout.rowPattern(5, 420));
-        assertArrayEquals(new int[] {1, 1, 1, 1, 1}, PresetCardLayout.rowPattern(5, 200));
+        assertArrayEquals(new int[] {4, 1}, PresetCardLayout.rowPattern(5, 420));
+        assertArrayEquals(new int[] {2, 2, 1}, PresetCardLayout.rowPattern(5, 200));
+        assertArrayEquals(new int[] {1, 1, 1, 1, 1}, PresetCardLayout.rowPattern(5, 80));
 
         List<Rect> cards = PresetCardLayout.cards(NARROW, 5, 0, Breakpoint.COMPACT);
         assertEquals(PresetCardLayout.CARD_HEIGHT_COMPACT, cards.get(0).height());
         for (Rect card : cards) {
-            assertTrue(card.width() >= 118, "a card never gets narrower than it can render");
+            assertTrue(card.width() >= 80, "a card never gets narrower than it can render");
         }
     }
 
     @Test
-    void fourPresetsMakeTwoEvenRowsRatherThanThreePlusOne() {
-        assertArrayEquals(new int[] {3, 1}, PresetCardLayout.rowPattern(4, 660));
+    void fourPresetsMakeOneRowWhenTheyFitAndSplitEvenlyWhenTheyDoNot() {
+        assertArrayEquals(new int[] {4}, PresetCardLayout.rowPattern(4, 660));
+        assertArrayEquals(new int[] {3, 1}, PresetCardLayout.rowPattern(4, 300));
     }
 
     @Test
