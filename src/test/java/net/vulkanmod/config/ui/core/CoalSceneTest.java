@@ -223,6 +223,32 @@ class CoalSceneTest {
     }
 
     @Test
+    void aSparkOrAPopWaitsBetweenAppearancesInsteadOfFiringBackToBack() {
+        CoalScene scene = new CoalScene(21L);
+        int hidden = 0;
+        for (int frame = 0; frame < 600; frame++) {
+            scene.advance(16, CONTENT);
+            for (int index = 0; index < CoalScene.SPARKS + CoalScene.LAVAS; index++) {
+                if (scene.waiting(index)) {
+                    hidden++;
+                }
+            }
+        }
+        assertTrue(hidden > 0, "every spark and pop was on screen the whole time, nothing is rationed");
+    }
+
+    @Test
+    void smokeNeverWaitsBecauseAFireAlwaysSmokes() {
+        CoalScene scene = new CoalScene(22L);
+        for (int frame = 0; frame < 400; frame++) {
+            scene.advance(16, CONTENT);
+            for (int index = CoalScene.SPARKS + CoalScene.LAVAS; index < CoalScene.PARTICLES; index++) {
+                assertTrue(!scene.waiting(index), "a puff of smoke was held back");
+            }
+        }
+    }
+
+    @Test
     void theSceneRunsAtTheSamePaceWhateverTheFrameRateAndSurvivesAStall() {
         CoalScene slow = new CoalScene(11L);
         CoalScene fast = new CoalScene(11L);

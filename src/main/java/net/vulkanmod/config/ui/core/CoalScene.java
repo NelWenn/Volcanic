@@ -9,11 +9,11 @@ public final class CoalScene {
     public static final int LAVA = 1;
     public static final int SMOKE = 2;
 
-    public static final int SPARKS = 6;
-    public static final int LAVAS = 3;
+    public static final int SPARKS = 3;
+    public static final int LAVAS = 2;
     public static final int SMOKES = 16;
     public static final int ZONES = 8;
-    public static final int SMOKE_FRAMES = 8;
+    public static final int SMOKE_FRAMES = 12;
     public static final int PARTICLES = SPARKS + LAVAS + SMOKES;
 
     private static final float WAVE_SPEED = 0.85f;
@@ -91,6 +91,9 @@ public final class CoalScene {
         this.clock += seconds;
         for (int index = 0; index < PARTICLES; index++) {
             age[index] += seconds;
+            if (age[index] < 0.0f) {
+                continue;
+            }
             px[index] += vx[index] * seconds;
             py[index] += vy[index] * seconds;
             if (kindOf(index) == LAVA) {
@@ -137,7 +140,11 @@ public final class CoalScene {
     }
 
     private float life(int index) {
-        return Math.min(1.0f, age[index] / span[index]);
+        return Math.max(0.0f, Math.min(1.0f, age[index] / span[index]));
+    }
+
+    public boolean waiting(int index) {
+        return age[index] < 0.0f;
     }
 
     private boolean expired(int index, Rect content) {
@@ -162,11 +169,13 @@ public final class CoalScene {
                 this.vx[index] = (random.nextFloat() - 0.5f) * 22.0f;
                 this.vy[index] = 34.0f + random.nextFloat() * 46.0f;
                 this.span[index] = 0.45f + random.nextFloat() * 0.55f;
+                this.age[index] = -random.nextFloat() * 3.5f;
             }
             case LAVA -> {
                 this.vx[index] = (random.nextFloat() - 0.5f) * 70.0f;
                 this.vy[index] = 120.0f + random.nextFloat() * 90.0f;
                 this.span[index] = 1.5f + random.nextFloat() * 0.6f;
+                this.age[index] = -random.nextFloat() * 5.0f;
             }
             default -> {
                 this.vx[index] = (random.nextFloat() - 0.5f) * 7.0f;

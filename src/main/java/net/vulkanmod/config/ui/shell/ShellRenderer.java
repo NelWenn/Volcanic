@@ -107,7 +107,7 @@ public final class ShellRenderer {
         ResourceLocation[] frames = new ResourceLocation[CoalScene.SMOKE_FRAMES];
         for (int frame = 0; frame < frames.length; frame++) {
             frames[frame] = ResourceLocation.withDefaultNamespace(
-                    "textures/particle/generic_" + frame + ".png");
+                    "textures/particle/big_smoke_" + frame + ".png");
         }
         return frames;
     }
@@ -1034,6 +1034,9 @@ public final class ShellRenderer {
         graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
 
         for (int index = 0; index < CoalScene.PARTICLES; index++) {
+            if (coals.waiting(index)) {
+                continue;
+            }
             int argb = coals.argbOf(index);
             int alpha = argb >>> 24;
             if (alpha == 0) {
@@ -1046,8 +1049,9 @@ public final class ShellRenderer {
             }
             graphics.setColor(((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f,
                     (argb & 0xFF) / 255.0f, alpha / 255.0f);
+            int source = coals.kindOf(index) == CoalScene.SMOKE ? 16 : 8;
             graphics.blit(particleTexture(index), left, coals.yOf(index, content) - side / 2,
-                    side, side, 0.0f, 0.0f, 8, 8, 8, 8);
+                    side, side, 0.0f, 0.0f, source, source, source, source);
         }
         graphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
     }
