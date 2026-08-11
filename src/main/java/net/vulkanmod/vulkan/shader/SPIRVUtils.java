@@ -1,6 +1,7 @@
 package net.vulkanmod.vulkan.shader;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.vulkanmod.compat.observer.CompatProfiler;
 import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.system.NativeResource;
 import org.lwjgl.util.shaderc.ShadercIncludeResolveI;
@@ -25,6 +26,8 @@ import static org.lwjgl.util.shaderc.Shaderc.*;
 public class SPIRVUtils {
     private static final boolean DEBUG = false;
     private static final boolean OPTIMIZATIONS = true;
+    private static final boolean AUTOREMAP_LOCATIONS = true;
+
     private static final int MAX_INCLUDE_DEPTH = 32;
 
     private static long compiler;
@@ -32,12 +35,13 @@ public class SPIRVUtils {
 
     private static final ShaderIncluder SHADER_INCLUDER = new ShaderIncluder();
     private static final ShaderReleaser SHADER_RELEASER = new ShaderReleaser();
+
     private static final long pUserData = 0;
 
     private static ObjectArrayList<String> includePaths;
     private static final Pattern RESERVED_SAMPLER_IDENTIFIER = Pattern.compile("\\bsampler\\b");
 
-    private static float time = 0.0f;
+    private static float time = 0.0f; // Future debug tool
 
     static {
         initCompiler();
@@ -46,7 +50,7 @@ public class SPIRVUtils {
     private static void initCompiler() {
         compiler = shaderc_compiler_initialize();
 
-        if(compiler == NULL) {
+        if (compiler == NULL) {
             throw new RuntimeException("Failed to create shader compiler");
         }
 
@@ -56,11 +60,14 @@ public class SPIRVUtils {
             throw new RuntimeException("Failed to create compiler options");
         }
 
-        if(OPTIMIZATIONS)
+        if (OPTIMIZATIONS)
             shaderc_compile_options_set_optimization_level(options, shaderc_optimization_level_performance);
 
-        if(DEBUG)
+        if (DEBUG)
             shaderc_compile_options_set_generate_debug_info(options);
+
+        if (AUTOREMAP_LOCATIONS) // this fix legacy shaders loading, some of legacy shaders are using implicit locations which is not supported by default on vulkan
+            shaderc_compile_options_set_auto_map_locations(options, true);
 
         shaderc_compile_options_set_target_env(options, shaderc_env_version_vulkan_1_2, VK12.VK_API_VERSION_1_2);
         shaderc_compile_options_set_include_callbacks(options, SHADER_INCLUDER, SHADER_RELEASER, pUserData);
@@ -78,7 +85,9 @@ public class SPIRVUtils {
     public static SPIRV compileShaderAbsoluteFile(String shaderFile, ShaderKind shaderKind) {
         try (InputStream is = openResource(shaderFile)) {
             if (is == null) throw new RuntimeException("Shader not found in classpath: " + shaderFile);
-            String source = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+
+            String source = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+
             return compileShader(shaderFile, source, shaderKind);
         } catch (IOException e) {
             e.printStackTrace();
@@ -92,11 +101,11 @@ public class SPIRVUtils {
         source = rewriteLegacyReservedIdentifiers(source);
         long result = shaderc_compile_into_spv(compiler, source, shaderKind.kind, filename, "main", options);
 
-        if(result == NULL) {
+        if (result == NULL) {
             throw new RuntimeException("Failed to compile shader " + filename + " into SPIR-V");
         }
 
-        if(shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) {
+        if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) {
             throw new RuntimeException("Failed to compile shader " + filename + " into SPIR-V:\n" + shaderc_result_get_error_message(result));
         }
 
@@ -110,9 +119,9 @@ public class SPIRVUtils {
 
     private static void recordCompileForProfiler(long elapsed) {
         try {
-            if (net.vulkanmod.compat.observer.CompatProfiler.ENABLED) {
-                net.vulkanmod.compat.observer.CompatProfiler.shaderCompileCount++;
-                net.vulkanmod.compat.observer.CompatProfiler.spirvCompileTimeNanos += elapsed;
+            if (CompatProfiler.ENABLED) {
+                CompatProfiler.shaderCompileCount++;
+                CompatProfiler.spirvCompileTimeNanos += elapsed;
             }
         } catch (LinkageError ignored) {
 
@@ -133,8 +142,29 @@ public class SPIRVUtils {
         throw new RuntimeException("unable to read inputStream");
     }
 
+    private static final ThreadLocal<ClassLoader> PLUGIN_RESOURCE_LOADER = new ThreadLocal<>();
+
+    static void withResourceClassLoader(ClassLoader loader, Runnable action) {
+        ClassLoader previous = PLUGIN_RESOURCE_LOADER.get();
+        PLUGIN_RESOURCE_LOADER.set(loader);
+        try {
+            action.run();
+        } finally {
+            PLUGIN_RESOURCE_LOADER.set(previous);
+        }
+    }
+
     private static InputStream openResource(String resourcePath) {
         String classLoaderPath = resourcePath.startsWith("/") ? resourcePath.substring(1) : resourcePath;
+
+        ClassLoader pluginLoader = PLUGIN_RESOURCE_LOADER.get();
+        if (pluginLoader != null) {
+            InputStream stream = pluginLoader.getResourceAsStream(classLoaderPath);
+            if (stream != null) {
+                return stream;
+            }
+        }
+
         ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
         if (contextClassLoader != null) {
             InputStream stream = contextClassLoader.getResourceAsStream(classLoaderPath);
@@ -337,7 +367,6 @@ public class SPIRVUtils {
 
         @Override
         public void free() {
-
             bytecode = null;
         }
     }

@@ -26,7 +26,6 @@ import net.vulkanmod.render.chunk.util.StaticQueue;
 import net.vulkanmod.render.material.PbrAtlas;
 import net.vulkanmod.render.pipeline.RenderPipeline;
 import net.vulkanmod.render.pipeline.RenderStateSnapshot;
-import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.buffer.DrawBuffers;
 import net.vulkanmod.render.chunk.frustum.VFrustum;
 import net.vulkanmod.render.chunk.build.BlockRenderer;
@@ -43,6 +42,7 @@ import net.vulkanmod.vulkan.memory.IndexBuffer;
 import net.vulkanmod.vulkan.memory.IndirectBuffer;
 import net.vulkanmod.vulkan.memory.MemoryTypes;
 import net.vulkanmod.vulkan.pass.ShadowMap;
+import net.vulkanmod.vulkan.shader.PipelineManager;
 import net.vulkanmod.vulkan.shader.PipelineState;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
@@ -91,11 +91,14 @@ public class WorldRenderer {
 
     private final List<Runnable> onAllChangedCallbacks = new ObjectArrayList<>();
 
+    private PipelineManager pipelineManager;
+
     private WorldRenderer(RenderBuffers renderBuffers) {
         this.minecraft = Minecraft.getInstance();
         this.renderBuffers = renderBuffers;
         this.renderRegionCache = new RenderRegionBuilder();
         this.taskDispatcher = new TaskDispatcher();
+
         ChunkTask.setTaskDispatcher(this.taskDispatcher);
         allocateIndirectBuffers();
 
@@ -105,6 +108,8 @@ public class WorldRenderer {
             if (this.indirectBuffers.length != Renderer.getFramesNum())
                 allocateIndirectBuffers();
         });
+
+        pipelineManager = Renderer.getInstance().getPipelineManager();
     }
 
     private void allocateIndirectBuffers() {
@@ -338,7 +343,7 @@ public class WorldRenderer {
         VRenderSystem.setPrimitiveTopology(VertexFormat.Mode.TRIANGLES);
 
         Renderer renderer = Renderer.getInstance();
-        RenderPipeline pipeline = PipelineManager.getPipeline(PipelineManager.ROLE_TERRAIN_MAIN, terrainRenderType);
+        RenderPipeline pipeline = pipelineManager.getPipeline(PipelineManager.ROLE_TERRAIN_MAIN, terrainRenderType);
         renderer.bindGraphicsPipeline(pipeline);
 
         VTextureSelector.bindShaderTextures(pipeline);
@@ -378,7 +383,7 @@ public class WorldRenderer {
             }
 
             if (fadeSplit) {
-                RenderPipeline fadePipeline = PipelineManager.getPipeline(PipelineManager.ROLE_TERRAIN_FADE, terrainRenderType);
+                RenderPipeline fadePipeline = pipelineManager.getPipeline(pipelineManager.ROLE_TERRAIN_FADE, terrainRenderType);
                 renderer.bindGraphicsPipeline(fadePipeline);
                 VTextureSelector.bindShaderTextures(fadePipeline);
 
@@ -426,13 +431,13 @@ public class WorldRenderer {
     }
 
     public void renderMaterialTerrain(double camX, double camY, double camZ) {
-        if (this.sectionGrid == null || this.sectionGrid.sections == null || this.sectionGraph == null) {
+        if (this.sectionGrid == null || this.sectionGrid.sections == null || this.sectionGraph == null)
             return;
-        }
-        RenderPipeline pipeline = PipelineManager.getPipeline(PipelineManager.ROLE_MATERIAL, null);
-        if (pipeline == null) {
+
+        RenderPipeline pipeline = pipelineManager.getPipeline(PipelineManager.ROLE_MATERIAL, null);
+
+        if (pipeline == null)
             return;
-        }
 
         Renderer renderer = Renderer.getInstance();
         VRenderSystem.setPrimitiveTopology(VertexFormat.Mode.TRIANGLES);
@@ -496,11 +501,13 @@ public class WorldRenderer {
     private int lastShadowGeometryVersion = -1;
 
     @SuppressWarnings("unchecked")
-    private static java.util.ArrayList<RenderSection>[] createCascadeShadowLists() {
-        java.util.ArrayList<RenderSection>[] lists = new java.util.ArrayList[ShadowMap.CASCADES];
+    private static ArrayList<RenderSection>[] createCascadeShadowLists() {
+        ArrayList<RenderSection>[] lists = new ArrayList[ShadowMap.CASCADES];
+
         for (int i = 0; i < lists.length; i++) {
             lists[i] = new java.util.ArrayList<>(1024);
         }
+
         return lists;
     }
 
@@ -514,13 +521,16 @@ public class WorldRenderer {
         for (RenderSection s : this.shadowSections) {
             double dx = (s.xOffset() + 8) - this.shadowListCamX;
             double dz = (s.zOffset() + 8) - this.shadowListCamZ;
+
             if (dx * dx + dz * dz > presplitRangeSq) continue;
+
             list.add(s);
         }
+
         this.cascadeShadowRadius[cascade] = radius;
     }
 
-    private java.util.List<RenderSection> shadowSectionsForCascade(int cascade, float radius) {
+    private List<RenderSection> shadowSectionsForCascade(int cascade, float radius) {
         if (cascade < 0 || cascade >= this.cascadeShadowSections.length)
             return this.shadowSections;
 
@@ -589,24 +599,30 @@ public class WorldRenderer {
                 VRenderSystem.depthFun = 515;
                 VRenderSystem.cull = (terrainRenderType == TerrainRenderType.SOLID);
 
-                RenderPipeline pipeline = PipelineManager.getPipeline(PipelineManager.ROLE_SHADOW_TERRAIN, terrainRenderType);
+                RenderPipeline pipeline = pipelineManager.getPipeline(PipelineManager.ROLE_SHADOW_TERRAIN, terrainRenderType);
                 renderer.bindGraphicsPipeline(pipeline);
                 VTextureSelector.bindShaderTextures(pipeline);
                 terrainRenderType.setCutoutUniform();
 
                 if (indirectDraw) {
                     ChunkArea curArea = null;
+
                     this.shadowScratchQueue.clear();
+
                     for (RenderSection s : cascadeSections) {
                         double dx = (s.xOffset() + 8) - camX;
                         double dz = (s.zOffset() + 8) - camZ;
+
                         if (dx * dx + dz * dz > cullRangeSq) continue;
+
                         ChunkArea area = s.getChunkArea();
+
                         if (area != curArea) {
                             flushShadowArea(curArea, terrainRenderType, pipeline, renderer, shadowIndirect, camX, camY, camZ);
                             this.shadowScratchQueue.clear();
                             curArea = area;
                         }
+
                         this.shadowScratchQueue.add(s);
                     }
 
@@ -616,7 +632,9 @@ public class WorldRenderer {
                     for (RenderSection s : cascadeSections) {
                         double dx = (s.xOffset() + 8) - camX;
                         double dz = (s.zOffset() + 8) - camZ;
+
                         if (dx * dx + dz * dz > cullRangeSq) continue;
+
                         ChunkArea area = s.getChunkArea();
                         DrawBuffers drawBuffers = area.drawBuffers;
                         if (drawBuffers.getAreaBuffer(terrainRenderType) == null) continue;
@@ -637,7 +655,7 @@ public class WorldRenderer {
                 shadowIndirect.submitUploads();
 
             VRenderSystem.setChunkOffset(0, 0, 0);
-            renderer.pushConstants(PipelineManager.getPipeline(PipelineManager.ROLE_SHADOW_TERRAIN, TerrainRenderType.SOLID));
+            renderer.pushConstants(pipelineManager.getPipeline(PipelineManager.ROLE_SHADOW_TERRAIN, TerrainRenderType.SOLID));
         }
     }
 
@@ -667,14 +685,15 @@ public class WorldRenderer {
 
             bi.setMultiplyBlend();
 
-            RenderPipeline pipeline = PipelineManager.getPipeline(PipelineManager.ROLE_SHADOW_TINT, type);
+            RenderPipeline pipeline = pipelineManager.getPipeline(PipelineManager.ROLE_SHADOW_TINT, type);
             renderer.bindGraphicsPipeline(pipeline);
             VTextureSelector.bindShaderTextures(pipeline);
             type.setCutoutUniform();
 
             final boolean indirectDraw = Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw();
             IndirectBuffer shadowIndirect = indirectDraw ? this.shadowTintIndirectBuffers[cascade][Renderer.getCurrentFrame()] : null;
-            final java.util.List<RenderSection> cascadeSections = shadowSectionsForCascade(cascade, radius);
+            final List<RenderSection> cascadeSections = shadowSectionsForCascade(cascade, radius);
+
             if (indirectDraw) {
                 shadowIndirect.reset();
                 ChunkArea curArea = null;

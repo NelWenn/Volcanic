@@ -1,7 +1,6 @@
 package net.vulkanmod.render.chunk.buffer;
 
 import net.vulkanmod.render.pipeline.RenderPipeline;
-import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.ChunkArea;
 import net.vulkanmod.render.chunk.RenderSection;
 import net.vulkanmod.render.chunk.build.UploadBuffer;
@@ -23,12 +22,13 @@ import java.util.EnumMap;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class DrawBuffers {
-    private static final int VERTEX_SIZE = PipelineManager.TERRAIN_VERTEX_FORMAT.getVertexSize();
+    private static final int VERTEX_SIZE = Renderer.getInstance().getPipelineManager().TERRAIN_VERTEX_FORMAT.getVertexSize();
     private static final int INDEX_SIZE = Short.BYTES;
     private static final int SOLID_VERTEX_BUFFER_BYTES = 1_048_576;
     private static final int CUTOUT_VERTEX_BUFFER_BYTES = 1_048_576;
     private static final int CUTOUT_MIPPED_VERTEX_BUFFER_BYTES = 2_097_152;
     private static final int TRANSLUCENT_VERTEX_BUFFER_BYTES = 524_288;
+
     private final int index;
     private final Vector3i origin;
     private final int minHeight;
@@ -105,7 +105,7 @@ public class DrawBuffers {
         return yOffset1 << 16 | zOffset1 << 8 | xOffset1;
     }
 
-    public static final float POS_OFFSET = PipelineManager.TERRAIN_VERTEX_FORMAT == CustomVertexFormat.COMPRESSED_TERRAIN ? 4.0f : 0.0f;
+    public static final float POS_OFFSET = Renderer.getInstance().getPipelineManager().TERRAIN_VERTEX_FORMAT == CustomVertexFormat.COMPRESSED_TERRAIN ? 4.0f : 0.0f;
 
     private void updateChunkAreaOrigin(VkCommandBuffer commandBuffer, Pipeline pipeline, double camX, double camY, double camZ, MemoryStack stack) {
         float xOffset = (float) ((this.origin.x) + POS_OFFSET - camX);

@@ -69,7 +69,7 @@ public class DebugOverlay extends HUD {
 
     @Override
     public boolean shouldRender() {
-        return HUDState > 0;
+        return HUDState > 0 && !Minecraft.getInstance().options.hideGui;
     }
 
     @Override

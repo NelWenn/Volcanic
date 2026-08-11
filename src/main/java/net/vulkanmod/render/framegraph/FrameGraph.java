@@ -1,6 +1,7 @@
 package net.vulkanmod.render.framegraph;
 
 import net.vulkanmod.Initializer;
+import net.vulkanmod.render.framegraph.targets.Viewpoint;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.framebuffer.Framebuffer;
 import net.vulkanmod.vulkan.framebuffer.RenderPass;
@@ -44,6 +45,7 @@ public final class FrameGraph {
 
         final Framebuffer[] framebuffers = new Framebuffer[2];
         final RenderPass[] renderPasses = new RenderPass[2];
+
         int index;
         int w = -1, h = -1;
         int firstWrite = -1, lastRead = -1;
@@ -260,12 +262,15 @@ public final class FrameGraph {
 
     private VulkanImage resolveInput(String name, ResourceResolver resolver) {
         boolean history = name.endsWith("_history");
+
         String base = history ? name.substring(0, name.length() - "_history".length()) : name;
         Resource target = this.targets.get(base);
+
         if (target != null && target.framebuffers[0] != null) {
             int idx = history && target.pingpong ? target.index ^ 1 : target.index;
             return target.framebuffers[idx].getColorAttachment();
         }
+
         return resolver.resolve(name);
     }
 
@@ -286,6 +291,7 @@ public final class FrameGraph {
                 target.framebuffers[i] = null;
             }
         }
+
         target.w = -1;
         target.h = -1;
     }
@@ -324,12 +330,13 @@ public final class FrameGraph {
         List<PassSpec> specs = new ArrayList<>();
 
         for (Class<?> passClass : passClasses) {
-            Pass ann = passClass.getAnnotation(Pass.class);
+            Pass            pass    = passClass.getAnnotation(Pass.class);
+            GeometryStage   stage   = passClass.getAnnotation(GeometryStage.class);
+            // TODO: finish implementation of Geometry Stage
+            if (pass == null && stage == null)
+                throw new IllegalStateException(passClass.getName() + " has no @Pass or @GeometryStage annotation");
 
-            if (ann == null)
-                throw new IllegalStateException(passClass.getName() + " has no @Pass annotation");
-
-            boolean executorPass = ann.executor() != PassExecutor.class;
+            boolean executorPass = pass.executor() != PassExecutor.class;
 
             Map<Integer, String> inputs = new LinkedHashMap<>();
             List<String> outputs = new ArrayList<>();
@@ -355,7 +362,7 @@ public final class FrameGraph {
             if (outputs.isEmpty())
                 throw new IllegalStateException(passClass.getName() + " has no @Output field");
 
-            specs.add(new PassSpec(ann.pipeline(), ann.phase(), ann.executor(), inputs, outputs));
+            specs.add(new PassSpec(pass.pipeline(), pass.phase(), pass.executor(), inputs, outputs));
         }
 
         for (PassSpec spec : topoSort(id, specs)) {
@@ -370,8 +377,21 @@ public final class FrameGraph {
         return builder.build();
     }
 
-    private record PassSpec(Class<? extends PipelineDefinition> pipeline, Phase phase,
-                            Class<? extends PassExecutor> executor, Map<Integer, String> inputs, List<String> outputs) {
+    private record PassSpec(
+            Class<? extends PipelineDefinition> pipeline,
+            Phase phase,
+            Class<? extends PassExecutor> executor,
+            Map<Integer, String> inputs,
+            List<String> outputs) {}
+
+    private record GeometryPassSpec(
+            Phase phase,
+            Viewpoint vp,
+            Bucket[] buckets,
+            Map<Integer, String> inputs,
+            List<String> outputs
+    ) {
+
     }
 
     private static List<PassSpec> topoSort(String id, List<PassSpec> specs) {
@@ -403,11 +423,13 @@ public final class FrameGraph {
         }
 
         Deque<PassSpec> ready = new ArrayDeque<>();
+
         for (PassSpec spec : specs) {
             if (indegree.get(spec) == 0) {
                 ready.add(spec);
             }
         }
+
         List<PassSpec> ordered = new ArrayList<>();
 
         while (!ready.isEmpty()) {
@@ -419,9 +441,10 @@ public final class FrameGraph {
                 }
             }
         }
-        if (ordered.size() != specs.size()) {
+
+        if (ordered.size() != specs.size())
             throw new IllegalStateException("Frame graph '" + id + "' has a cyclic pass dependency");
-        }
+
         return ordered;
     }
 

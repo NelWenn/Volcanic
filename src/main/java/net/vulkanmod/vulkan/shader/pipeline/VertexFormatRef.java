@@ -1,14 +1,14 @@
 package net.vulkanmod.vulkan.shader.pipeline;
 
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
+import net.vulkanmod.vulkan.Renderer;
 
 /** Indirection for v formats since annotations are unable to hold arbitrary object references. */
 public enum VertexFormatRef {
     TERRAIN {
         public VertexFormat resolve() {
-            return PipelineManager.TERRAIN_VERTEX_FORMAT;
+            return Renderer.getInstance().getPipelineManager().TERRAIN_VERTEX_FORMAT;
         }
     },
     EXTERNAL_LOD {

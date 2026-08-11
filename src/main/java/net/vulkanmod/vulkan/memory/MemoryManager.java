@@ -3,6 +3,7 @@ package net.vulkanmod.vulkan.memory;
 import it.unimi.dsi.fastutil.longs.Long2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.compat.observer.CompatProfiler;
 import net.vulkanmod.render.chunk.buffer.AreaBuffer;
 import net.vulkanmod.render.texture.SpriteUtil;
 import net.vulkanmod.vulkan.Vulkan;
@@ -78,6 +79,7 @@ public class MemoryManager {
 
         if (DEBUG) {
             this.stackTraces = new ObjectArrayList[Frames];
+
             for (int i = 0; i < Frames; ++i) {
                 this.stackTraces[i] = new ObjectArrayList<>();
             }
@@ -97,18 +99,19 @@ public class MemoryManager {
     }
 
     public static void cleanUp() {
-        if(INSTANCE != null) {
+        if (INSTANCE != null) {
             for (int i = 0; i < Frames; i++) {
                 INSTANCE.freeBuffers(i);
                 INSTANCE.doFrameOps(i);
             }
         }
 
-        for(Buffer buffer : buffers.values()) {
+        // Fix, for loop on copies to avoid concurrent modification exception
+        for (Buffer buffer : new ObjectArrayList<>(buffers.values())) {
             vmaDestroyBuffer(ALLOCATOR, buffer.getId(), buffer.getAllocation());
         }
 
-        for(VulkanImage image : images.values()) {
+        for (VulkanImage image : new ObjectArrayList<>(images.values())) {
             image.doFree();
         }
 
@@ -138,14 +141,12 @@ public class MemoryManager {
 
                 throw new RuntimeException("Failed to create buffer: %s".formatted(VkResult.decode(result)));
             }
-
         }
     }
 
     public synchronized void createBuffer(Buffer buffer, int size, int usage, int properties) {
-        if (net.vulkanmod.compat.observer.CompatProfiler.ENABLED) {
-            net.vulkanmod.compat.observer.CompatProfiler.vulkanAllocations++;
-        }
+        if (CompatProfiler.ENABLED)
+            CompatProfiler.vulkanAllocations++;
 
         try (MemoryStack stack = stackPush()) {
             buffer.setBufferSize(size);
@@ -158,11 +159,10 @@ public class MemoryManager {
             buffer.setId(pBuffer.get(0));
             buffer.setAllocation(pAllocation.get(0));
 
-            if ((properties & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) > 0) {
+            if ((properties & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) > 0)
                 deviceMemory += size;
-            } else {
+            else
                 nativeMemory += size;
-            }
 
             buffers.putIfAbsent(buffer.getId(), buffer);
         }
@@ -170,13 +170,14 @@ public class MemoryManager {
 
     public static synchronized void createImage(int width, int height, int mipLevels, int format, int tiling, int usage, int memProperties,
                                                 LongBuffer pTextureImage, PointerBuffer pTextureImageMemory) {
-        if (net.vulkanmod.compat.observer.CompatProfiler.ENABLED) {
-            net.vulkanmod.compat.observer.CompatProfiler.vulkanAllocations++;
+        if (CompatProfiler.ENABLED) {
+            CompatProfiler.vulkanAllocations++;
         }
 
         try (MemoryStack stack = stackPush()) {
 
             VkImageCreateInfo imageInfo = VkImageCreateInfo.calloc(stack);
+
             imageInfo.sType(VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
             imageInfo.imageType(VK_IMAGE_TYPE_2D);
             imageInfo.extent().width(width);
@@ -234,11 +235,10 @@ public class MemoryManager {
     private static void freeBuffer(Buffer.BufferInfo bufferInfo) {
         vmaDestroyBuffer(ALLOCATOR, bufferInfo.id(), bufferInfo.allocation());
 
-        if (bufferInfo.type() == MemoryType.Type.DEVICE_LOCAL) {
+        if (bufferInfo.type() == MemoryType.Type.DEVICE_LOCAL)
             deviceMemory -= bufferInfo.bufferSize();
-        } else {
+        else
             nativeMemory -= bufferInfo.bufferSize();
-        }
 
         buffers.remove(bufferInfo.id());
     }
