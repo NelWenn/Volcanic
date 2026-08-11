@@ -49,7 +49,7 @@ public class Config {
     public static final int BLOCK_ENTITY_DISTANCE_UNLIMITED = 128;
 
     public int blockEntityDistance = BLOCK_ENTITY_DISTANCE_UNLIMITED;
-    public boolean leavesCulling = true;
+    public int leavesQuality = 1;
     public int particleCulling = 2;
     public int device = -1;
 
@@ -83,6 +83,7 @@ public class Config {
 
     public boolean glassReflections = true;
     public boolean pbrDebugNormals = false;
+    public boolean dynamicLight = false;
 
     public float horizonFog = 1.0f;
 

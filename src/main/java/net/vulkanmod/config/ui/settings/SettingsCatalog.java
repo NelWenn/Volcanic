@@ -113,6 +113,7 @@ public final class SettingsCatalog {
         bindPerformanceGpu();
         bindPerformanceChunks();
         bindPerformanceSynchronization();
+        bindQualityExtras();
         bindQualityGeneral();
         bindQualityTextures();
         bindGlint();
@@ -315,6 +316,9 @@ public final class SettingsCatalog {
         if (SettingsDefinitions.ANISOTROPIC_FILTERING.equals(id)) {
             return anisotropySupported();
         }
+        if (SettingsDefinitions.DYNAMIC_LIGHT.equals(id)) {
+            return false;
+        }
         if (SettingsDefinitions.VSR_UPSCALER.equals(id)) {
             return VsrPreset.current(Initializer.CONFIG).isEnabled();
         }
@@ -367,6 +371,9 @@ public final class SettingsCatalog {
         Optional<String> declared = SettingsDefinitions.disabledReasonKey(id);
         if (declared.isPresent()) {
             return declared;
+        }
+        if (SettingsDefinitions.DYNAMIC_LIGHT.equals(id)) {
+            return Optional.of(SettingsDefinitions.REASON_NOT_YET);
         }
         if ((SettingsDefinitions.MOLTENVK_AGGRESSIVE.equals(id)
                 || SettingsDefinitions.DISABLE_HIDPI.equals(id)) && !Platform.isMacOS()) {
@@ -839,6 +846,21 @@ public final class SettingsCatalog {
                 ? List.of(SettingsDefinitions.VSYNC_OFF, SettingsDefinitions.VSYNC_ON,
                         SettingsDefinitions.VSYNC_ADAPTIVE)
                 : List.of(SettingsDefinitions.VSYNC_OFF, SettingsDefinitions.VSYNC_ON);
+    }
+
+    private void bindQualityExtras() {
+        bindings.put(SettingsDefinitions.LEAVES_QUALITY, SettingBinding.choosing(
+                () -> Initializer.CONFIG.leavesQuality > 0
+                        ? SettingsDefinitions.LEAVES_FAST : SettingsDefinitions.LEAVES_FANCY,
+                value -> Initializer.CONFIG.leavesQuality =
+                        SettingsDefinitions.LEAVES_FAST.equals(label(value)) ? 1 : 0,
+                () -> List.of(SettingsDefinitions.LEAVES_FANCY, SettingsDefinitions.LEAVES_FAST))
+                .withDefault(() -> SettingsDefinitions.LEAVES_FAST));
+
+        bindings.put(SettingsDefinitions.DYNAMIC_LIGHT, SettingBinding.of(
+                () -> Initializer.CONFIG.dynamicLight,
+                value -> Initializer.CONFIG.dynamicLight = boolValue(value))
+                .withDefault(() -> Boolean.FALSE));
     }
 
     private void bindPerformanceSynchronization() {

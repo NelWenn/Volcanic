@@ -35,7 +35,7 @@ class SettingsDefinitionsTest {
 
     @Test
     void theSettingsThatKeptATooltipAreTheOnesThatDescribeThemselves() {
-        assertEquals(42, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
+        assertEquals(44, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
     }
 
     @Test
@@ -397,7 +397,8 @@ class SettingsDefinitionsTest {
 
     @Test
     void qualityLightingHasItsSettingsInSpecOrder() {
-        assertEquals(List.of("vulkanmod:quality.ambient_occlusion", "minecraft:quality.biome_blend"),
+        assertEquals(List.of("vulkanmod:quality.ambient_occlusion", "minecraft:quality.biome_blend",
+                        "vulkanmod:quality.dynamic_light"),
                 SettingsDefinitions.qualityLighting().stream().map(meta -> meta.id().toString()).toList());
     }
 
@@ -405,7 +406,8 @@ class SettingsDefinitionsTest {
     void qualityEnvironmentLeadsWithGraphicsModeThenCloudsWeatherWindAndHorizonFog() {
         assertEquals(List.of("minecraft:quality.graphics_mode",
                         "minecraft:quality.clouds", "vulkanmod:quality.weather_rendering",
-                        "vulkanmod:environment.wind_strength", "vulkanmod:quality.horizon_fog"),
+                        "vulkanmod:environment.wind_strength", "vulkanmod:quality.horizon_fog",
+                        "vulkanmod:quality.leaves"),
                 SettingsDefinitions.qualityEnvironment().stream().map(meta -> meta.id().toString()).toList());
     }
 

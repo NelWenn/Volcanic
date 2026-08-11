@@ -16,7 +16,7 @@ public enum PerformancePreset {
             .advCulling(1)
             .entityCulling(true)
             .blockEntityCulling(true)
-            .leavesCulling(true)
+            .leavesQuality(1)
             .particleCulling(3)
             .uniqueOpaqueLayer(true)
             .renderDistance(8)
@@ -37,7 +37,7 @@ public enum PerformancePreset {
             .advCulling(2)
             .entityCulling(true)
             .blockEntityCulling(true)
-            .leavesCulling(true)
+            .leavesQuality(1)
             .particleCulling(2)
             .uniqueOpaqueLayer(true)
             .renderDistance(12)
@@ -58,7 +58,7 @@ public enum PerformancePreset {
             .advCulling(2)
             .entityCulling(true)
             .blockEntityCulling(true)
-            .leavesCulling(true)
+            .leavesQuality(1)
             .particleCulling(1)
             .uniqueOpaqueLayer(true)
             .renderDistance(16)
@@ -79,7 +79,7 @@ public enum PerformancePreset {
             .advCulling(2)
             .entityCulling(true)
             .blockEntityCulling(true)
-            .leavesCulling(true)
+            .leavesQuality(1)
             .particleCulling(1)
             .uniqueOpaqueLayer(true)
             .renderDistance(32)
@@ -101,7 +101,7 @@ public enum PerformancePreset {
     public final int advCulling;
     public final boolean entityCulling;
     public final boolean blockEntityCulling;
-    public final boolean leavesCulling;
+    public final int leavesQuality;
     public final int particleCulling;
     public final boolean uniqueOpaqueLayer;
     public final int renderDistance;
@@ -124,7 +124,7 @@ public enum PerformancePreset {
         this.advCulling = 0;
         this.entityCulling = false;
         this.blockEntityCulling = false;
-        this.leavesCulling = false;
+        this.leavesQuality = 0;
         this.particleCulling = 0;
         this.uniqueOpaqueLayer = false;
         this.renderDistance = 0;
@@ -148,7 +148,7 @@ public enum PerformancePreset {
         this.advCulling = builder.advCulling;
         this.entityCulling = builder.entityCulling;
         this.blockEntityCulling = builder.blockEntityCulling;
-        this.leavesCulling = builder.leavesCulling;
+        this.leavesQuality = builder.leavesQuality;
         this.particleCulling = builder.particleCulling;
         this.uniqueOpaqueLayer = builder.uniqueOpaqueLayer;
         this.renderDistance = builder.renderDistance;
@@ -189,7 +189,7 @@ public enum PerformancePreset {
         private int advCulling;
         private boolean entityCulling;
         private boolean blockEntityCulling;
-        private boolean leavesCulling;
+        private int leavesQuality;
         private int particleCulling;
         private boolean uniqueOpaqueLayer;
         private int renderDistance;
@@ -238,8 +238,8 @@ public enum PerformancePreset {
             return this;
         }
 
-        Builder leavesCulling(boolean value) {
-            this.leavesCulling = value;
+        Builder leavesQuality(int value) {
+            this.leavesQuality = value;
             return this;
         }
 

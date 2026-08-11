@@ -45,8 +45,6 @@
   "vulkanmod.options.particleCulling.tooltip": "Cull redundant particles based on distance, player FOV, and maximum same-type count budgets.",
   "vulkanmod.options.blockEntityCulling": "Block Entity Culling",
   "vulkanmod.options.blockEntityCulling.tooltip": "Cull block entities (chests, signs, spawners, etc.) that are outside the camera frustum or further than 96 blocks.",
-  "vulkanmod.options.leavesCulling": "Leaves Culling",
-  "vulkanmod.options.leavesCulling.tooltip": "Cull adjacent interior faces of leaf blocks to significantly improve performance in forests.",
   "vulkanmod.options.textureAnimations": "Texture Animations",
   "vulkanmod.options.connectedTextures": "Connected Textures",
   "vulkanmod.options.connectedTextures.tooltip": "Applies OptiFine-style connected texture rules from the loaded resource packs. Turning it off rebuilds the terrain.",
@@ -459,5 +457,12 @@
   "vulkanmod.options.vsync.off": "Off",
   "vulkanmod.options.vsync.on": "On",
   "vulkanmod.options.vsync.adaptive": "Adaptive",
-  "vulkanmod.options.vsync.tooltip": "Off lets the game present as fast as it renders, which tears. On locks presentation to the display's refresh rate.\n\nAdaptive keeps that lock but presents a late frame immediately instead of holding it for the next interval, so one missed frame costs a few milliseconds rather than dropping you from 60 to 30. It only appears when the driver offers the relaxed present mode, which MoltenVK on macOS does not."
+  "vulkanmod.options.vsync.tooltip": "Off lets the game present as fast as it renders, which tears. On locks presentation to the display's refresh rate.\n\nAdaptive keeps that lock but presents a late frame immediately instead of holding it for the next interval, so one missed frame costs a few milliseconds rather than dropping you from 60 to 30. It only appears when the driver offers the relaxed present mode, which MoltenVK on macOS does not.",
+  "vulkanmod.options.leavesQuality": "Leaves",
+  "vulkanmod.options.leavesQuality.fancy": "Fancy",
+  "vulkanmod.options.leavesQuality.fast": "Fast",
+  "vulkanmod.options.leavesQuality.tooltip": "Fancy draws every leaf face, including the ones buried inside a canopy where nothing can see them. Fast skips the faces shared between two leaf blocks, which is most of a forest.\n\nThe outside of a tree looks the same either way; you only notice standing inside dense foliage. Rebuilds the terrain.",
+  "vulkanmod.options.dynamicLight": "Dynamic Light",
+  "vulkanmod.options.dynamicLight.tooltip": "Held and dropped light sources - torches, glowstone, a lava bucket - would cast real light on the world around them instead of only glowing themselves.\n\nNot implemented yet. It needs the point-light system the shader pipeline is being built around, so the row is here to mark the slot, not to be switched on.",
+  "vulkanmod.ui.disabled.not_yet": "Not implemented yet"
 }

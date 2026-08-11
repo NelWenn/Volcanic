@@ -18,7 +18,7 @@ public final class PerformancePresetApplier {
         config.advCulling = preset.advCulling;
         config.entityCulling = preset.entityCulling;
         config.blockEntityCulling = preset.blockEntityCulling;
-        config.leavesCulling = preset.leavesCulling;
+        config.leavesQuality = preset.leavesQuality;
         config.particleCulling = preset.particleCulling;
         config.uniqueOpaqueLayer = preset.uniqueOpaqueLayer;
         config.indirectDraw = preset.indirectDraw && DeviceManager.supportsFastIndirectDraw();

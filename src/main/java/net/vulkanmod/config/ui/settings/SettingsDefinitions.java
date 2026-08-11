@@ -106,6 +106,11 @@ public final class SettingsDefinitions {
     public static final SettingId BIOME_BLEND = SettingId.parse("minecraft:quality.biome_blend");
     public static final SettingId CLOUDS = SettingId.parse("minecraft:quality.clouds");
     public static final SettingId WEATHER_RENDERING = SettingId.parse("vulkanmod:quality.weather_rendering");
+    public static final SettingId LEAVES_QUALITY = SettingId.parse("vulkanmod:quality.leaves");
+    public static final String LEAVES_FANCY = "vulkanmod.options.leavesQuality.fancy";
+    public static final String LEAVES_FAST = "vulkanmod.options.leavesQuality.fast";
+    public static final SettingId DYNAMIC_LIGHT = SettingId.parse("vulkanmod:quality.dynamic_light");
+    public static final String REASON_NOT_YET = "vulkanmod.ui.disabled.not_yet";
     public static final SettingId HORIZON_FOG = SettingId.parse("vulkanmod:quality.horizon_fog");
     public static final SettingId PARTICLES = SettingId.parse("minecraft:quality.particles");
     public static final SettingId ENTITY_SHADOWS = SettingId.parse("minecraft:quality.entity_shadows");
@@ -464,7 +469,12 @@ public final class SettingsDefinitions {
                 new SettingMeta.Builder(BIOME_BLEND, QUALITY_LIGHTING, "options.biomeBlendRadius",
                         SettingType.INT, SettingSource.MINECRAFT)
                         .scope(ApplyScope.CHUNK_REBUILD)
-                        .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.LOW).build());
+                        .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.LOW).build(),
+                new SettingMeta.Builder(DYNAMIC_LIGHT, QUALITY_LIGHTING,
+                        "vulkanmod.options.dynamicLight", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.dynamicLight.tooltip")
+                        .scope(ApplyScope.INSTANT)
+                        .performance(ImpactLevel.HIGH).visual(ImpactLevel.HIGH).build());
     }
 
     public static List<SettingMeta> qualityEnvironment() {
@@ -491,7 +501,12 @@ public final class SettingsDefinitions {
                         SettingType.INT, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.horizonFog.tooltip")
                         .scope(ApplyScope.INSTANT)
-                        .performance(ImpactLevel.LOW).visual(ImpactLevel.MEDIUM).build());
+                        .performance(ImpactLevel.LOW).visual(ImpactLevel.MEDIUM).build(),
+                new SettingMeta.Builder(LEAVES_QUALITY, QUALITY_ENVIRONMENT,
+                        "vulkanmod.options.leavesQuality", SettingType.ENUM, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.leavesQuality.tooltip")
+                        .scope(ApplyScope.CHUNK_REBUILD)
+                        .performance(ImpactLevel.HIGH).visual(ImpactLevel.LOW).build());
     }
 
     public static List<SettingMeta> renderingAdvanced() {
