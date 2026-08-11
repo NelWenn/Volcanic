@@ -32,7 +32,7 @@ public abstract class VideoModeManager {
     }
 
     public static VideoModeSet getFirstAvailable() {
-        if(videoModeSets != null)
+        if(videoModeSets != null && videoModeSets.length > 0)
             return videoModeSets[videoModeSets.length - 1];
         else
             return VideoModeSet.getDummy();

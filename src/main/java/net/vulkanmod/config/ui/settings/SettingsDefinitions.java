@@ -110,6 +110,12 @@ public final class SettingsDefinitions {
     public static final String LEAVES_FAST = "vulkanmod.options.leavesQuality.fast";
     public static final SettingId DYNAMIC_LIGHT = SettingId.parse("vulkanmod:quality.dynamic_light");
     public static final String REASON_NOT_YET = "vulkanmod.ui.disabled.not_yet";
+    public static final String REASON_ADAPTIVE_UPLOADS = "vulkanmod.ui.disabled.adaptive_uploads";
+    public static final String REASON_VSR_OFF = "vulkanmod.ui.disabled.vsr_off";
+    public static final String REASON_VSR_CUSTOM = "vulkanmod.ui.disabled.vsr_custom";
+    public static final String REASON_INDIRECT_DRAW = "vulkanmod.ui.disabled.indirect_draw";
+    public static final String REASON_NO_INDIRECT_DRAW = "vulkanmod.ui.disabled.no_indirect_draw";
+    public static final String REASON_EXTERNAL_LOD_OFF = "vulkanmod.ui.disabled.external_lod_off";
     public static final SettingId HORIZON_FOG = SettingId.parse("vulkanmod:quality.horizon_fog");
     public static final SettingId PARTICLES = SettingId.parse("minecraft:quality.particles");
     public static final SettingId ENTITY_SHADOWS = SettingId.parse("minecraft:quality.entity_shadows");
@@ -211,6 +217,24 @@ public final class SettingsDefinitions {
         }
         if (ANISOTROPIC_FILTERING.equals(id)) {
             return Optional.of(REASON_ANISOTROPY);
+        }
+        if (CHUNK_UPLOADS_PER_FRAME.equals(id)) {
+            return Optional.of(REASON_ADAPTIVE_UPLOADS);
+        }
+        if (VSR_UPSCALER.equals(id)) {
+            return Optional.of(REASON_VSR_OFF);
+        }
+        if (VSR_RENDER_SCALE.equals(id) || VSR_SHARPNESS.equals(id)) {
+            return Optional.of(REASON_VSR_CUSTOM);
+        }
+        if (CULLING_LOD_GPU.equals(id)) {
+            return Optional.of(REASON_INDIRECT_DRAW);
+        }
+        if (INDIRECT_DRAW.equals(id)) {
+            return Optional.of(REASON_NO_INDIRECT_DRAW);
+        }
+        if (EXTERNAL_LOD_DRAW.equals(id)) {
+            return Optional.of(REASON_EXTERNAL_LOD_OFF);
         }
         return Optional.empty();
     }

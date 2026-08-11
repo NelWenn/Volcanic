@@ -81,7 +81,6 @@ public class VolcanicScreen extends Screen {
             FocusHandoff.enter(presenter.focus(), NavPresenter.REGION_CONTENT,
                     presenter.stack().current().toString());
         }
-        this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, navViewport().height());
         initSearch();
     }
 
@@ -465,7 +464,6 @@ public class VolcanicScreen extends Screen {
                 presenter.togglePlugin(plugin.id());
             } else {
                 presenter.toggleShowcase(plugin.id());
-                this.contentScroll = Math.max(0, Math.min(this.contentScroll, maxContentScroll()));
                 this.contentScrollTarget = Math.max(0, Math.min(this.contentScrollTarget,
                         maxContentScroll()));
             }
@@ -497,7 +495,6 @@ public class VolcanicScreen extends Screen {
         switch (entry) {
             case SidebarModel.Section(String labelKey, boolean collapsed) -> {
                 presenter.toggleSection(labelKey);
-                this.sidebarScroll = presenter.sidebar().clampScroll(this.sidebarScroll, nav.height());
             }
             case SidebarModel.Row(RouteId route, String titleKey, int depth) -> {
                 select(route, NavPresenter.REGION_SIDEBAR);

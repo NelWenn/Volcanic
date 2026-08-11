@@ -853,8 +853,7 @@ public final class ShellRenderer {
                     FrameGraphLayout.contentHeight(statsCounts(presenter), layout.breakpoint()), scroll);
         }
         if (PluginSettings.ROOT.equals(current)) {
-            return ScrollIndicator.of(body, PluginPageLayout.contentHeight(presenter.pluginPages().size(),
-                    presenter.catalog().modIds().size(), layout.breakpoint()), scroll);
+            return ScrollIndicator.of(body, pluginPage(layout, presenter, scroll).height(), scroll);
         }
         if (NavPresenter.COMPATIBILITY_ROUTE.equals(current)) {
             return ScrollIndicator.of(body, CompatPageLayout.contentHeight(MenuCompat.counts()), scroll);
@@ -2485,10 +2484,7 @@ public final class ShellRenderer {
         if (width <= 0 || font.width(text) <= width) {
             return text;
         }
-        String cut = text;
-        while (!cut.isEmpty() && font.width(cut + "…") > width) {
-            cut = cut.substring(0, cut.length() - 1);
-        }
+        String cut = font.plainSubstrByWidth(text, width - font.width("…"));
         return cut.isEmpty() ? text : cut + "…";
     }
 
@@ -2671,6 +2667,8 @@ public final class ShellRenderer {
                 painter.flush();
                 paintShowcase(graphics, painter, font, page.showcase(), plugins.get(expanded),
                         deltaMs, mouseX, mouseY);
+            } else {
+                this.showcaseShownId = null;
             }
         }
 

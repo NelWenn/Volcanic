@@ -137,8 +137,9 @@ public final class FrameHistory {
         int groups = (filled + merge - 1) / merge;
         List<Bucket> out = new ArrayList<>(groups);
         for (int group = 0; group < groups; group++) {
-            int from = filled - (groups - group) * merge;
-            out.add(merged(Math.max(0, from), merge));
+            int to = filled - (groups - 1 - group) * merge;
+            int from = Math.max(0, to - merge);
+            out.add(merged(from, to - from));
         }
         return List.copyOf(out);
     }

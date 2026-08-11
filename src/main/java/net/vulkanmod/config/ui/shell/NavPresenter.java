@@ -717,8 +717,8 @@ public final class NavPresenter {
     }
 
     public List<PresetCardModel.Card> presetCards() {
-        net.vulkanmod.config.ui.settings.OverviewSignals.harvest(playingProfileKey());
         if (presetCards == null) {
+            net.vulkanmod.config.ui.settings.OverviewSignals.harvest(playingProfileKey());
             this.presetCards = PresetCardModel.cards(changeableProfiles(), committedValues(), changeableValues(),
                     PerformancePreset.CUSTOM.translationKey,
                     net.vulkanmod.config.ui.settings.OverviewSignals.suggestedPresetKey(playingProfileKey()));

@@ -20,10 +20,6 @@ public final class ExternalRenderPathOptions {
         return config == null || config.externalLod == null ? "off" : config.externalLod;
     }
 
-    public static boolean externalLodEnabled() {
-        return "on".equalsIgnoreCase(externalLodMode());
-    }
-
     public static boolean externalLodDrawEnabled() {
         String property = System.getProperty(EXTERNAL_LOD_DRAW);
         if (property != null) {

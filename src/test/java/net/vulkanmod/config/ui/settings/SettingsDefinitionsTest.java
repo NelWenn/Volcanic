@@ -74,7 +74,7 @@ class SettingsDefinitionsTest {
     @Test
     void aSettingWithNothingToExplainNamesNoReason() {
         assertEquals(Optional.empty(), SettingsDefinitions.disabledReasonKey(SettingsDefinitions.VSYNC));
-        assertEquals(Optional.empty(), SettingsDefinitions.disabledReasonKey(SettingsDefinitions.INDIRECT_DRAW));
+        assertEquals(Optional.empty(), SettingsDefinitions.disabledReasonKey(SettingsDefinitions.GUI_SCALE));
         assertThrows(IllegalArgumentException.class, () -> SettingsDefinitions.disabledReasonKey(null));
     }
 

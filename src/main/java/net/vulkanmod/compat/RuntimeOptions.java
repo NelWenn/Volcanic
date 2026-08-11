@@ -25,10 +25,6 @@ public final class RuntimeOptions {
         return Boolean.getBoolean(DEBUG_MIXINS_PROPERTY);
     }
 
-    public static boolean externalLodEnabled() {
-        return net.vulkanmod.compat.capabilities.ExternalRenderPathOptions.externalLodEnabled();
-    }
-
     public static boolean externalLodDrawEnabled() {
         return net.vulkanmod.compat.capabilities.ExternalRenderPathOptions.externalLodDrawEnabled();
     }
