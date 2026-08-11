@@ -35,7 +35,14 @@ class SettingsDefinitionsTest {
 
     @Test
     void theSettingsThatKeptATooltipAreTheOnesThatDescribeThemselves() {
-        assertEquals(44, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
+        long described = allSettings().stream().filter(meta -> meta.descriptionKey() != null).count();
+        assertTrue(described > allSettings().size() / 2,
+                "most rows should still explain themselves");
+        assertEquals(List.of(), allSettings().stream()
+                        .filter(meta -> meta.advanced() || meta.experimental())
+                        .filter(meta -> meta.descriptionKey() == null)
+                        .map(meta -> meta.id().toString()).toList(),
+                "a row nobody can guess the effect of must say what it does");
     }
 
     @Test
@@ -83,10 +90,19 @@ class SettingsDefinitionsTest {
     @Test
     void everyDeclaredReasonConstantResolvesInTheLanguageFile() throws IOException {
         List<String> lang = Files.readAllLines(LANG);
-        for (String key : List.of(SettingsDefinitions.REASON_EXCLUSIVE_FULLSCREEN,
-                SettingsDefinitions.REASON_CORE_SHADER_PACK,
-                SettingsDefinitions.REASON_LAUNCH_FLAG,
-                SettingsDefinitions.REASON_MACOS_ONLY)) {
+        List<String> reasons = new ArrayList<>();
+        for (java.lang.reflect.Field field : SettingsDefinitions.class.getDeclaredFields()) {
+            if (field.getName().startsWith("REASON_") && field.getType() == String.class) {
+                field.setAccessible(true);
+                try {
+                    reasons.add((String) field.get(null));
+                } catch (IllegalAccessException unreachable) {
+                    throw new AssertionError(field.getName() + " is not readable", unreachable);
+                }
+            }
+        }
+        assertFalse(reasons.isEmpty(), "the reasons are declared as REASON_ constants; find them");
+        for (String key : reasons) {
             assertTrue(declares(lang, key), "missing language key " + key);
         }
     }
@@ -98,6 +114,7 @@ class SettingsDefinitionsTest {
     private static List<SettingMeta> allSettings() {
         List<SettingMeta> all = new ArrayList<>(SettingsDefinitions.displayGeneral());
         all.addAll(SettingsDefinitions.displayInterface());
+        all.addAll(SettingsDefinitions.displayVolcanic());
         all.addAll(renderingSettings());
         all.addAll(performanceSettings());
         all.addAll(qualitySettings());

@@ -429,6 +429,6 @@
   "vulkanmod.options.leavesQuality.tooltip": "Fancy draws every leaf face, including the ones buried inside a canopy where nothing can see them. Fast skips the faces shared between two leaf blocks, which is most of a forest.\n\nThe outside of a tree looks the same either way; you only notice standing inside dense foliage. Rebuilds the terrain.",
   "vulkanmod.options.dynamicLight": "Dynamic Light",
   "vulkanmod.options.dynamicLight.tooltip": "Held and dropped light sources - torches, glowstone, a lava bucket - would cast real light on the world around them instead of only glowing themselves.\n\nNot implemented yet. It needs the point-light system the shader pipeline is being built around, so the row is here to mark the slot, not to be switched on.",
-  "vulkanmod.ui.disabled.not_yet": "Not implemented yet",
-  "vulkanmod.ui.keybind.listening": "> Press a key <"
+  "vulkanmod.ui.keybind.listening": "> Press a key <",
+  "vulkanmod.ui.disabled.not_yet": "Not implemented yet"
 }

@@ -460,11 +460,12 @@ class NavPresenterTest {
     void clickingPluginsOpensTheManagementPageAndNotTheFirstPlugin() {
         NavTree tree = NavPresenter.buildTree(List.of(), List.of(),
                 List.of(new NavPresenter.PluginPage("caldera", "Caldera", List.of("terrain"), true, false)));
-        NavPresenter presenter = new NavPresenter();
 
-        assertTrue(presenter.navigate(RouteId.parse("plugins")));
-        assertEquals(RouteId.parse("plugins"), presenter.stack().current(),
-                "descending would make the management page unreachable");
+        assertTrue(tree.contains(RouteId.parse("plugins.caldera")),
+                "the fixture must actually carry a plugin, or this proves nothing");
+        assertEquals(RouteId.parse("plugins"),
+                NavPresenter.destinationOf(tree, RouteId.parse("plugins")),
+                "descending into the first plugin would make the management page unreachable");
     }
 
     @Test

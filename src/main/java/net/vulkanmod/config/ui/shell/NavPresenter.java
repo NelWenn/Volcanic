@@ -931,7 +931,7 @@ public final class NavPresenter {
         return flag;
     }
 
-    private static RouteId destinationOf(NavTree tree, RouteId route) {
+    static RouteId destinationOf(NavTree tree, RouteId route) {
         RouteId destination = route;
         List<NavNode> children = tree.children(destination);
         while (!children.isEmpty() && !children.get(0).sidebarVisible()) {
