@@ -67,9 +67,9 @@ public class Initializer {
 		LOGGER.info("== Volcanic ==");
 		if (firstRun) {
 			net.vulkanmod.config.PerformancePresetApplier.apply(
-					net.vulkanmod.config.PerformancePreset.QUALITY, CONFIG, net.minecraft.client.Minecraft.getInstance());
+					net.vulkanmod.config.PerformancePreset.QUALITY, CONFIG, null);
 			CONFIG.write();
-			LOGGER.info("First run: started on the Quality preset");
+			LOGGER.info("First run: started on the Quality preset, leaving the game's own video settings alone");
 		}
 		UpdateChecker.checkForUpdates();
 		CompatBootstrap.init();

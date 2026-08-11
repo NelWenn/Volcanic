@@ -103,7 +103,7 @@ public final class FrameHistory {
             return;
         }
         if (steps > RESUME_STEPS) {
-            open(Math.floorMod(head + 1, BUCKETS), bucketStartMs + BUCKET_MS);
+            open(Math.floorMod(head + 1, BUCKETS), nowMs - nowMs % BUCKET_MS);
             return;
         }
         for (long step = 0; step < steps; step++) {

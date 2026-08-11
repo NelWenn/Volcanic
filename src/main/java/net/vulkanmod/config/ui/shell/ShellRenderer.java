@@ -2608,8 +2608,12 @@ public final class ShellRenderer {
         SettingsCatalog catalog = presenter.catalog();
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
         SettingMeta pointed = hoveredSetting(layout, presenter, contentScroll, mouseX, mouseY);
+        Rect view = layout.content();
         for (int i = 0; i < boxes.size() && i < rows.size(); i++) {
             Rect box = boxes.get(i);
+            if (box.bottom() <= view.y() || box.y() >= view.bottom()) {
+                continue;
+            }
             painter.setOffset(0, 0);
             if (rows.get(i) instanceof NavPresenter.GroupRow group) {
                 paintGroupRow(painter, font, box, group, mouseX, mouseY);

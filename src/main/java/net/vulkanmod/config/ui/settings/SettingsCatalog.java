@@ -556,11 +556,9 @@ public final class SettingsCatalog {
                 value -> {
                     int refreshRate = Integer.parseInt(label(value));
                     VideoModeSet resolution = selectedResolution();
-                    if (!resolution.hasRefreshRate(refreshRate)) {
-                        throw new IllegalArgumentException("refresh rate " + refreshRate
-                                + " is not available at " + resolution);
-                    }
-                    selectedVideoMode().refreshRate = refreshRate;
+                    selectedVideoMode().refreshRate = resolution.hasRefreshRate(refreshRate)
+                            ? refreshRate
+                            : resolution.getVideoMode().refreshRate;
                     applyVideoMode();
                 },
                 () -> selectedResolution().getRefreshRates().stream().map(String::valueOf).toList())

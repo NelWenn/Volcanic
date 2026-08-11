@@ -406,6 +406,13 @@ public class VolcanicScreen extends Screen {
     }
 
     @Override
+    public void removed() {
+        net.vulkanmod.render.profiling.StackSampler.setRunning(false);
+        net.vulkanmod.render.profiling.Telemetry.setRunning(false);
+        super.removed();
+    }
+
+    @Override
     public boolean isPauseScreen() {
         return true;
     }

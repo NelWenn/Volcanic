@@ -87,11 +87,22 @@ class FrameHistoryTest {
         int before = history.size();
         float peakBefore = history.peak();
 
-        history.record(now + 90_000L, 8.0f, 0.0f, 0, 0);
+        long back = now + 90_000L;
+        history.record(back, 8.0f, 0.0f, 0, 0);
 
         assertEquals(before + 1, history.size(),
                 "ninety seconds away must not scroll nine hundred empty buckets in");
         assertEquals(peakBefore, history.peak(), "the history we came back to read is still there");
+
+        int frames = 29;
+        long span = frames * 20L;
+        for (int step = 1; step <= frames; step++) {
+            history.record(back + step * 20L, 8.0f, 0.0f, 0, 0);
+        }
+        assertTrue(history.size() - (before + 1) <= span / FrameHistory.BUCKET_MS + 1,
+                "the frames after the gap must share buckets by time, not open one each");
+        assertTrue(history.at(history.size() - 1).startMs() >= back - FrameHistory.BUCKET_MS,
+                "the newest bucket must be stamped with the time we came back, not the time we left");
     }
 
     @Test
