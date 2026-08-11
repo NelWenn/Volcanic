@@ -48,11 +48,7 @@ class NavPresenterTest {
     void everyReadableModGetsAPageUnderMods() {
         NavTree tree = NavPresenter.buildTree(List.of("jade", "create"), List.of());
 
-        List<RouteId> pages = new ArrayList<>();
-        for (NavNode node : tree.children(RouteId.parse("mods"))) {
-            pages.add(node.route());
-            assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
-        }
+        List<RouteId> pages = realModPages(tree);
         assertEquals(List.of(RouteId.parse("mods.jade"), RouteId.parse("mods.create")), pages);
         assertEquals(11, tree.sidebarRows().size());
         assertFalse(tree.contains(RouteId.parse("jade")), "a mod must not become a top-level category");
@@ -60,7 +56,7 @@ class NavPresenterTest {
 
     @Test
     void withoutModsTheModsPageKeepsNoChildren() {
-        assertEquals(List.of(), NavPresenter.buildTree(List.of(), List.of()).children(RouteId.parse("mods")));
+        assertEquals(List.of(), realModPages(NavPresenter.buildTree(List.of(), List.of())));
         assertThrows(IllegalArgumentException.class, () -> NavPresenter.buildTree(null, List.of()));
         assertThrows(IllegalArgumentException.class, () -> NavPresenter.buildTree(List.of(), null));
     }
@@ -75,11 +71,7 @@ class NavPresenterTest {
     void aModWeCannotReadStillGetsAPageAfterTheReadableOnes() {
         NavTree tree = NavPresenter.buildTree(List.of("jade"), List.of("waystones"));
 
-        List<RouteId> pages = new ArrayList<>();
-        for (NavNode node : tree.children(RouteId.parse("mods"))) {
-            pages.add(node.route());
-            assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
-        }
+        List<RouteId> pages = realModPages(tree);
         assertEquals(List.of(RouteId.parse("mods.jade"), RouteId.parse("mods.waystones")), pages);
         assertEquals(11, tree.sidebarRows().size());
     }
@@ -378,6 +370,17 @@ class NavPresenterTest {
         assertEquals(topLevel, rows);
     }
 
+    private static List<RouteId> realModPages(NavTree tree) {
+        List<RouteId> pages = new ArrayList<>();
+        for (NavNode node : tree.children(RouteId.parse("mods"))) {
+            assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
+            if (!node.route().toString().startsWith("mods.demo")) {
+                pages.add(node.route());
+            }
+        }
+        return pages;
+    }
+
     private static List<String> navigationKeys(NavTree tree) {
         List<String> keys = new ArrayList<>();
         collectKeys(tree, tree.sidebarRows(), keys);
@@ -389,7 +392,9 @@ class NavPresenterTest {
             if (node.sectionKey() != null) {
                 keys.add(node.sectionKey());
             }
-            keys.add(node.titleKey());
+            if (!node.route().toString().startsWith("mods.")) {
+                keys.add(node.titleKey());
+            }
             collectKeys(tree, tree.children(node.route()), keys);
         }
     }

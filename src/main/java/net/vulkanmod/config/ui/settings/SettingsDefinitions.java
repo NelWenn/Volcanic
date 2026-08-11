@@ -576,7 +576,7 @@ public final class SettingsDefinitions {
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.LOW).visual(ImpactLevel.NONE).build(),
                 new SettingMeta.Builder(DEBUG_MENU_KEY, DEVELOPER_TOOLS, "vulkanmod.options.debugMenuKey",
-                        SettingType.ENUM, SettingSource.VOLCANIC)
+                        SettingType.KEY, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.debugMenuKey.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.NONE).visual(ImpactLevel.NONE).build(),

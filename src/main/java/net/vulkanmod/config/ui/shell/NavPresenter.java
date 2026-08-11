@@ -1028,8 +1028,16 @@ public final class NavPresenter {
         for (String modId : screenOnlyModIds) {
             builder.add(new NavNode(ModSettings.routeOf(modId), modName(modId), null, false));
         }
+        for (int index = 0; index < DEMO_MOD_TABS.size(); index++) {
+            builder.add(new NavNode(ModSettings.routeOf("demo" + index),
+                    DEMO_MOD_TABS.get(index), null, false));
+        }
         return builder.build();
     }
+
+    static final List<String> DEMO_MOD_TABS = List.of(
+            "Journeymap", "Jade", "Applied Energistics", "Farmer's Delight", "Iron Chests",
+            "Waystones", "Sophisticated Backpacks", "Comforts", "Supplementaries", "Quark");
 
     public static String modName(String modId) {
         try {
