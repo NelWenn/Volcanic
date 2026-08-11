@@ -513,10 +513,10 @@ public class VolcanicScreen extends Screen {
         List<Rect> boxes = strip.boxes();
         if (strip.scrollable()) {
             if (strip.prev().contains(mouseX, mouseY)) {
-                return nudgeTabs(strip, -1);
+                return nudgeTabs(-1);
             }
             if (strip.next().contains(mouseX, mouseY)) {
-                return nudgeTabs(strip, 1);
+                return nudgeTabs(1);
             }
         }
         int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
@@ -531,8 +531,9 @@ public class VolcanicScreen extends Screen {
         return true;
     }
 
-    private boolean nudgeTabs(TabStripModel.Strip strip, int direction) {
-        presenter.setTabOffset(TabStripModel.stepOffset(strip, direction));
+    private boolean nudgeTabs(int direction) {
+        TabStripModel.Strip target = renderer.tabStripTarget(this.font, layout, presenter);
+        presenter.setTabOffset(TabStripModel.stepOffset(target, direction));
         UiSounds.playClick();
         return true;
     }

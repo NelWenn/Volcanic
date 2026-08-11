@@ -266,6 +266,8 @@ public final class ShellRenderer {
     private float navMarkerSpan;
     private long navLand;
     private int navDir;
+    private final Glide tabScroll = new Glide(60.0f);
+    private String tabScrollId;
     private final Glide tabMarkerX = new Glide(42.0f);
     private final Glide tabMarkerWidth = new Glide(42.0f);
     private boolean tabMarkerPlaced;
@@ -780,24 +782,36 @@ public final class ShellRenderer {
     }
 
     public TabStripModel.Strip tabStrip(Font font, ShellLayout layout, NavPresenter presenter) {
+        return stripAt(font, layout, presenter, tabScroll.rendered(), -1);
+    }
+
+    public TabStripModel.Strip tabStripTarget(Font font, ShellLayout layout, NavPresenter presenter) {
+        return stripAt(font, layout, presenter, presenter.tabOffset(), -1);
+    }
+
+    private TabStripModel.Strip stripAt(Font font, ShellLayout layout, NavPresenter presenter,
+                                        int offset, int reveal) {
         requireInputs(font, layout, presenter);
-        Rect strip = headerBand(layout, presenter).tabs();
+        Rect band = headerBand(layout, presenter).tabs();
         List<NavNode> tabs = presenter.subTabs();
-        if (strip.isEmpty() || tabs.isEmpty()) {
-            return new TabStripModel.Strip(List.of(), Rect.EMPTY, Rect.EMPTY, strip, 0);
+        if (band.isEmpty() || tabs.isEmpty()) {
+            return new TabStripModel.Strip(List.of(), Rect.EMPTY, Rect.EMPTY, band, 0);
         }
         int[] widths = new int[tabs.size()];
         for (int i = 0; i < tabs.size(); i++) {
             widths[i] = font.width(I18n.get(tabs.get(i).titleKey()));
         }
-        int reveal = -1;
+        return TabStripModel.strip(widths, band, offset, reveal);
+    }
+
+    private int tabRevealIndex(NavPresenter presenter, List<NavNode> tabs) {
         String wanted = presenter.tabRevealId();
         for (int i = 0; wanted != null && i < tabs.size(); i++) {
             if (tabs.get(i).route().toString().equals(wanted)) {
-                reveal = i;
+                return i;
             }
         }
-        return TabStripModel.strip(widths, strip, presenter.tabOffset(), reveal);
+        return -1;
     }
 
     public int statsColumns(ShellLayout layout, NavPresenter presenter) {
@@ -3206,9 +3220,22 @@ public final class ShellRenderer {
             return;
         }
 
+        int target = stripAt(font, layout, presenter, presenter.tabOffset(),
+                tabRevealIndex(presenter, tabs)).offset();
+        presenter.setTabOffset(target);
+        String stripId = tabs.get(0).route().toString();
+        if (!stripId.equals(tabScrollId)) {
+            this.tabScrollId = stripId;
+            tabScroll.jumpTo(target);
+        }
+        if (motionEnabled()) {
+            tabScroll.advance(target, deltaMs);
+        } else {
+            tabScroll.jumpTo(target);
+        }
+
         TabStripModel.Strip strip = tabStrip(font, layout, presenter);
         List<Rect> boxes = strip.boxes();
-        presenter.setTabOffset(strip.offset());
         RouteId current = presenter.stack().current();
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
         int gradientTop = theme.color(ColorToken.ACCENT_BRIGHT);
