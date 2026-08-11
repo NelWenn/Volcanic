@@ -130,27 +130,22 @@ public final class SettingsCatalog {
 
         registerAll(SettingsDefinitions.displayGeneral());
         registerAll(SettingsDefinitions.displayInterface());
-        registerAll(SettingsDefinitions.displayAdvanced());
         registerAll(SettingsDefinitions.displayVolcanic());
         registerAll(SettingsDefinitions.renderingGeneral());
         registerAll(SettingsDefinitions.renderingResolution());
         registerAll(SettingsDefinitions.renderingCulling());
-        registerAll(SettingsDefinitions.performanceGeneral());
         registerAll(SettingsDefinitions.performanceGpu());
         registerAll(SettingsDefinitions.performanceChunks());
         registerAll(SettingsDefinitions.performanceSynchronization());
-        registerAll(SettingsDefinitions.qualityGeneral());
         registerAll(SettingsDefinitions.qualityTextures());
         registerAll(SettingsDefinitions.qualityLighting());
         registerAll(SettingsDefinitions.qualityEnvironment());
         registerAll(SettingsDefinitions.renderingAdvanced());
         registerAll(SettingsDefinitions.renderingEntities());
         registerAll(SettingsDefinitions.advancedRenderer());
-        registerAll(SettingsDefinitions.advancedSynchronization());
         registerAll(SettingsDefinitions.advancedCompatibility());
         registerAll(SettingsDefinitions.shadersCurrent());
         registerAll(SettingsDefinitions.developerTools());
-        registerAll(SettingsDefinitions.experimental());
         registerParticles();
 
         registerPlugins();
@@ -394,7 +389,8 @@ public final class SettingsCatalog {
                     ? SettingsDefinitions.REASON_VSYNC_OFF
                     : SettingsDefinitions.REASON_PRESENT_MODE);
         }
-        if (SettingsDefinitions.MOLTENVK_AGGRESSIVE.equals(id) && !Platform.isMacOS()) {
+        if ((SettingsDefinitions.MOLTENVK_AGGRESSIVE.equals(id)
+                || SettingsDefinitions.DISABLE_HIDPI.equals(id)) && !Platform.isMacOS()) {
             return Optional.of(SettingsDefinitions.REASON_MACOS_ONLY);
         }
         return overriddenByLaunchFlag(id)

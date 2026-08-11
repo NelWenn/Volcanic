@@ -225,9 +225,7 @@ public final class ShellRenderer {
     private static final String[] STAT_TILES = {
             "vulkanmod.ui.stats.average", "vulkanmod.ui.stats.median", "vulkanmod.ui.stats.low1",
             "vulkanmod.ui.stats.low01", "vulkanmod.ui.stats.p95", "vulkanmod.ui.stats.spikes"};
-    private static final String KEY_EXPERIMENTAL_INTRO = "vulkanmod.ui.experimental.intro";
     private static final String KEY_DEVELOPER_INTRO = "vulkanmod.ui.developer.intro";
-    private static final RouteId EXPERIMENTAL = RouteId.parse("experimental");
     private static final RouteId DEVELOPER = RouteId.parse("developer");
     private static final String KEY_PLUGINS_OPEN = "vulkanmod.ui.plugins.open";
     private static final String KEY_PLUGINS_CLOSE = "vulkanmod.ui.plugins.close";
@@ -1322,9 +1320,6 @@ public final class ShellRenderer {
         }
         if (NavPresenter.COMPATIBILITY_ROUTE.equals(current)) {
             return KEY_COMPAT_INTRO;
-        }
-        if (EXPERIMENTAL.equals(current)) {
-            return KEY_EXPERIMENTAL_INTRO;
         }
         return DEVELOPER.equals(current) || DEVELOPER.isAncestorOf(current) ? KEY_DEVELOPER_INTRO : null;
     }

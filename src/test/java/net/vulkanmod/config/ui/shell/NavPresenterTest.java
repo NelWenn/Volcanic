@@ -31,7 +31,7 @@ class NavPresenterTest {
     @Test
     void everyTopLevelRouteIsASidebarRow() {
         NavPresenter presenter = new NavPresenter();
-        assertEquals(12, presenter.tree().sidebarRows().size());
+        assertEquals(11, presenter.tree().sidebarRows().size());
         assertSidebarRowsAreExactlyTheTopLevelRoutes(presenter.tree());
     }
 
@@ -54,7 +54,7 @@ class NavPresenterTest {
             assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
         }
         assertEquals(List.of(RouteId.parse("mods.jade"), RouteId.parse("mods.create")), pages);
-        assertEquals(12, tree.sidebarRows().size());
+        assertEquals(11, tree.sidebarRows().size());
         assertFalse(tree.contains(RouteId.parse("jade")), "a mod must not become a top-level category");
     }
 
@@ -81,7 +81,7 @@ class NavPresenterTest {
             assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
         }
         assertEquals(List.of(RouteId.parse("mods.jade"), RouteId.parse("mods.waystones")), pages);
-        assertEquals(12, tree.sidebarRows().size());
+        assertEquals(11, tree.sidebarRows().size());
     }
 
     @Test
@@ -189,7 +189,7 @@ class NavPresenterTest {
     void everyNavigationKeyResolvesInEnUs() throws IOException {
         Map<String, String> lang = readLang();
         List<String> keys = navigationKeys(new NavPresenter().tree());
-        assertEquals(42, keys.size());
+        assertEquals(37, keys.size());
 
         List<String> unresolved = new ArrayList<>();
         for (String key : keys) {
@@ -208,7 +208,7 @@ class NavPresenterTest {
                 .map(SettingMeta::titleKey)
                 .filter(key -> key.startsWith("vulkanmod."))
                 .toList();
-        assertEquals(2, keys.size());
+        assertEquals(3, keys.size());
 
         List<String> unresolved = new ArrayList<>();
         for (String key : keys) {
@@ -271,15 +271,15 @@ class NavPresenterTest {
         presenter.navigate(RouteId.parse("display.general"));
 
         FocusRing ring = presenter.focus().ring(NavPresenter.REGION_CONTENT);
-        assertEquals(4, presenter.subTabs().size());
-        assertEquals(5, presenter.settings().size());
-        assertEquals(10, ring.size(), "four tabs, five rows, plus the favourites button");
+        assertEquals(3, presenter.subTabs().size());
+        assertEquals(6, presenter.settings().size());
+        assertEquals(10, ring.size(), "three tabs, six rows, plus the favourites button");
         for (SettingMeta meta : presenter.settings()) {
             assertTrue(ring.focus(meta.id().toString()), "row not focusable: " + meta.id());
         }
 
-        presenter.navigate(RouteId.parse("display.advanced"));
-        assertEquals(6, ring.size(), "four tabs, one row, plus the favourites button");
+        presenter.navigate(RouteId.parse("display.volcanic"));
+        assertEquals(8, ring.size(), "three tabs, four rows, plus the favourites button");
     }
 
     @Test
@@ -302,9 +302,9 @@ class NavPresenterTest {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("display.general"));
         presenter.focus().focusRegion(NavPresenter.REGION_CONTENT);
-        assertTrue(presenter.focus().ring(NavPresenter.REGION_CONTENT).focus("display.advanced"));
+        assertTrue(presenter.focus().ring(NavPresenter.REGION_CONTENT).focus("display.interface"));
 
-        assertEquals(RouteId.parse("display.advanced"), presenter.focusedRoute());
+        assertEquals(RouteId.parse("display.interface"), presenter.focusedRoute());
         assertNull(presenter.focusedSetting());
     }
 
@@ -337,13 +337,13 @@ class NavPresenterTest {
         assertEquals(List.of(), presenter.settings());
 
         presenter.navigate(RouteId.parse("display.general"));
-        assertEquals(5, presenter.settings().size());
+        assertEquals(6, presenter.settings().size());
 
         presenter.navigate(RouteId.parse("display.interface"));
         assertEquals(6, presenter.settings().size());
 
-        presenter.navigate(RouteId.parse("display.advanced"));
-        assertEquals(1, presenter.settings().size());
+        presenter.navigate(RouteId.parse("display.volcanic"));
+        assertEquals(4, presenter.settings().size());
     }
 
     @Test
