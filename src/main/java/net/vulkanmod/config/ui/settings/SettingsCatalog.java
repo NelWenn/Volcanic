@@ -132,11 +132,10 @@ public final class SettingsCatalog {
         registerAll(SettingsDefinitions.displayInterface());
         registerAll(SettingsDefinitions.displayVolcanic());
         registerAll(SettingsDefinitions.renderingGeneral());
-        registerAll(SettingsDefinitions.renderingResolution());
+        registerAll(SettingsDefinitions.performanceResolution());
         registerAll(SettingsDefinitions.renderingCulling());
         registerAll(SettingsDefinitions.performanceGpu());
         registerAll(SettingsDefinitions.performanceChunks());
-        registerAll(SettingsDefinitions.performanceSynchronization());
         registerAll(SettingsDefinitions.qualityTextures());
         registerAll(SettingsDefinitions.qualityLighting());
         registerAll(SettingsDefinitions.qualityEnvironment());
@@ -294,14 +293,6 @@ public final class SettingsCatalog {
         }
     }
 
-    private static boolean camilleActive() {
-        try {
-            return DefaultMainPass.postShaderActive() && Initializer.CONFIG.isCamille();
-        } catch (Throwable failure) {
-            return false;
-        }
-    }
-
     public boolean enabled(SettingId id) {
         if (id == null) {
             throw new IllegalArgumentException("id must not be null");
@@ -323,13 +314,6 @@ public final class SettingsCatalog {
         }
         if (SettingsDefinitions.ANISOTROPIC_FILTERING.equals(id)) {
             return anisotropySupported();
-        }
-        if (SettingsDefinitions.ADAPTIVE_VSYNC.equals(id)) {
-            return SwapChain.supportsFifoRelaxed()
-                    && Minecraft.getInstance().options.enableVsync().get();
-        }
-        if (SettingsDefinitions.CAMILLE_ONLY.contains(id)) {
-            return camilleActive();
         }
         if (SettingsDefinitions.VSR_UPSCALER.equals(id)) {
             return VsrPreset.current(Initializer.CONFIG).isEnabled();
@@ -383,11 +367,6 @@ public final class SettingsCatalog {
         Optional<String> declared = SettingsDefinitions.disabledReasonKey(id);
         if (declared.isPresent()) {
             return declared;
-        }
-        if (SettingsDefinitions.ADAPTIVE_VSYNC.equals(id)) {
-            return Optional.of(SwapChain.supportsFifoRelaxed()
-                    ? SettingsDefinitions.REASON_VSYNC_OFF
-                    : SettingsDefinitions.REASON_PRESENT_MODE);
         }
         if ((SettingsDefinitions.MOLTENVK_AGGRESSIVE.equals(id)
                 || SettingsDefinitions.DISABLE_HIDPI.equals(id)) && !Platform.isMacOS()) {
@@ -583,13 +562,19 @@ public final class SettingsCatalog {
                 () -> selectedResolution().getRefreshRates().stream().map(String::valueOf).toList())
                 .withDefault(() -> String.valueOf(highestRefreshRate())));
 
-        bindings.put(SettingsDefinitions.VSYNC, SettingBinding.of(
-                () -> Minecraft.getInstance().options.enableVsync().get(),
+        bindings.put(SettingsDefinitions.VSYNC, SettingBinding.choosing(
+                SettingsCatalog::vsyncChoice,
                 value -> {
-                    boolean enabled = boolValue(value);
+                    String choice = label(value);
+                    boolean adaptive = SettingsDefinitions.VSYNC_ADAPTIVE.equals(choice);
+                    boolean enabled = adaptive || SettingsDefinitions.VSYNC_ON.equals(choice);
                     Minecraft.getInstance().options.enableVsync().set(enabled);
                     Minecraft.getInstance().getWindow().updateVsync(enabled);
-                }).withDefault(() -> Boolean.TRUE));
+                    Initializer.CONFIG.adaptiveVsync = adaptive;
+                    Renderer.scheduleSwapChainUpdate();
+                },
+                SettingsCatalog::vsyncChoices)
+                .withDefault(() -> SettingsDefinitions.VSYNC_ON));
 
         bindings.put(SettingsDefinitions.FRAMERATE_LIMIT, SettingBinding.ranged(
                 () -> Minecraft.getInstance().options.framerateLimit().get(),
@@ -841,15 +826,22 @@ public final class SettingsCatalog {
                 .withDefault(() -> PerformancePreset.BALANCED.chunkUploadsPerFrame));
     }
 
-    private void bindPerformanceSynchronization() {
-        bindings.put(SettingsDefinitions.ADAPTIVE_VSYNC, SettingBinding.of(
-                () -> Initializer.CONFIG.adaptiveVsync,
-                value -> {
-                    Initializer.CONFIG.adaptiveVsync = boolValue(value);
-                    Renderer.scheduleSwapChainUpdate();
-                })
-                .withDefault(() -> Boolean.FALSE));
+    private static String vsyncChoice() {
+        if (!Minecraft.getInstance().options.enableVsync().get()) {
+            return SettingsDefinitions.VSYNC_OFF;
+        }
+        return Initializer.CONFIG.adaptiveVsync && SwapChain.supportsFifoRelaxed()
+                ? SettingsDefinitions.VSYNC_ADAPTIVE : SettingsDefinitions.VSYNC_ON;
+    }
 
+    private static List<String> vsyncChoices() {
+        return SwapChain.supportsFifoRelaxed()
+                ? List.of(SettingsDefinitions.VSYNC_OFF, SettingsDefinitions.VSYNC_ON,
+                        SettingsDefinitions.VSYNC_ADAPTIVE)
+                : List.of(SettingsDefinitions.VSYNC_OFF, SettingsDefinitions.VSYNC_ON);
+    }
+
+    private void bindPerformanceSynchronization() {
         bindings.put(SettingsDefinitions.FRAME_QUEUE, SettingBinding.ranged(
                 () -> Initializer.CONFIG.frameQueueSize,
                 value -> {
@@ -926,10 +918,6 @@ public final class SettingsCatalog {
                 value -> Initializer.CONFIG.vsrDebug = boolValue(value))
                 .withDefault(() -> Boolean.FALSE));
 
-        bindings.put(SettingsDefinitions.PBR_DEBUG_NORMALS, SettingBinding.of(
-                () -> Initializer.CONFIG.pbrDebugNormals,
-                value -> Initializer.CONFIG.pbrDebugNormals = boolValue(value))
-                .withDefault(() -> Boolean.FALSE));
     }
 
     private void bindEnvironmentWind() {
@@ -1050,10 +1038,6 @@ public final class SettingsCatalog {
     }
 
     private void bindRenderingEntities() {
-        bindings.put(SettingsDefinitions.SHADOW_CASTERS, SettingBinding.of(
-                () -> Initializer.CONFIG.entityShadows,
-                value -> Initializer.CONFIG.entityShadows = boolValue(value))
-                .withDefault(() -> Boolean.TRUE));
 
         bindings.put(SettingsDefinitions.ENTITY_SHADOWS, SettingBinding.of(
                 () -> Minecraft.getInstance().options.entityShadows().get(),

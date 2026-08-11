@@ -35,7 +35,7 @@ class SettingsDefinitionsTest {
 
     @Test
     void theSettingsThatKeptATooltipAreTheOnesThatDescribeThemselves() {
-        assertEquals(44, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
+        assertEquals(42, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
     }
 
     @Test
@@ -126,7 +126,7 @@ class SettingsDefinitionsTest {
         List<SettingMeta> settings = SettingsDefinitions.displayGeneral();
 
         assertEquals(List.of(SettingType.ENUM, SettingType.ENUM, SettingType.ENUM,
-                SettingType.BOOL, SettingType.INT, SettingType.BOOL),
+                SettingType.ENUM, SettingType.INT, SettingType.BOOL),
                 settings.stream().map(SettingMeta::type).toList());
         assertEquals(List.of(SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
                 SettingSource.MINECRAFT, SettingSource.MINECRAFT, SettingSource.VOLCANIC),
@@ -216,15 +216,15 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void renderingResolutionHasItsFourSettingsInSpecOrder() {
+    void resolutionScalingHasItsFourSettingsInSpecOrder() {
         assertEquals(List.of("vulkanmod:vsr.preset", "vulkanmod:vsr.upscaler",
                         "vulkanmod:vsr.render_scale", "vulkanmod:vsr.sharpness"),
-                SettingsDefinitions.renderingResolution().stream().map(meta -> meta.id().toString()).toList());
+                SettingsDefinitions.performanceResolution().stream().map(meta -> meta.id().toString()).toList());
     }
 
     @Test
-    void renderingResolutionTypesSourcesAndScopesMatchTheSettingsMap() {
-        List<SettingMeta> settings = SettingsDefinitions.renderingResolution();
+    void resolutionScalingTypesSourcesAndScopesMatchTheSettingsMap() {
+        List<SettingMeta> settings = SettingsDefinitions.performanceResolution();
 
         assertEquals(List.of(SettingType.ENUM, SettingType.ENUM, SettingType.INT, SettingType.INT),
                 settings.stream().map(SettingMeta::type).toList());
@@ -261,8 +261,6 @@ class SettingsDefinitionsTest {
     void everyRenderingSettingSitsOnTheRouteItWasDeclaredFor() {
         assertTrue(SettingsDefinitions.renderingGeneral().stream()
                 .allMatch(meta -> RouteId.parse("rendering.general").equals(meta.route())));
-        assertTrue(SettingsDefinitions.renderingResolution().stream()
-                .allMatch(meta -> RouteId.parse("rendering.resolution").equals(meta.route())));
         assertTrue(SettingsDefinitions.renderingCulling().stream()
                 .allMatch(meta -> RouteId.parse("rendering.culling").equals(meta.route())));
     }
@@ -288,7 +286,6 @@ class SettingsDefinitionsTest {
 
     private static List<SettingMeta> renderingSettings() {
         List<SettingMeta> all = new ArrayList<>(SettingsDefinitions.renderingGeneral());
-        all.addAll(SettingsDefinitions.renderingResolution());
         all.addAll(SettingsDefinitions.renderingCulling());
         return all;
     }
@@ -302,40 +299,31 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void performanceGpuHasItsTwoSettingsInSpecOrder() {
+    void theRenderQueueSitsWithTheOtherGpuSideSettings() {
         assertEquals(List.of("vulkanmod:performance.indirect_draw",
-                        "vulkanmod:performance.unique_opaque_layer"),
-                SettingsDefinitions.performanceGpu().stream().map(meta -> meta.id().toString()).toList());
-    }
-
-    @Test
-    void performanceSynchronizationHoldsAdaptiveVsyncAndTheFrameQueue() {
-        assertEquals(List.of("vulkanmod:performance.adaptive_vsync",
+                        "vulkanmod:performance.unique_opaque_layer",
                         "vulkanmod:performance.frame_queue"),
-                SettingsDefinitions.performanceSynchronization().stream()
-                        .map(meta -> meta.id().toString()).toList());
+                SettingsDefinitions.performanceGpu().stream().map(meta -> meta.id().toString()).toList());
     }
 
     @Test
     void performanceTypesSourcesAndScopesMatchTheSettingsMap() {
         List<SettingMeta> settings = performanceSettings();
 
-        assertEquals(List.of(SettingType.BOOL, SettingType.BOOL, SettingType.BOOL,
-                        SettingType.INT, SettingType.INT, SettingType.BOOL, SettingType.INT),
+        assertEquals(List.of(SettingType.BOOL, SettingType.BOOL, SettingType.INT,
+                        SettingType.BOOL, SettingType.INT, SettingType.INT,
+                        SettingType.ENUM, SettingType.ENUM, SettingType.INT, SettingType.INT),
                 settings.stream().map(SettingMeta::type).toList());
-        assertEquals(List.of(SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
-                        SettingSource.VOLCANIC, SettingSource.VOLCANIC, SettingSource.VOLCANIC,
-                        SettingSource.VOLCANIC),
-                settings.stream().map(SettingMeta::source).toList());
-        assertEquals(List.of(ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD, ApplyScope.INSTANT,
-                        ApplyScope.INSTANT, ApplyScope.RESTART, ApplyScope.SWAPCHAIN,
-                        ApplyScope.SWAPCHAIN),
+        assertTrue(settings.stream().allMatch(meta -> meta.source() == SettingSource.VOLCANIC));
+        assertEquals(List.of(ApplyScope.CHUNK_REBUILD, ApplyScope.CHUNK_REBUILD, ApplyScope.SWAPCHAIN,
+                        ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.RESTART,
+                        ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT, ApplyScope.INSTANT),
                 settings.stream().map(SettingMeta::scope).toList());
     }
 
     @Test
     void onlyTheTwoTunablesAreFlaggedAdvancedOnThePerformancePages() {
-        assertEquals(List.of(false, false, false, true, false, false, true),
+        assertEquals(List.of(false, false, true, false, true, false, false, false, false, false),
                 performanceSettings().stream().map(SettingMeta::advanced).toList());
     }
 
@@ -350,8 +338,8 @@ class SettingsDefinitionsTest {
                 .allMatch(meta -> RouteId.parse("performance.gpu").equals(meta.route())));
         assertTrue(SettingsDefinitions.performanceChunks().stream()
                 .allMatch(meta -> RouteId.parse("performance.chunks").equals(meta.route())));
-        assertTrue(SettingsDefinitions.performanceSynchronization().stream()
-                .allMatch(meta -> RouteId.parse("performance.synchronization").equals(meta.route())));
+        assertTrue(SettingsDefinitions.performanceResolution().stream()
+                .allMatch(meta -> RouteId.parse("performance.resolution").equals(meta.route())));
     }
 
     @Test
@@ -386,7 +374,7 @@ class SettingsDefinitionsTest {
     private static List<SettingMeta> performanceSettings() {
         List<SettingMeta> all = new ArrayList<>(SettingsDefinitions.performanceGpu());
         all.addAll(SettingsDefinitions.performanceChunks());
-        all.addAll(SettingsDefinitions.performanceSynchronization());
+        all.addAll(SettingsDefinitions.performanceResolution());
         return all;
     }
 
@@ -428,9 +416,8 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void renderingEntitiesHasItsSettingsInSpecOrder() {
-        assertEquals(List.of("minecraft:quality.entity_shadows", "minecraft:quality.entity_distance",
-                        "vulkanmod:entities.shadow_casters"),
+    void renderingEntitiesHoldsOnlyTheVanillaEntityRows() {
+        assertEquals(List.of("minecraft:quality.entity_shadows", "minecraft:quality.entity_distance"),
                 SettingsDefinitions.renderingEntities().stream().map(meta -> meta.id().toString()).toList());
     }
 

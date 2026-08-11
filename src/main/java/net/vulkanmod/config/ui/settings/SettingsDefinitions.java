@@ -16,10 +16,7 @@ public final class SettingsDefinitions {
     public static final String REASON_CORE_SHADER_PACK = "vulkanmod.ui.disabled.core_shader_pack";
     public static final String REASON_LAUNCH_FLAG = "vulkanmod.ui.disabled.launch_flag";
     public static final String REASON_MACOS_ONLY = "vulkanmod.ui.disabled.macos_only";
-    public static final String REASON_CAMILLE = "vulkanmod.ui.disabled.camille";
     public static final String REASON_VULKAN_SDK = "vulkanmod.ui.disabled.vulkan_sdk";
-    public static final String REASON_VSYNC_OFF = "vulkanmod.ui.disabled.vsync_off";
-    public static final String REASON_PRESENT_MODE = "vulkanmod.ui.disabled.present_mode";
     public static final String REASON_ANISOTROPY = "vulkanmod.ui.disabled.anisotropy";
 
     public static final RouteId SHADERS_CURRENT = RouteId.parse("shaders.current");
@@ -30,13 +27,12 @@ public final class SettingsDefinitions {
     public static final RouteId DISPLAY_INTERFACE = RouteId.parse("display.interface");
     public static final RouteId DISPLAY_VOLCANIC = RouteId.parse("display.volcanic");
     public static final RouteId RENDERING_GENERAL = RouteId.parse("rendering.general");
-    public static final RouteId RENDERING_RESOLUTION = RouteId.parse("rendering.resolution");
+    public static final RouteId PERFORMANCE_RESOLUTION = RouteId.parse("performance.resolution");
     public static final RouteId RENDERING_CULLING = RouteId.parse("rendering.culling");
     public static final RouteId RENDERING_ENTITIES = RouteId.parse("rendering.entities");
     public static final RouteId RENDERING_ADVANCED = RouteId.parse("rendering.advanced");
     public static final RouteId PERFORMANCE_GPU = RouteId.parse("performance.gpu");
     public static final RouteId PERFORMANCE_CHUNKS = RouteId.parse("performance.chunks");
-    public static final RouteId PERFORMANCE_SYNCHRONIZATION = RouteId.parse("performance.synchronization");
     public static final RouteId QUALITY_TEXTURES = RouteId.parse("quality.textures");
     public static final RouteId QUALITY_LIGHTING = RouteId.parse("quality.lighting");
     public static final RouteId QUALITY_ENVIRONMENT = RouteId.parse("quality.environment");
@@ -48,7 +44,6 @@ public final class SettingsDefinitions {
     public static final SettingId VIEW_BOBBING = SettingId.parse("minecraft:display.view_bobbing");
     public static final SettingId DAMAGE_TILT = SettingId.parse("minecraft:display.damage_tilt");
     public static final SettingId GLINT_STRENGTH = SettingId.parse("minecraft:quality.glint_strength");
-    public static final SettingId SHADOW_CASTERS = SettingId.parse("vulkanmod:entities.shadow_casters");
     public static final SettingId WIND_STRENGTH = SettingId.parse("vulkanmod:environment.wind_strength");
     public static final SettingId DEBUG_MENU = SettingId.parse("vulkanmod:developer.debug_menu");
     public static final SettingId DEBUG_MENU_KEY = SettingId.parse("vulkanmod:developer.debug_menu_key");
@@ -59,12 +54,14 @@ public final class SettingsDefinitions {
     public static final SettingId STATS_SAMPLE_IN_MENUS = SettingId.parse("vulkanmod:developer.stats_sample_in_menus");
     public static final SettingId VULKAN_VALIDATION = SettingId.parse("vulkanmod:advanced.vulkan_validation");
     public static final SettingId VSR_DEBUG = SettingId.parse("vulkanmod:developer.vsr_debug");
-    public static final SettingId PBR_DEBUG_NORMALS = SettingId.parse("vulkanmod:developer.pbr_debug_normals");
 
     public static final SettingId WINDOW_MODE = SettingId.parse("vulkanmod:display.window_mode");
     public static final SettingId RESOLUTION = SettingId.parse("vulkanmod:display.resolution");
     public static final SettingId REFRESH_RATE = SettingId.parse("vulkanmod:display.refresh_rate");
     public static final SettingId VSYNC = SettingId.parse("minecraft:display.vsync");
+    public static final String VSYNC_OFF = "vulkanmod.options.vsync.off";
+    public static final String VSYNC_ON = "vulkanmod.options.vsync.on";
+    public static final String VSYNC_ADAPTIVE = "vulkanmod.options.vsync.adaptive";
     public static final SettingId FRAMERATE_LIMIT = SettingId.parse("minecraft:display.framerate_limit");
 
     public static final SettingId GUI_SCALE = SettingId.parse("minecraft:display.gui_scale");
@@ -99,7 +96,6 @@ public final class SettingsDefinitions {
     public static final SettingId ADAPTIVE_CHUNK_UPLOADS = SettingId.parse("vulkanmod:performance.adaptive_chunk_uploads");
     public static final SettingId CHUNK_UPLOADS_PER_FRAME = SettingId.parse("vulkanmod:performance.chunk_uploads_per_frame");
     public static final SettingId FRAME_QUEUE = SettingId.parse("vulkanmod:performance.frame_queue");
-    public static final SettingId ADAPTIVE_VSYNC = SettingId.parse("vulkanmod:performance.adaptive_vsync");
 
     public static final SettingId GRAPHICS_MODE = SettingId.parse("minecraft:quality.graphics_mode");
     public static final SettingId MIPMAP_LEVELS = SettingId.parse("minecraft:quality.mipmap_levels");
@@ -196,9 +192,6 @@ public final class SettingsDefinitions {
     private SettingsDefinitions() {
     }
 
-    public static final java.util.Set<SettingId> CAMILLE_ONLY = java.util.Set.of(
-            SHADOW_CASTERS, WIND_STRENGTH, PBR_DEBUG_NORMALS);
-
     public static Optional<String> disabledReasonKey(SettingId id) {
         if (id == null) {
             throw new IllegalArgumentException("id must not be null");
@@ -215,7 +208,7 @@ public final class SettingsDefinitions {
         if (ANISOTROPIC_FILTERING.equals(id)) {
             return Optional.of(REASON_ANISOTROPY);
         }
-        return CAMILLE_ONLY.contains(id) ? Optional.of(REASON_CAMILLE) : Optional.empty();
+        return Optional.empty();
     }
 
     public static List<SettingMeta> displayGeneral() {
@@ -231,7 +224,8 @@ public final class SettingsDefinitions {
                         SettingType.ENUM, SettingSource.VOLCANIC)
                         .scope(ApplyScope.WINDOW).build(),
                 new SettingMeta.Builder(VSYNC, DISPLAY_GENERAL, "options.vsync",
-                        SettingType.BOOL, SettingSource.MINECRAFT)
+                        SettingType.ENUM, SettingSource.MINECRAFT)
+                        .descriptionKey("vulkanmod.options.vsync.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.NONE).build(),
                 new SettingMeta.Builder(FRAMERATE_LIMIT, DISPLAY_GENERAL, "options.framerateLimit",
@@ -332,24 +326,24 @@ public final class SettingsDefinitions {
                         .performance(ImpactLevel.NONE).visual(ImpactLevel.LOW).build());
     }
 
-    public static List<SettingMeta> renderingResolution() {
+    public static List<SettingMeta> performanceResolution() {
         return List.of(
-                new SettingMeta.Builder(VSR_PRESET, RENDERING_RESOLUTION, "vulkanmod.options.vsrPreset",
+                new SettingMeta.Builder(VSR_PRESET, PERFORMANCE_RESOLUTION, "vulkanmod.options.vsrPreset",
                         SettingType.ENUM, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.vsrPreset.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.HIGH).visual(ImpactLevel.HIGH).build(),
-                new SettingMeta.Builder(VSR_UPSCALER, RENDERING_RESOLUTION, "vulkanmod.options.vsrBackend",
+                new SettingMeta.Builder(VSR_UPSCALER, PERFORMANCE_RESOLUTION, "vulkanmod.options.vsrBackend",
                         SettingType.ENUM, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.vsrBackend.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.MEDIUM).build(),
-                new SettingMeta.Builder(VSR_RENDER_SCALE, RENDERING_RESOLUTION, "vulkanmod.options.renderScale",
+                new SettingMeta.Builder(VSR_RENDER_SCALE, PERFORMANCE_RESOLUTION, "vulkanmod.options.renderScale",
                         SettingType.INT, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.renderScale.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.HIGH).visual(ImpactLevel.HIGH).build(),
-                new SettingMeta.Builder(VSR_SHARPNESS, RENDERING_RESOLUTION, "vulkanmod.options.vsrSharpness",
+                new SettingMeta.Builder(VSR_SHARPNESS, PERFORMANCE_RESOLUTION, "vulkanmod.options.vsrSharpness",
                         SettingType.INT, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.vsrSharpness.tooltip")
                         .scope(ApplyScope.INSTANT)
@@ -396,7 +390,12 @@ public final class SettingsDefinitions {
                         SettingType.BOOL, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.uniqueOpaqueLayer.tooltip")
                         .scope(ApplyScope.CHUNK_REBUILD)
-                        .performance(ImpactLevel.LOW).visual(ImpactLevel.NONE).build());
+                        .performance(ImpactLevel.LOW).visual(ImpactLevel.NONE).build(),
+                new SettingMeta.Builder(FRAME_QUEUE, PERFORMANCE_GPU, "vulkanmod.options.frameQueue",
+                        SettingType.INT, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.frameQueue.tooltip")
+                        .scope(ApplyScope.SWAPCHAIN).advanced(true)
+                        .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.NONE).build());
     }
 
     public static List<SettingMeta> performanceChunks() {
@@ -417,20 +416,6 @@ public final class SettingsDefinitions {
                         .scope(ApplyScope.RESTART)
                         .performance(ImpactLevel.HIGH).visual(ImpactLevel.NONE).build()
 );
-    }
-
-    public static List<SettingMeta> performanceSynchronization() {
-        return List.of(
-                new SettingMeta.Builder(ADAPTIVE_VSYNC, PERFORMANCE_SYNCHRONIZATION,
-                        "vulkanmod.options.adaptiveVsync", SettingType.BOOL, SettingSource.VOLCANIC)
-                        .descriptionKey("vulkanmod.options.adaptiveVsync.tooltip")
-                        .scope(ApplyScope.SWAPCHAIN)
-                        .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.LOW).build(),
-                new SettingMeta.Builder(FRAME_QUEUE, PERFORMANCE_SYNCHRONIZATION, "vulkanmod.options.frameQueue",
-                        SettingType.INT, SettingSource.VOLCANIC)
-                        .descriptionKey("vulkanmod.options.frameQueue.tooltip")
-                        .scope(ApplyScope.SWAPCHAIN).advanced(true)
-                        .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.NONE).build());
     }
 
     public static List<SettingMeta> qualityTextures() {
@@ -526,12 +511,7 @@ public final class SettingsDefinitions {
                 new SettingMeta.Builder(ENTITY_DISTANCE, RENDERING_ENTITIES, "options.entityDistanceScaling",
                         SettingType.INT, SettingSource.MINECRAFT)
                         .scope(ApplyScope.INSTANT)
-                        .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.LOW).build(),
-                new SettingMeta.Builder(SHADOW_CASTERS, RENDERING_ENTITIES, "vulkanmod.options.entityShadows",
-                        SettingType.BOOL, SettingSource.VOLCANIC)
-                        .descriptionKey("vulkanmod.options.entityShadows.tooltip")
-                        .scope(ApplyScope.INSTANT)
-                        .performance(ImpactLevel.HIGH).visual(ImpactLevel.MEDIUM).build());
+                        .performance(ImpactLevel.MEDIUM).visual(ImpactLevel.LOW).build());
     }
 
     public static final String GROUP_PARTICLES = "vulkanmod.ui.group.particles";
@@ -588,11 +568,6 @@ public final class SettingsDefinitions {
                 new SettingMeta.Builder(VSR_DEBUG, DEVELOPER_TOOLS, "vulkanmod.options.vsrDebug",
                         SettingType.BOOL, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.vsrDebug.tooltip")
-                        .scope(ApplyScope.INSTANT)
-                        .performance(ImpactLevel.NONE).visual(ImpactLevel.HIGH).build(),
-                new SettingMeta.Builder(PBR_DEBUG_NORMALS, DEVELOPER_TOOLS,
-                        "vulkanmod.options.pbrDebugNormals", SettingType.BOOL, SettingSource.VOLCANIC)
-                        .descriptionKey("vulkanmod.options.pbrDebugNormals.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.NONE).visual(ImpactLevel.HIGH).build());
     }

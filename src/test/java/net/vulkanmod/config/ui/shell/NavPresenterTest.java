@@ -127,7 +127,7 @@ class NavPresenterTest {
     void renderingHasItsSubTabs() {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("rendering"));
-        assertEquals(5, presenter.subTabs().size());
+        assertEquals(4, presenter.subTabs().size());
         assertEquals(RouteId.parse("rendering.general"), presenter.subTabs().get(0).route());
     }
 
@@ -135,7 +135,7 @@ class NavPresenterTest {
     void navigatingToASubTabKeepsTheSameSubTabs() {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("rendering.culling"));
-        assertEquals(5, presenter.subTabs().size());
+        assertEquals(4, presenter.subTabs().size());
     }
 
     @Test
@@ -149,10 +149,10 @@ class NavPresenterTest {
     void backReturnsToThePreviousLeafAndRebuildsTheContentRing() {
         NavPresenter presenter = new NavPresenter();
         presenter.navigate(RouteId.parse("rendering"));
-        assertEquals(5, presenter.subTabs().size());
+        assertEquals(4, presenter.subTabs().size());
         assertEquals(5, presenter.settings().size());
-        assertEquals(11, presenter.focus().ring(NavPresenter.REGION_CONTENT).size(),
-                "five tabs, five settings, plus the favourites button");
+        assertEquals(10, presenter.focus().ring(NavPresenter.REGION_CONTENT).size(),
+                "four tabs, five settings, plus the favourites button");
 
         assertTrue(presenter.back());
 
@@ -189,7 +189,7 @@ class NavPresenterTest {
     void everyNavigationKeyResolvesInEnUs() throws IOException {
         Map<String, String> lang = readLang();
         List<String> keys = navigationKeys(new NavPresenter().tree());
-        assertEquals(37, keys.size());
+        assertEquals(36, keys.size());
 
         List<String> unresolved = new ArrayList<>();
         for (String key : keys) {

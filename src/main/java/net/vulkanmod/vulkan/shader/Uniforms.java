@@ -72,7 +72,7 @@ public class Uniforms {
         vec1f_uniformMap.put("WindTime", VRenderSystem::getWindTime);
         vec1f_uniformMap.put("WindStrength", () -> {
             var cfg = net.vulkanmod.Initializer.CONFIG;
-            return cfg.windEnabled && cfg.shadersEnabled && cfg.isCamille() ? cfg.windStrength : 0.0f;
+            return cfg.windEnabled ? cfg.windStrength : 0.0f;
         });
         vec3f_uniformMap.put("CameraWorldPos", VRenderSystem::getCapturedCameraPos);
 
