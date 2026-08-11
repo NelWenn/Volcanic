@@ -32,10 +32,7 @@ bin/
 # fabric
 
 run/
-docs/superpowers/
-docs/options-menu-*
-docs/options-a-coder.md
-docs/xaero-compat.md
+docs/
 
 # design mockups
 
