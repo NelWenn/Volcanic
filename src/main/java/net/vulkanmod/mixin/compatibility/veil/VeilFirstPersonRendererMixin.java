@@ -1,5 +1,6 @@
 package net.vulkanmod.mixin.compatibility.veil;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -10,6 +11,7 @@ public class VeilFirstPersonRendererMixin {
 
     @Inject(method = "bind", at = @At("HEAD"), cancellable = true, require = 0)
     private static void vulkanMod$skipBind(int mask, CallbackInfo ci) {
+        RenderSystem.clear(mask, false);
         ci.cancel();
     }
 

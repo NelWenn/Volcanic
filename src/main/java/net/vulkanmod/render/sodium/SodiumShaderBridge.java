@@ -32,32 +32,36 @@ public final class SodiumShaderBridge {
             disable();
             return;
         }
-        refreshTerrain(provider);
-        refreshClouds(provider);
+        if (refreshTerrain(provider)) {
+            refreshClouds(provider);
+        }
     }
 
-    private static void refreshTerrain(ResourceProvider provider) {
+    private static boolean refreshTerrain(ResourceProvider provider) {
         Optional<Resource> fragment = provider.getResource(BLOCK_FRAGMENT);
         if (fragment.isEmpty() || !isResourcePackSource(fragment.get())) {
             disable();
-            return;
+            return false;
         }
 
+        EnumMap<TerrainRenderType, GraphicsPipeline> built = new EnumMap<>(TerrainRenderType.class);
         try {
             String packFragment = read(fragment.get());
-            EnumMap<TerrainRenderType, GraphicsPipeline> built = new EnumMap<>(TerrainRenderType.class);
             for (TerrainRenderType renderType : TerrainRenderType.VALUES) {
                 built.put(renderType, SodiumTerrainCompiler.compile(renderType, packFragment, provider));
             }
-
-            cleanup();
-            PIPELINES.putAll(built);
-            active = true;
-            Initializer.LOGGER.info("Sodium core shader pack active: compiled block_layer_opaque for {} terrain passes", built.size());
         } catch (Throwable t) {
             Initializer.LOGGER.error("Failed to apply Sodium core shader pack, falling back to native terrain shader", t);
+            discard(built.values());
             disable();
+            return false;
         }
+
+        cleanup();
+        PIPELINES.putAll(built);
+        active = true;
+        Initializer.LOGGER.info("Sodium core shader pack active: compiled block_layer_opaque for {} terrain passes", built.size());
+        return true;
     }
 
     private static void refreshClouds(ResourceProvider provider) {
@@ -111,12 +115,16 @@ public final class SodiumShaderBridge {
     }
 
     private static void cleanup() {
-        for (GraphicsPipeline pipeline : PIPELINES.values()) {
+        discard(PIPELINES.values());
+        PIPELINES.clear();
+    }
+
+    private static void discard(Iterable<GraphicsPipeline> pipelines) {
+        for (GraphicsPipeline pipeline : pipelines) {
             if (pipeline != null) {
-                pipeline.cleanUp();
+                pipeline.scheduleCleanUp();
             }
         }
-        PIPELINES.clear();
     }
 
     private static String read(Resource resource) {
