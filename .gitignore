@@ -32,8 +32,10 @@ bin/
 # fabric
 
 run/
-docs/
+docs/superpowers/
+docs/options-menu-*
+docs/xaero-compat.md
 
-# design mockups
-
-.superpowers/
+# working notes stay local; the README logo does not
+docs/*
+!docs/logo.png
