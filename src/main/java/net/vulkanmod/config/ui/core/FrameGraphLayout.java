@@ -19,7 +19,6 @@ public final class FrameGraphLayout {
     public static final int PAUSE_H = 17;
     public static final int STUTTER_H = 13;
     public static final int PROFILE_H = 13;
-    public static final int PROFILE_GAP = 2;
     public static final int BLOCK_GAP = 16;
     public static final int HEADING_H = 11;
     public static final int HEADING_GAP = 6;
@@ -98,8 +97,8 @@ public final class FrameGraphLayout {
         int cursor = TOP;
 
         Group fingerprint = group(left, base, cursor, usable, counts.fingerprint(),
-                gridColumns(breakpoint, 6), CELL_H);
-        cursor += groupHeight(counts.fingerprint(), gridColumns(breakpoint, 6), CELL_H);
+                gridColumns(breakpoint), CELL_H);
+        cursor += groupHeight(counts.fingerprint(), gridColumns(breakpoint), CELL_H);
 
         Rect pause = new Rect(left + usable - PAUSE_W, base + cursor, PAUSE_W, PAUSE_H);
         cursor += PAUSE_H + 6;
@@ -163,7 +162,7 @@ public final class FrameGraphLayout {
         List<Rect> profile = cells(left, base, cursor, usable, counts.profile(), 1, PROFILE_H);
         cursor += gridHeight(counts.profile(), 1, PROFILE_H) + BLOCK_GAP;
 
-        int wide = gridColumns(breakpoint, 6);
+        int wide = gridColumns(breakpoint);
         Group scene = group(left, base, cursor, usable, counts.scene(), wide, CELL_H);
         cursor += groupHeight(counts.scene(), wide, CELL_H);
         Group terrain = group(left, base, cursor, usable, counts.terrain(), wide, CELL_H, true);
@@ -172,7 +171,7 @@ public final class FrameGraphLayout {
         cursor += groupHeight(counts.memory(), wide, CELL_H, true);
         int allocatorRows = Math.max(1, counts.allocators());
         List<Rect> allocators = cells(left, base, cursor, usable, allocatorRows, 1, PROFILE_H);
-        cursor += allocatorRows * (PROFILE_H + PROFILE_GAP) - PROFILE_GAP + BLOCK_GAP;
+        cursor += gridHeight(allocatorRows, 1, PROFILE_H) + BLOCK_GAP;
         Group machine = group(left, base, cursor, usable, counts.machine(), wide, CELL_H, true);
         cursor += groupHeight(counts.machine(), wide, CELL_H, true);
 
@@ -214,9 +213,9 @@ public final class FrameGraphLayout {
         return index < 0 || index >= total ? -1 : index;
     }
 
-    private static int gridColumns(Breakpoint breakpoint, int wide) {
-        return requireBreakpoint(breakpoint) == Breakpoint.WIDE ? wide
-                : breakpoint == Breakpoint.MEDIUM ? Math.max(3, wide - 1) : 3;
+    private static int gridColumns(Breakpoint breakpoint) {
+        return requireBreakpoint(breakpoint) == Breakpoint.WIDE ? 6
+                : breakpoint == Breakpoint.MEDIUM ? 5 : 3;
     }
 
     private static Group group(int left, int base, int cursor, int usable, int count, int columns,
@@ -322,7 +321,7 @@ public final class FrameGraphLayout {
     }
 
     public static int contentHeight(Counts counts, Breakpoint breakpoint) {
-        int wide = gridColumns(breakpoint, 6);
+        int wide = gridColumns(breakpoint);
         int height = TOP
                 + groupHeight(counts.fingerprint(), wide, CELL_H)
                 + PAUSE_H + 6 + MARKER_H + MARKER_GAP + plotHeight(breakpoint) + 1 + GC_BAND_H + 5
@@ -345,7 +344,7 @@ public final class FrameGraphLayout {
                 + groupHeight(counts.scene(), wide, CELL_H)
                 + groupHeight(counts.terrain(), wide, CELL_H, true)
                 + groupHeight(counts.memory(), wide, CELL_H, true)
-                + Math.max(1, counts.allocators()) * (PROFILE_H + PROFILE_GAP) - PROFILE_GAP + BLOCK_GAP
+                + gridHeight(Math.max(1, counts.allocators()), 1, PROFILE_H) + BLOCK_GAP
                 + groupHeight(counts.machine(), wide, CELL_H, true)
                 + ACTION_H + BLOCK_GAP + LINE + 3 + LINE + 3 + LINE * 2;
         requireBreakpoint(breakpoint);

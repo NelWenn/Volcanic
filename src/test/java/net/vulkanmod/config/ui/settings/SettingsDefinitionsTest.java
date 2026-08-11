@@ -72,6 +72,18 @@ class SettingsDefinitionsTest {
     }
 
     @Test
+    void everyTitleKeyWeOwnResolvesInTheLanguageFile() throws IOException {
+        List<String> lang = Files.readAllLines(LANG);
+        List<String> missing = new ArrayList<>();
+        for (SettingMeta meta : allSettings()) {
+            if (meta.titleKey().startsWith("vulkanmod.") && !declares(lang, meta.titleKey())) {
+                missing.add(meta.titleKey());
+            }
+        }
+        assertEquals(List.of(), missing);
+    }
+
+    @Test
     void aSettingWithNothingToExplainNamesNoReason() {
         assertEquals(Optional.empty(), SettingsDefinitions.disabledReasonKey(SettingsDefinitions.VSYNC));
         assertEquals(Optional.empty(), SettingsDefinitions.disabledReasonKey(SettingsDefinitions.GUI_SCALE));
@@ -287,20 +299,6 @@ class SettingsDefinitionsTest {
         assertTrue(renderingSettings().stream().noneMatch(SettingMeta::experimental));
     }
 
-    @Test
-    void everyVolcanicRenderingTitleKeyResolvesInTheLanguageFile() throws IOException {
-        List<String> lang = Files.readAllLines(
-                Path.of("src/main/resources/assets/vulkanmod/lang/en_us.json"));
-        for (SettingMeta meta : renderingSettings()) {
-            if (!meta.titleKey().startsWith("vulkanmod.")) {
-                continue;
-            }
-            String entry = "\"" + meta.titleKey() + "\":";
-            assertTrue(lang.stream().anyMatch(line -> line.trim().startsWith(entry)),
-                    "missing language key " + meta.titleKey());
-        }
-    }
-
     private static List<SettingMeta> renderingSettings() {
         List<SettingMeta> all = new ArrayList<>(SettingsDefinitions.renderingGeneral());
         all.addAll(SettingsDefinitions.renderingCulling());
@@ -357,20 +355,6 @@ class SettingsDefinitionsTest {
                 .allMatch(meta -> RouteId.parse("performance.chunks").equals(meta.route())));
         assertTrue(SettingsDefinitions.performanceResolution().stream()
                 .allMatch(meta -> RouteId.parse("performance.resolution").equals(meta.route())));
-    }
-
-    @Test
-    void everyVolcanicPerformanceTitleKeyResolvesInTheLanguageFile() throws IOException {
-        List<String> lang = Files.readAllLines(
-                Path.of("src/main/resources/assets/vulkanmod/lang/en_us.json"));
-        for (SettingMeta meta : performanceSettings()) {
-            if (!meta.titleKey().startsWith("vulkanmod.")) {
-                continue;
-            }
-            String entry = "\"" + meta.titleKey() + "\":";
-            assertTrue(lang.stream().anyMatch(line -> line.trim().startsWith(entry)),
-                    "missing language key " + meta.titleKey());
-        }
     }
 
     @Test
@@ -492,20 +476,6 @@ class SettingsDefinitionsTest {
     }
 
     @Test
-    void everyVolcanicQualityTitleKeyResolvesInTheLanguageFile() throws IOException {
-        List<String> lang = Files.readAllLines(
-                Path.of("src/main/resources/assets/vulkanmod/lang/en_us.json"));
-        for (SettingMeta meta : qualitySettings()) {
-            if (!meta.titleKey().startsWith("vulkanmod.")) {
-                continue;
-            }
-            String entry = "\"" + meta.titleKey() + "\":";
-            assertTrue(lang.stream().anyMatch(line -> line.trim().startsWith(entry)),
-                    "missing language key " + meta.titleKey());
-        }
-    }
-
-    @Test
     void noQualityTitleKeyIsSharedWithAnotherQualitySetting() {
         List<String> keys = qualitySettings().stream().map(SettingMeta::titleKey).toList();
         assertEquals(keys.size(), keys.stream().distinct().count());
@@ -623,20 +593,6 @@ class SettingsDefinitionsTest {
     void noAdvancedTitleKeyIsSharedWithAnotherAdvancedSetting() {
         List<String> keys = advancedSettings().stream().map(SettingMeta::titleKey).toList();
         assertEquals(keys.size(), keys.stream().distinct().count());
-    }
-
-    @Test
-    void everyVolcanicAdvancedTitleKeyResolvesInTheLanguageFile() throws IOException {
-        List<String> lang = Files.readAllLines(
-                Path.of("src/main/resources/assets/vulkanmod/lang/en_us.json"));
-        for (SettingMeta meta : advancedSettings()) {
-            if (!meta.titleKey().startsWith("vulkanmod.")) {
-                continue;
-            }
-            String entry = "\"" + meta.titleKey() + "\":";
-            assertTrue(lang.stream().anyMatch(line -> line.trim().startsWith(entry)),
-                    "missing language key " + meta.titleKey());
-        }
     }
 
     private static List<SettingMeta> advancedSettings() {

@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.Locale;
 
 public final class BenchmarkStore {
@@ -15,14 +16,10 @@ public final class BenchmarkStore {
     private static final String HEADER = "volcanic-benchmarks 1";
     private static final String CONTEXT = "context ";
 
-    public interface Log {
-        void note(String message);
-    }
-
     private BenchmarkStore() {
     }
 
-    public static void load(Path path, int context, ProfileResults into, Log log) {
+    public static void load(Path path, int context, ProfileResults into, Consumer<String> log) {
         require(path, into);
         if (!Files.isRegularFile(path)) {
             return;
@@ -51,7 +48,7 @@ public final class BenchmarkStore {
         }
     }
 
-    public static void save(Path path, int context, ProfileResults results, Iterable<String> keys, Log log) {
+    public static void save(Path path, int context, ProfileResults results, Iterable<String> keys, Consumer<String> log) {
         require(path, results);
         List<String> lines = new ArrayList<>();
         lines.add(HEADER);
@@ -105,9 +102,9 @@ public final class BenchmarkStore {
         }
     }
 
-    private static void note(Log log, String message) {
+    private static void note(Consumer<String> log, String message) {
         if (log != null) {
-            log.note(message);
+            log.accept(message);
         }
     }
 

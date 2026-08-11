@@ -235,10 +235,14 @@ class CoalSceneTest {
     @Test
     void everyParticleIsRecycledRatherThanLeftDeadOnScreen() {
         CoalScene scene = run(10L, 900);
+        int alive = 0;
         for (int index = 0; index < CoalScene.PARTICLES; index++) {
-            assertTrue((scene.argbOf(index) >>> 24) >= 0);
             assertTrue(scene.sizeOf(index) >= 1, "particle " + index + " decayed to nothing");
+            if ((scene.argbOf(index) >>> 24) > 0) {
+                alive++;
+            }
         }
+        assertTrue(alive > 0, "after nine seconds every particle had faded out and none came back");
     }
 
     @Test

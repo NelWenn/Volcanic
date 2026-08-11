@@ -410,7 +410,6 @@
   "vulkanmod.options.vsync.on": "On",
   "vulkanmod.options.vsync.adaptive": "Adaptive",
   "vulkanmod.options.vsync.tooltip": "Off lets the game present as fast as it renders, which tears. On locks presentation to the display's refresh rate.\n\nAdaptive keeps that lock but presents a late frame immediately instead of holding it for the next interval, so one missed frame costs a few milliseconds rather than dropping you from 60 to 30. It only appears when the driver offers the relaxed present mode, which MoltenVK on macOS does not.",
-  "vulkanmod.options.leavesQuality": "Leaves",
   "vulkanmod.options.leavesQuality.fancy": "Fancy",
   "vulkanmod.options.leavesQuality.fast": "Fast",
   "vulkanmod.options.leavesQuality.tooltip": "Fancy draws every leaf face, including the ones buried inside a canopy where nothing can see them. Fast skips the faces shared between two leaf blocks, which is most of a forest.\n\nThe outside of a tree looks the same either way; you only notice standing inside dense foliage. Rebuilds the terrain.",
@@ -423,5 +422,6 @@
   "vulkanmod.ui.disabled.vsr_custom": "Set Resolution Scaling to Custom to choose this yourself.",
   "vulkanmod.ui.disabled.indirect_draw": "Needs Indirect Draw on.",
   "vulkanmod.ui.disabled.external_lod_off": "Needs the LOD bridge on.",
-  "vulkanmod.ui.disabled.no_indirect_draw": "This GPU does not support multi-draw indirect."
+  "vulkanmod.ui.disabled.no_indirect_draw": "This GPU does not support multi-draw indirect.",
+  "vulkanmod.options.leavesQuality": "Leaves"
 }
