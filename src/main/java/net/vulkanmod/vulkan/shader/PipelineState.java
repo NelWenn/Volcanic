@@ -187,6 +187,15 @@ public class PipelineState {
             this.blendOp = this.blendOpRgb;
         }
 
+        public void setMultiplyBlend() {
+            this.enabled = true;
+            this.srcRgbFactor = VK_BLEND_FACTOR_DST_COLOR;
+            this.dstRgbFactor = VK_BLEND_FACTOR_ZERO;
+            this.srcAlphaFactor = VK_BLEND_FACTOR_ONE;
+            this.dstAlphaFactor = VK_BLEND_FACTOR_ZERO;
+            this.blendOp = this.blendOpRgb = this.blendOpAlpha = VK_BLEND_OP_ADD;
+        }
+
         public int createBlendState() {
             return BlendState.getState(this);
         }

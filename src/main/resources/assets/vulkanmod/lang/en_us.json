@@ -126,5 +126,6 @@
   "vulkanmod.options.disableHiDPI": "Reduce Resolution (HiDPI)",
   "vulkanmod.options.disableHiDPI.tooltip": "macOS: render at the display's logical resolution instead of the full Retina resolution. Much faster, slightly softer image. Requires restart.",
 
-  "vulkanmod.keybind.toggle_debug_overlay": "Toggle Debug Overlay"
+  "vulkanmod.keybind.toggle_debug_overlay": "Toggle Debug Overlay",
+  "vulkanmod.keybind.toggle_framegraph_overlay": "Toggle Framegraph Overlay"
 }

@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.util.GsonHelper;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.render.pipeline.RenderPipeline;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.Vulkan;
 import net.vulkanmod.vulkan.device.DeviceManager;
@@ -33,6 +34,8 @@ import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -43,10 +46,10 @@ import static net.vulkanmod.vulkan.shader.SPIRVUtils.compileShaderAbsoluteFile;
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
-public abstract class Pipeline {
+public abstract class Pipeline implements RenderPipeline {
 
     private static final VkDevice DEVICE = Vulkan.getVkDevice();
-    private static final java.nio.file.Path CACHE_PATH = java.nio.file.Path.of("config", "vulkanmod_pipeline_cache.bin");
+    private static final Path CACHE_PATH = Path.of("config", "vulkanmod_pipeline_cache.bin");
     protected static final long PIPELINE_CACHE = createPipelineCache();
     public static final List<Pipeline> PIPELINES = new LinkedList<>();
 
@@ -56,9 +59,9 @@ public abstract class Pipeline {
             cacheCreateInfo.sType(VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO);
 
             ByteBuffer initialData = null;
-            if (java.nio.file.Files.exists(CACHE_PATH)) {
+            if (Files.exists(CACHE_PATH)) {
                 try {
-                    byte[] bytes = java.nio.file.Files.readAllBytes(CACHE_PATH);
+                    byte[] bytes = Files.readAllBytes(CACHE_PATH);
                     if (bytes.length > 0) {
                         initialData = MemoryUtil.memAlloc(bytes.length);
                         initialData.put(bytes);
@@ -101,10 +104,10 @@ public abstract class Pipeline {
                     dataBuffer.get(bytes);
 
                     try {
-                        if (!java.nio.file.Files.exists(CACHE_PATH.getParent())) {
-                            java.nio.file.Files.createDirectories(CACHE_PATH.getParent());
+                        if (!Files.exists(CACHE_PATH.getParent())) {
+                            Files.createDirectories(CACHE_PATH.getParent());
                         }
-                        java.nio.file.Files.write(CACHE_PATH, bytes);
+                        Files.write(CACHE_PATH, bytes);
                     } catch (Exception e) {
                         System.err.println("[VulkanMod] Failed to write pipeline cache: " + e.getMessage());
                     }
@@ -152,6 +155,7 @@ public abstract class Pipeline {
 
             for (UBO ubo : this.buffers) {
                 VkDescriptorSetLayoutBinding uboLayoutBinding = bindings.get(ubo.getBinding());
+
                 uboLayoutBinding.binding(ubo.getBinding());
                 uboLayoutBinding.descriptorCount(1);
                 uboLayoutBinding.descriptorType(ubo.getType());
@@ -161,6 +165,7 @@ public abstract class Pipeline {
 
             for (ImageDescriptor imageDescriptor : this.imageDescriptors) {
                 VkDescriptorSetLayoutBinding samplerLayoutBinding = bindings.get(imageDescriptor.getBinding());
+
                 samplerLayoutBinding.binding(imageDescriptor.getBinding());
                 samplerLayoutBinding.descriptorCount(1);
                 samplerLayoutBinding.descriptorType(imageDescriptor.getType());
@@ -429,6 +434,7 @@ public abstract class Pipeline {
                 bufferInfos[i].range(ubo.getSize());
 
                 VkWriteDescriptorSet uboDescriptorWrite = descriptorWrites.get(i);
+
                 uboDescriptorWrite.sType$Default();
                 uboDescriptorWrite.dstBinding(ubo.getBinding());
                 uboDescriptorWrite.dstArrayElement(0);
@@ -470,6 +476,7 @@ public abstract class Pipeline {
                     imageInfo[j].sampler(sampler);
 
                 VkWriteDescriptorSet samplerDescriptorWrite = descriptorWrites.get(i);
+
                 samplerDescriptorWrite.sType(VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET);
                 samplerDescriptorWrite.dstBinding(imageDescriptor.getBinding());
                 samplerDescriptorWrite.dstArrayElement(0);
@@ -493,6 +500,7 @@ public abstract class Pipeline {
             }
 
             VkDescriptorSetAllocateInfo allocInfo = VkDescriptorSetAllocateInfo.calloc(stack);
+
             allocInfo.sType$Default();
             allocInfo.descriptorPool(descriptorPool);
             allocInfo.pSetLayouts(layout);
@@ -511,6 +519,7 @@ public abstract class Pipeline {
             VkDescriptorPoolSize.Buffer poolSizes = VkDescriptorPoolSize.calloc(size, stack);
 
             int i;
+
             for (i = 0; i < pipeline.buffers.size(); ++i) {
                 VkDescriptorPoolSize uniformBufferPoolSize = poolSizes.get(i);
 
@@ -525,6 +534,7 @@ public abstract class Pipeline {
             }
 
             VkDescriptorPoolCreateInfo poolInfo = VkDescriptorPoolCreateInfo.calloc(stack);
+
             poolInfo.sType(VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO);
             poolInfo.pPoolSizes(poolSizes);
             poolInfo.maxSets(this.poolSize);
@@ -562,6 +572,7 @@ public abstract class Pipeline {
 
         public static GraphicsPipeline createGraphicsPipeline(VertexFormat format, String path) {
             Pipeline.Builder pipelineBuilder = new Pipeline.Builder(format, path);
+
             pipelineBuilder.parseBindingsJSON();
             pipelineBuilder.compileShaders();
             return pipelineBuilder.createGraphicsPipeline();
@@ -626,6 +637,7 @@ public abstract class Pipeline {
             this.fragShaderSPIRV = compileShader(String.format("%s.fsh", name), fsh, ShaderKind.FRAGMENT_SHADER);
         }
 
+        @Deprecated
         public void parseBindingsJSON() {
             Validate.notNull(this.shaderPath, "Cannot parse bindings: shaderPath is null");
 
@@ -639,6 +651,7 @@ public abstract class Pipeline {
         }
 
         // parse UBO/sampler/push-constant bindings from an already-loaded json (used for external disk-loaded packs)
+        @Deprecated
         public void parseBindings(JsonObject jsonObject) {
             this.UBOs = new ArrayList<>();
             this.imageDescriptors = new ArrayList<>();
@@ -681,6 +694,7 @@ public abstract class Pipeline {
             return Pipeline.class.getResourceAsStream(resourcePath);
         }
 
+        @Deprecated
         private void parseUboNode(JsonElement jsonelement) {
             JsonObject jsonobject = GsonHelper.convertToJsonObject(jsonelement, "UBO");
             int binding = GsonHelper.getAsInt(jsonobject, "binding");
@@ -707,6 +721,7 @@ public abstract class Pipeline {
             this.UBOs.add(ubo);
         }
 
+        @Deprecated
         private void parseManualUboNode(JsonElement jsonelement) {
             JsonObject jsonobject = GsonHelper.convertToJsonObject(jsonelement, "ManualUBO");
             int binding = GsonHelper.getAsInt(jsonobject, "binding");
@@ -719,6 +734,7 @@ public abstract class Pipeline {
             this.manualUBO = new ManualUBO(binding, stage, size);
         }
 
+        @Deprecated
         private void parseSamplerNode(JsonElement jsonelement) {
             JsonObject jsonobject = GsonHelper.convertToJsonObject(jsonelement, "Sampler");
             String name = GsonHelper.getAsString(jsonobject, "name");
@@ -728,6 +744,7 @@ public abstract class Pipeline {
             this.nextBinding++;
         }
 
+        @Deprecated
         private void parsePushConstantNode(JsonArray jsonArray) {
             AlignedStruct.Builder builder = new AlignedStruct.Builder();
 

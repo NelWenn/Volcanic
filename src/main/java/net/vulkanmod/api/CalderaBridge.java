@@ -10,7 +10,6 @@ import net.vulkanmod.compat.external.ExternalTerrainRenderBridge;
 import net.vulkanmod.gl.GlTexture;
 import net.vulkanmod.render.DepthSnapshot;
 import net.vulkanmod.render.HiZPyramid;
-import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.buffer.AreaBuffer;
 import net.vulkanmod.render.chunk.buffer.DrawBuffers;
@@ -24,6 +23,7 @@ import net.vulkanmod.vulkan.memory.IndirectBuffer;
 import net.vulkanmod.vulkan.memory.MemoryManager;
 import net.vulkanmod.vulkan.memory.MemoryTypes;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
+import net.vulkanmod.vulkan.shader.PipelineManager;
 import net.vulkanmod.vulkan.shader.PipelineState;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
@@ -462,13 +462,14 @@ public final class CalderaBridge {
             return false;
         }
 
+        PipelineManager pipelineManager = Renderer.getInstance().getPipelineManager();
         GraphicsPipeline pipeline = switch (pass) {
-            case PASS_FLAT_OPAQUE -> PipelineManager.getExternalLodPipeline();
-            case PASS_TEX_OPAQUE -> PipelineManager.getExternalLodTexturedPipeline();
-            case PASS_FLAT_WATER -> PipelineManager.getExternalLodWaterPipeline();
-            case PASS_TEX_WATER -> PipelineManager.getExternalLodWaterTexturedPipeline();
-            case PASS_FLAT_OPAQUE_SOLID -> PipelineManager.getExternalLodSolidPipeline();
-            case PASS_TEX_OPAQUE_SOLID -> PipelineManager.getExternalLodTexturedSolidPipeline();
+            case PASS_FLAT_OPAQUE -> pipelineManager.getPipeline(PipelineManager.PIPELINE_EXTERNAL_LOD);
+            case PASS_TEX_OPAQUE -> pipelineManager.getPipeline(PipelineManager.PIPELINE_EXTERNAL_LOD_TEXTURED);
+            case PASS_FLAT_WATER -> pipelineManager.getPipeline(PipelineManager.PIPELINE_EXTERNAL_LOD_WATER);
+            case PASS_TEX_WATER -> pipelineManager.getPipeline(PipelineManager.PIPELINE_EXTERNAL_LOD_WATER_TEXTURED);
+            case PASS_FLAT_OPAQUE_SOLID -> pipelineManager.getPipeline(PipelineManager.PIPELINE_EXTERNAL_LOD_SOLID);
+            case PASS_TEX_OPAQUE_SOLID -> pipelineManager.getPipeline(PipelineManager.PIPELINE_EXTERNAL_LOD_TEXTURED_SOLID);
             default -> null;
         };
         if (pipeline == null) {

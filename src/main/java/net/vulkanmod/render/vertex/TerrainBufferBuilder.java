@@ -3,8 +3,9 @@ package net.vulkanmod.render.vertex;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.world.level.block.state.BlockState;
 import net.vulkanmod.Initializer;
-import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.material.MaterialRegistry;
+import net.vulkanmod.vulkan.Renderer;
+import net.vulkanmod.vulkan.shader.PipelineManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.system.MemoryUtil;
@@ -38,15 +39,17 @@ public class TerrainBufferBuilder {
     private int currentMaterialId;
     private float currentMidU;
     private float currentMidV;
+    
+    private static final PipelineManager pipelineManager = Renderer.getInstance().getPipelineManager();
 
     public TerrainBufferBuilder(int size) {
         this.bufferPtr = ALLOCATOR.malloc(size);
         this.capacity = size;
 
-        this.format = PipelineManager.TERRAIN_VERTEX_FORMAT;
-        this.vertexBuilder = PipelineManager.TERRAIN_VERTEX_FORMAT == CustomVertexFormat.COMPRESSED_TERRAIN
+        this.format = pipelineManager.TERRAIN_VERTEX_FORMAT;
+        this.vertexBuilder = pipelineManager.TERRAIN_VERTEX_FORMAT == CustomVertexFormat.COMPRESSED_TERRAIN
                 ? new VertexBuilder.CompressedVertexBuilder() : new VertexBuilder.DefaultVertexBuilder();
-        this.materialSlotOffset = PipelineManager.TERRAIN_VERTEX_FORMAT == CustomVertexFormat.COMPRESSED_TERRAIN ? 16 : -1;
+        this.materialSlotOffset = pipelineManager.TERRAIN_VERTEX_FORMAT == CustomVertexFormat.COMPRESSED_TERRAIN ? 16 : -1;
     }
 
     public void ensureCapacity() {
