@@ -619,7 +619,7 @@ public final class NavPresenter {
         if (isDeveloperInfo()) {
             return infoRows.size();
         }
-        return isOverview() ? catalog.overview().rows().size() : contentRows().size();
+        return isOverview() ? presetCards().size() : contentRows().size();
     }
 
     public sealed interface ContentRow permits GroupRow, SettingRow {

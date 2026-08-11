@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class ModConfigReader {
     private static final int DOUBLE_SCALE = 100;
@@ -235,9 +236,32 @@ public final class ModConfigReader {
         return raw;
     }
 
+    private static final List<ModConfigSpec.ConfigValue<?>> PENDING = new ArrayList<>();
+    private static boolean staging;
+
+    public static void beginStaging() {
+        staging = true;
+        PENDING.clear();
+    }
+
+    public static void flush() {
+        staging = false;
+        Set<Object> saved = new java.util.HashSet<>();
+        for (ModConfigSpec.ConfigValue<?> value : PENDING) {
+            if (saved.add(value.getSpec())) {
+                value.save();
+            }
+        }
+        PENDING.clear();
+    }
+
     @SuppressWarnings("unchecked")
     private static void write(ModConfigSpec.ConfigValue<?> value, Object raw) {
         ((ModConfigSpec.ConfigValue<Object>) value).set(raw);
+        if (staging) {
+            PENDING.add(value);
+            return;
+        }
         value.save();
     }
 

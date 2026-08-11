@@ -23,7 +23,7 @@ public class OptionsScreenM extends Screen {
         super(title);
     }
 
-    @Inject(method = "lambda$init$2", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "lambda$init$2", at = @At("HEAD"), cancellable = true, require = 1)
     private void injectVideoOptionScreen(CallbackInfoReturnable<Screen> cir) {
         cir.setReturnValue(new VolcanicScreen(Component.translatable("vulkanmod.options.title"), this));
     }

@@ -90,7 +90,6 @@ public final class SettingsDefinitions {
     public static final SettingId CULLING_PARTICLES = SettingId.parse("vulkanmod:culling.particles");
     public static final SettingId CULLING_LOD_GPU = SettingId.parse("vulkanmod:culling.lod_gpu");
 
-    public static final SettingId PERFORMANCE_PROFILE = SettingId.parse("vulkanmod:performance.profile");
     public static final SettingId INDIRECT_DRAW = SettingId.parse("vulkanmod:performance.indirect_draw");
     public static final SettingId UNIQUE_OPAQUE_LAYER = SettingId.parse("vulkanmod:performance.unique_opaque_layer");
     public static final SettingId ADAPTIVE_CHUNK_UPLOADS = SettingId.parse("vulkanmod:performance.adaptive_chunk_uploads");

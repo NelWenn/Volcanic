@@ -46,7 +46,6 @@ import net.vulkanmod.config.ui.core.CoalArt;
 import net.vulkanmod.config.ui.core.CoalScene;
 import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.NavNode;
-import net.vulkanmod.config.ui.core.OverviewModel;
 import net.vulkanmod.config.ui.core.PresetFx;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;

@@ -37,7 +37,6 @@ import net.vulkanmod.vulkan.device.Device;
 import net.vulkanmod.vulkan.device.DeviceManager;
 import net.vulkanmod.vulkan.framebuffer.SwapChain;
 import net.vulkanmod.vulkan.pass.DefaultMainPass;
-import net.vulkanmod.config.ui.core.OverviewModel;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingRegistry;
@@ -163,10 +162,12 @@ public final class SettingsCatalog {
     public void beginBatch() {
         this.batching = true;
         this.rebuildWanted = false;
+        net.vulkanmod.config.ui.mods.ModConfigReader.beginStaging();
     }
 
     public void endBatch() {
         this.batching = false;
+        net.vulkanmod.config.ui.mods.ModConfigReader.flush();
         if (rebuildWanted) {
             this.rebuildWanted = false;
             Minecraft.getInstance().levelRenderer.allChanged();
@@ -403,30 +404,6 @@ public final class SettingsCatalog {
         return overriddenByLaunchFlag(id)
                 ? Optional.of(SettingsDefinitions.REASON_LAUNCH_FLAG)
                 : Optional.empty();
-    }
-
-    public OverviewModel overview() {
-        int scale = RenderScale.clamp(Initializer.CONFIG.renderScale);
-        return new OverviewModel()
-                .add("vulkanmod.overview.profile",
-                        Optional.of(choiceText(SettingsDefinitions.PERFORMANCE_PROFILE)))
-                .add("vulkanmod.overview.gpu", gpuName())
-                .add("vulkanmod.overview.resolution", resolutionText(RenderScale.MAX))
-                .add("vulkanmod.overview.refresh_rate", whenEnabled(SettingsDefinitions.REFRESH_RATE))
-                .add("vulkanmod.overview.internal_resolution",
-                        Optional.of(valueText(SettingsDefinitions.VSR_RENDER_SCALE)))
-                .add("vulkanmod.overview.effective_resolution",
-                        RenderScale.isScaled(scale) ? resolutionText(scale) : Optional.empty())
-                .add("vulkanmod.overview.upscaler", whenEnabled(SettingsDefinitions.VSR_UPSCALER))
-                .add("vulkanmod.overview.vsync", Optional.of(toggleText(SettingsDefinitions.VSYNC)))
-                .add("vulkanmod.overview.render_distance",
-                        Optional.of(valueText(SettingsDefinitions.RENDER_DISTANCE)))
-                .add("vulkanmod.overview.occlusion_culling",
-                        Optional.of(toggleText(SettingsDefinitions.CULLING_OCCLUSION)))
-                .add("vulkanmod.overview.shader_pack", shaderPack())
-                .add("vulkanmod.overview.frame_time", measuredFrameTime())
-                .add("vulkanmod.overview.stability", measuredStability())
-                .add("vulkanmod.overview.provenance", measuredFrom());
     }
 
     public Map<String, Map<SettingId, Object>> profileValues() {
@@ -811,12 +788,6 @@ public final class SettingsCatalog {
                 .withDefault(() -> SettingsDefinitions.BUILDER_THREADS_AUTO)
                 .withFormatter(SettingsCatalog::builderThreadsLabel));
 
-        bindings.put(SettingsDefinitions.PERFORMANCE_PROFILE, SettingBinding.choosing(
-                () -> PerformancePreset.byId(Initializer.CONFIG.performancePreset).translationKey,
-                value -> PerformancePresetApplier.apply(performanceProfileFor(label(value)),
-                        Initializer.CONFIG, Minecraft.getInstance()),
-                () -> performanceProfiles().stream().map(preset -> preset.translationKey).toList())
-                .withDefault(() -> PerformancePreset.BALANCED.translationKey));
     }
 
     private void bindPerformanceGpu() {
@@ -908,12 +879,18 @@ public final class SettingsCatalog {
     private void bindDeveloperTools() {
         bindings.put(SettingsDefinitions.SHOW_FPS, SettingBinding.of(
                 () -> Initializer.CONFIG.showFpsCounter,
-                value -> Initializer.CONFIG.showFpsCounter = boolValue(value))
+                value -> {
+                    Initializer.CONFIG.showFpsCounter = boolValue(value);
+                    unhideOverlay(Initializer.CONFIG.showFpsCounter);
+                })
                 .withDefault(() -> Boolean.FALSE));
 
         bindings.put(SettingsDefinitions.SHOW_COORDINATES, SettingBinding.of(
                 () -> Initializer.CONFIG.showCoordinates,
-                value -> Initializer.CONFIG.showCoordinates = boolValue(value))
+                value -> {
+                    Initializer.CONFIG.showCoordinates = boolValue(value);
+                    unhideOverlay(Initializer.CONFIG.showCoordinates);
+                })
                 .withDefault(() -> Boolean.FALSE));
 
         bindings.put(SettingsDefinitions.PERF_LOG, SettingBinding.of(
@@ -1210,6 +1187,14 @@ public final class SettingsCatalog {
             }
         }
         throw new IllegalArgumentException("unknown graphics mode " + key);
+    }
+
+    private static void unhideOverlay(boolean wanted) {
+        net.vulkanmod.render.profiling.FpsOverlay overlay =
+                HudHandler.getInstance().get(net.vulkanmod.render.profiling.FpsOverlay.class);
+        if (wanted && overlay != null) {
+            overlay.setEnabled(true);
+        }
     }
 
     private static DebugOverlay debugMenu() {
