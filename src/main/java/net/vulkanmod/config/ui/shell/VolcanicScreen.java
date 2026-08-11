@@ -523,7 +523,7 @@ public class VolcanicScreen extends Screen {
         if (index < 0) {
             return false;
         }
-        if (!TabStripModel.fullyVisible(strip, boxes.get(index))) {
+        if (strip.scrollable() && !strip.viewport().contains(mouseX, mouseY)) {
             return true;
         }
 

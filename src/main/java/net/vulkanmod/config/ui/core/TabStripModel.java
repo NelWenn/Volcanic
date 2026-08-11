@@ -57,27 +57,23 @@ public final class TabStripModel {
             return strip.offset();
         }
         Rect viewport = strip.viewport();
-        List<Rect> boxes = strip.boxes();
-        if (direction > 0) {
-            for (Rect box : boxes) {
-                if (box.right() > viewport.right()) {
-                    return strip.offset() + box.right() - viewport.right();
-                }
+        int ceiling = maxOffset(strip.boxes(), viewport) + strip.offset();
+        int best = direction > 0 ? ceiling : 0;
+        for (Rect box : strip.boxes()) {
+            int candidate = strip.offset() + box.x() - viewport.x();
+            if (direction > 0 && candidate > strip.offset() && candidate < best) {
+                best = candidate;
             }
-            return strip.offset();
-        }
-        for (int index = boxes.size() - 1; index >= 0; index--) {
-            Rect box = boxes.get(index);
-            if (box.x() < viewport.x()) {
-                return Math.max(0, strip.offset() - (viewport.x() - box.x()));
+            if (direction < 0 && candidate < strip.offset() && candidate > best) {
+                best = candidate;
             }
         }
-        return strip.offset();
+        return Math.max(0, Math.min(best, ceiling));
     }
 
-    public static boolean fullyVisible(Strip strip, Rect box) {
+    public static boolean visible(Strip strip, Rect box) {
         return !strip.scrollable()
-                || (box.x() >= strip.viewport().x() && box.right() <= strip.viewport().right());
+                || (box.right() > strip.viewport().x() && box.x() < strip.viewport().right());
     }
 
     public static int maxOffset(List<Rect> boxes, Rect viewport) {

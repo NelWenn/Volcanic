@@ -172,20 +172,15 @@ class TabStripModelTest {
     }
 
     @Test
-    void anArrowStepLandsWholeTabsAgainstTheEdgeNeverHalfOfOne() {
-        TabStripModel.Strip strip = TabStripModel.strip(widths(12, 40), BAND, 0, -1);
+    void anArrowStepLandsATabStartAgainstTheLeftEdgeSoNoGapOpens() {
+        int[] widths = widths(12, 40);
+        TabStripModel.Strip strip = TabStripModel.strip(widths, BAND, 0, -1);
         int stepped = TabStripModel.stepOffset(strip, 1);
         assertTrue(stepped > 0);
 
-        TabStripModel.Strip after = TabStripModel.strip(widths(12, 40), BAND, stepped, -1);
-        Rect last = null;
-        for (Rect box : after.boxes()) {
-            if (box.right() <= after.viewport().right()) {
-                last = box;
-            }
-        }
-        assertEquals(after.viewport().right(), last.right(),
-                "the step must leave a tab flush with the right edge");
+        TabStripModel.Strip after = TabStripModel.strip(widths, BAND, stepped, -1);
+        assertEquals(after.viewport().x(), after.boxes().get(1).x(),
+                "the next tab must start exactly where the strip starts, leaving no hole");
     }
 
     @Test
@@ -206,20 +201,21 @@ class TabStripModelTest {
         assertEquals(0, TabStripModel.stepOffset(strip, 1));
         assertEquals(0, TabStripModel.stepOffset(strip, -1));
         for (Rect box : strip.boxes()) {
-            assertTrue(TabStripModel.fullyVisible(strip, box));
+            assertTrue(TabStripModel.visible(strip, box));
         }
     }
 
     @Test
-    void aTabHangingOverTheViewportEdgeCountsAsHidden() {
+    void aTabCutByTheRightEdgeStaysVisibleBecauseThatIsTheSignalThereIsMore() {
         TabStripModel.Strip strip = TabStripModel.strip(widths(12, 40), BAND, 0, -1);
-        boolean anyHidden = false;
+        boolean anyCut = false;
         for (Rect box : strip.boxes()) {
-            if (!TabStripModel.fullyVisible(strip, box)) {
-                anyHidden = true;
-                assertTrue(box.right() > strip.viewport().right() || box.x() < strip.viewport().x());
+            boolean overlaps = box.right() > strip.viewport().x() && box.x() < strip.viewport().right();
+            assertEquals(overlaps, TabStripModel.visible(strip, box));
+            if (overlaps && box.right() > strip.viewport().right()) {
+                anyCut = true;
             }
         }
-        assertTrue(anyHidden, "an overflowing strip must hide something");
+        assertTrue(anyCut, "an overflowing strip must show a tab running off the edge");
     }
 }

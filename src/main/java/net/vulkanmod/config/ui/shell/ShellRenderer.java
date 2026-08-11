@@ -346,7 +346,7 @@ public final class ShellRenderer {
                 painter.flush();
                 painter.setOffset(pageDirection == 0
                         ? Motion.slide(reveal, 0, Motion.PAGE_TRAVEL) : 0, 0);
-                paintBand(painter, font, layout, presenter, deltaMs);
+                paintBand(graphics, painter, font, layout, presenter, deltaMs);
                 paintScrollIndicator(painter, layout, presenter, contentScroll, deltaMs);
                 painter.flush();
             } finally {
@@ -3108,8 +3108,8 @@ public final class ShellRenderer {
         return new Crumbs(BreadcrumbModel.layout(widths, box.x(), box.y()), List.copyOf(labels));
     }
 
-    private void paintBand(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                           long deltaMs) {
+    private void paintBand(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
+                           NavPresenter presenter, long deltaMs) {
         PageHeader.Band band = headerBand(layout, presenter);
         if (band.bounds().isEmpty()) {
             return;
@@ -3128,7 +3128,7 @@ public final class ShellRenderer {
         if (subtitle != null) {
             paintSmallLines(painter, font, band.subtitle(), I18n.get(subtitle), ColorToken.TEXT_MUTED);
         }
-        paintTabStrip(painter, font, layout, presenter, deltaMs);
+        paintTabStrip(graphics, painter, font, layout, presenter, deltaMs);
         painter.fill(band.rule(), theme.color(ColorToken.BORDER_SUBTLE));
     }
 
@@ -3199,8 +3199,8 @@ public final class ShellRenderer {
         }
     }
 
-    private void paintTabStrip(SurfacePainter painter, Font font, ShellLayout layout, NavPresenter presenter,
-                               long deltaMs) {
+    private void paintTabStrip(GuiGraphics graphics, SurfacePainter painter, Font font, ShellLayout layout,
+                               NavPresenter presenter, long deltaMs) {
         List<NavNode> tabs = presenter.subTabs();
         if (tabs.isEmpty()) {
             return;
@@ -3213,12 +3213,17 @@ public final class ShellRenderer {
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
         int gradientTop = theme.color(ColorToken.ACCENT_BRIGHT);
         int gradientBottom = theme.color(ColorToken.ACCENT_DEEP);
+        if (strip.scrollable()) {
+            painter.flush();
+            graphics.enableScissor(strip.viewport().x(), strip.viewport().y(),
+                    strip.viewport().right(), strip.viewport().bottom());
+        }
         paintTabMarker(painter, boxes, tabs, current, deltaMs);
 
         for (int i = 0; i < boxes.size(); i++) {
             Rect box = boxes.get(i);
             NavNode tab = tabs.get(i);
-            if (!TabStripModel.fullyVisible(strip, box)) {
+            if (!TabStripModel.visible(strip, box)) {
                 continue;
             }
 
@@ -3239,6 +3244,8 @@ public final class ShellRenderer {
         }
 
         if (strip.scrollable()) {
+            painter.flush();
+            graphics.disableScissor();
             paintTabArrow(painter, font, strip.prev(), "\u25C0", strip.offset() > 0);
             paintTabArrow(painter, font, strip.next(), "\u25B6",
                     TabStripModel.maxOffset(boxes, strip.viewport()) > 0);
