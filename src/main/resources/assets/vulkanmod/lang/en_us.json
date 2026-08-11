@@ -425,5 +425,5 @@
   "vulkanmod.ui.disabled.no_indirect_draw": "This GPU does not support multi-draw indirect.",
   "vulkanmod.options.leavesQuality": "Leaves",
   "vulkanmod.compat.sable.reload.title": "Restart to see the change",
-  "vulkanmod.compat.sable.reload.message": "Sable takes over world rendering after a resource reload. Your packs are applied, but the world will not draw until you restart the game."
+  "vulkanmod.compat.sable.reload.message": "Sable hides the world until you do."
 }
