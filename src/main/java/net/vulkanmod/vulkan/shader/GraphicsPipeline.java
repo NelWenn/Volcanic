@@ -17,14 +17,15 @@ import org.lwjgl.vulkan.*;
 import java.nio.ByteBuffer;
 import java.nio.LongBuffer;
 import java.util.List;
-import java.util.function.ToLongFunction;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.vulkan.VK10.*;
 
 public class GraphicsPipeline extends Pipeline {
     private final Object2LongMap<PipelineState> graphicsPipelines = new Object2LongOpenHashMap<>();
-    private static final java.util.Set<String> loggedPipelineFailures = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final Set<String> loggedPipelineFailures = ConcurrentHashMap.newKeySet();
 
     private static int builds;
     private static long buildNanos;
@@ -50,8 +51,7 @@ public class GraphicsPipeline extends Pipeline {
         createShaderModules(builder.vertShaderSPIRV, builder.fragShaderSPIRV);
 
         if (builder.renderPass != null)
-            graphicsPipelines.computeIfAbsent(PipelineState.DEFAULT,
-                    (ToLongFunction<PipelineState>) this::createGraphicsPipeline);
+            graphicsPipelines.computeIfAbsent(PipelineState.DEFAULT, this::createGraphicsPipeline);
 
         createDescriptorSets(Renderer.getFramesNum());
 

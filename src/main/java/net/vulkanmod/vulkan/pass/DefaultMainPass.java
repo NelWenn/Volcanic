@@ -9,7 +9,8 @@ import net.vulkanmod.gl.GlTexture;
 import net.vulkanmod.render.framegraph.FrameGraph;
 import net.vulkanmod.render.framegraph.FrameGraphImpl;
 import net.vulkanmod.render.framegraph.Phase;
-import net.vulkanmod.rendergraph.radiance.RadianceGraph;
+import net.vulkanmod.render.pack.PackPipeline;
+import net.vulkanmod.render.pack.ShaderPack;
 import net.vulkanmod.rendergraph.radiance.pipeline.RadianceOpaqueTintPipeline;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -19,6 +20,8 @@ import net.vulkanmod.vulkan.framebuffer.RenderPass;
 import net.vulkanmod.vulkan.framebuffer.SwapChain;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.PipelineState;
+import net.vulkanmod.vulkan.shader.RenderPipelineProvider;
+import net.vulkanmod.vulkan.shader.RenderPipelines;
 import net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
@@ -32,6 +35,9 @@ import org.lwjgl.vulkan.VkCommandBuffer;
 import org.lwjgl.vulkan.VkImageCopy;
 import org.lwjgl.vulkan.VkRect2D;
 import org.lwjgl.vulkan.VkViewport;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.lwjgl.vulkan.KHRSwapchain.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 import static org.lwjgl.vulkan.VK10.*;
@@ -92,12 +98,13 @@ public class DefaultMainPass implements MainPass {
     private boolean scaledFramebufferPendingDispose;
     private static int targetSwitches;
 
-    public final FrameGraphImpl frameGraph;
+    public FrameGraphImpl frameGraph;
+    private final Map<String, FrameGraphImpl> pluginFrameGraphs = new HashMap<>();
 
     DefaultMainPass() {
         this.swapChain = Vulkan.getSwapChain();
         this.mainFramebuffer = this.swapChain;
-        this.frameGraph = new RadianceGraph();
+        this.frameGraph = RenderPipelines.active().frameGraph().get();
 
         bindRenderPasses();
         createPresentRenderPass();
@@ -815,6 +822,16 @@ public class DefaultMainPass implements MainPass {
             return;
         }
 
+        if (depthShader && !"radiance".equals(Initializer.CONFIG.selectedShader)
+                && resolvePluginFrameGraph(commandBuffer, stack, keepRendering, worldDepth, fgDepth)) {
+            return;
+        }
+
+        if (depthShader && !"radiance".equals(Initializer.CONFIG.selectedShader)
+                && resolveShaderPack(commandBuffer, stack, keepRendering, worldDepth, fgDepth)) {
+            return;
+        }
+
         this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         this.swapChain.beginRenderPass(commandBuffer, this.presentRenderPass, stack);
         Renderer.clearViewportScale();
@@ -825,6 +842,34 @@ public class DefaultMainPass implements MainPass {
         if (!keepRendering) {
             Renderer.getInstance().endRenderPass(commandBuffer);
         }
+    }
+
+    private VulkanImage resolveEngineResource(String name, VulkanImage worldDepth, VulkanImage fgDepth) {
+        boolean shadowsOn = Initializer.CONFIG.shadowsEnabled && this.shadowMap.isReady();
+        return switch (name) {
+            case "scene" -> this.mainFramebuffer.getColorAttachment();
+            case "depthtex" -> worldDepth;
+            case "fgdepth" -> fgDepth;
+            case "shadowtex0" -> shadowsOn ? this.shadowMap.getCascadeDepthImage(0) : worldDepth;
+            case "shadowtex1" -> shadowsOn ? this.shadowMap.getCascadeDepthImage(1) : worldDepth;
+            case "shadowtex2" -> shadowsOn ? this.shadowMap.getCascadeDepthImage(2) : worldDepth;
+            case "opaquedepth" -> this.capturedOpaqueDepth != null ? this.capturedOpaqueDepth : worldDepth;
+            case "material" -> this.materialFramebuffer != null ? this.materialFramebuffer.getColorAttachment() : VTextureSelector.getWhiteTexture();
+            case "gnormal" -> (this.scaledFramebuffer != null && this.scaledFramebuffer.getColorAttachment2() != null) ? this.scaledFramebuffer.getColorAttachment2() : worldDepth;
+            case "materialdepth" -> this.materialFramebuffer != null ? this.materialFramebuffer.getDepthAttachment() : worldDepth;
+            default -> null;
+        };
+    }
+
+    private Runnable presentBeginCallback(VkCommandBuffer commandBuffer, MemoryStack stack) {
+        return () -> {
+            this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            this.swapChain.beginRenderPass(commandBuffer, this.presentRenderPass, stack);
+
+            Renderer.clearViewportScale();
+            Renderer.resetViewport();
+            Renderer.resetScissor();
+        };
     }
 
     private boolean resolveRadianceGraph(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
@@ -847,35 +892,74 @@ public class DefaultMainPass implements MainPass {
 
         updateVsrState();
 
-        final VulkanImage scene = this.mainFramebuffer.getColorAttachment();
+        boolean ran = graph.execute(Phase.POST_PROCESS, commandBuffer, stack,
+                name -> resolveEngineResource(name, worldDepth, fgDepth),
+                presentBeginCallback(commandBuffer, stack));
 
-        boolean shadowsOn = Initializer.CONFIG.shadowsEnabled && this.shadowMap.isReady();
+        if (!ran) return false;
+        if (!keepRendering)
+            Renderer.getInstance().endRenderPass(commandBuffer);
 
-        final VulkanImage sh0 = shadowsOn ? this.shadowMap.getCascadeDepthImage(0) : worldDepth;
-        final VulkanImage sh1 = shadowsOn ? this.shadowMap.getCascadeDepthImage(1) : worldDepth;
-        final VulkanImage sh2 = shadowsOn ? this.shadowMap.getCascadeDepthImage(2) : worldDepth;
+        return true;
+    }
 
-        boolean ran = graph.execute(net.vulkanmod.render.framegraph.Phase.POST_PROCESS, commandBuffer, stack, name -> switch (name) {
-            case "scene" -> scene;
-            case "depthtex" -> worldDepth;
-            case "fgdepth" -> fgDepth;
-            case "shadowtex0" -> sh0;
-            case "shadowtex1" -> sh1;
-            case "shadowtex2" -> sh2;
-            case "opaquedepth" -> this.capturedOpaqueDepth != null ? this.capturedOpaqueDepth : worldDepth;
-            case "material" -> this.materialFramebuffer != null ? this.materialFramebuffer.getColorAttachment() : VTextureSelector.getWhiteTexture();
-            case "gnormal" -> (this.scaledFramebuffer != null && this.scaledFramebuffer.getColorAttachment2() != null) ? this.scaledFramebuffer.getColorAttachment2() : worldDepth;
-            case "materialdepth" -> this.materialFramebuffer != null ? this.materialFramebuffer.getDepthAttachment() : worldDepth;
+    /**
+     * Runs the selected shader as a compiled-in {@link RenderPipelines} plugin's {@link FrameGraphImpl}
+     */
+    public boolean resolvePluginFrameGraph(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
+                                            VulkanImage worldDepth, VulkanImage fgDepth) {
+        String id = Initializer.CONFIG.selectedShader;
+        RenderPipelineProvider provider = RenderPipelines.get(id);
+        if (provider == null) {
+            return false;
+        }
 
-            default -> null;
-        }, () -> {
-            this.swapChain.getColorAttachment().transitionImageLayout(stack, commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-            this.swapChain.beginRenderPass(commandBuffer, this.presentRenderPass, stack);
-
-            Renderer.clearViewportScale();
-            Renderer.resetViewport();
-            Renderer.resetScissor();
+        FrameGraphImpl impl = this.pluginFrameGraphs.computeIfAbsent(id, k -> {
+            provider.pipelineManager().get().initialize();
+            return provider.frameGraph().get();
         });
+
+        FrameGraph graph = impl.get();
+
+        frameGraph = impl;
+
+        if (!graph.pipelinesReady()) {
+            return false;
+        }
+
+        graph.resize(commandBuffer, stack, this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
+
+        if (!graph.targetsReady()) {
+            return false;
+        }
+
+        boolean ran = graph.execute(Phase.POST_PROCESS, commandBuffer, stack,
+                name -> resolveEngineResource(name, worldDepth, fgDepth),
+                presentBeginCallback(commandBuffer, stack));
+
+        if (!ran) return false;
+        if (!keepRendering)
+            Renderer.getInstance().endRenderPass(commandBuffer);
+
+        return true;
+    }
+
+    private boolean resolveShaderPack(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
+                                      VulkanImage worldDepth, VulkanImage fgDepth) {
+        ShaderPack pack = PackPipeline.get(Initializer.CONFIG.selectedShader);
+        if (pack == null || !PackPipeline.structureValid(pack)) {
+            return false;
+        }
+
+        PackPipeline.ensureTargets(pack, commandBuffer, stack, this.mainFramebuffer.getWidth(), this.mainFramebuffer.getHeight());
+
+        if (!PackPipeline.pipelinesReady(pack) || !PackPipeline.targetsReady(pack)) {
+            return false;
+        }
+
+        boolean ran = PackPipeline.runFrame(pack, commandBuffer, stack,
+                name -> resolveEngineResource(name, worldDepth, fgDepth),
+                presentBeginCallback(commandBuffer, stack));
 
         if (!ran) return false;
         if (!keepRendering)

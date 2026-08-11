@@ -9,7 +9,6 @@ import net.vulkanmod.compat.observer.CompatProfiler;
 import net.vulkanmod.compat.observer.GuiRenderTrace;
 import net.vulkanmod.gl.GlFramebuffer;
 import net.vulkanmod.mixin.window.WindowAccessor;
-import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.buffer.UploadManager;
 import net.vulkanmod.render.optimization.AdaptiveChunkUploadBudget;
@@ -19,10 +18,7 @@ import net.vulkanmod.vulkan.framebuffer.RenderPass;
 import net.vulkanmod.vulkan.memory.MemoryManager;
 import net.vulkanmod.vulkan.pass.DefaultMainPass;
 import net.vulkanmod.vulkan.pass.MainPass;
-import net.vulkanmod.vulkan.shader.GraphicsPipeline;
-import net.vulkanmod.vulkan.shader.Pipeline;
-import net.vulkanmod.vulkan.shader.PipelineState;
-import net.vulkanmod.vulkan.shader.Uniforms;
+import net.vulkanmod.vulkan.shader.*;
 import net.vulkanmod.vulkan.shader.layout.PushConstants;
 import net.vulkanmod.vulkan.texture.VulkanImage;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
@@ -114,6 +110,7 @@ public class Renderer {
     private final List<Runnable> onResizeCallbacks = new ObjectArrayList<>();
 
     public MainPass mainPass;
+    public PipelineManager pipelineManager;
 
     public Renderer() {
         device = Vulkan.getVkDevice();
@@ -121,12 +118,13 @@ public class Renderer {
         imagesNum = getSwapChain().getImagesNum();
 
         mainPass = DefaultMainPass.create();
+        pipelineManager = RenderPipelines.active().pipelineManager().get();
     }
 
     public static void setLineWidth(float width) {
-        if (INSTANCE.boundFramebuffer == null) {
+        if (INSTANCE.boundFramebuffer == null)
             return;
-        }
+
         vkCmdSetLineWidth(INSTANCE.currentCmdBuffer, width);
     }
 
@@ -138,7 +136,7 @@ public class Renderer {
         drawer.createResources(framesNum);
 
         Uniforms.setupDefaultUniforms();
-        PipelineManager.init();
+        pipelineManager.initialize();
         UploadManager.createInstance();
 
         allocateCommandBuffers();
@@ -298,7 +296,7 @@ public class Renderer {
         if (skipRendering || !recordingCmds)
             return;
 
-        // must be before mainPass.end() - that calls vkEndCommandBuffer
+        // must be before mainPass.end(), that calls vkEndCommandBuffer
         if (FrameTimer.instance() != null)
             FrameTimer.instance().cmdEndTimestamp(currentCmdBuffer, currentFrame);
 
@@ -553,7 +551,7 @@ public class Renderer {
         drawer.cleanUpResources();
         mainPass.cleanup();
 
-        PipelineManager.destroyPipelines();
+        pipelineManager.destroyPipelines();
         VTextureSelector.getWhiteTexture().free();
     }
 
@@ -585,11 +583,16 @@ public class Renderer {
         return this.mainPass;
     }
 
+    public PipelineManager getPipelineManager() {
+        return this.pipelineManager;
+    }
+
     public void addOnResizeCallback(Runnable runnable) {
         this.onResizeCallbacks.add(runnable);
     }
 
-    public boolean bindGraphicsPipeline(GraphicsPipeline pipeline) {
+    public boolean bindGraphicsPipeline(net.vulkanmod.render.pipeline.RenderPipeline renderPipeline) {
+        GraphicsPipeline pipeline = (GraphicsPipeline) renderPipeline;
         VkCommandBuffer commandBuffer = currentCmdBuffer;
 
         if (boundRenderPass == null) {
@@ -650,7 +653,8 @@ public class Renderer {
         return true;
     }
 
-    public void uploadAndBindUBOs(Pipeline pipeline) {
+    public void uploadAndBindUBOs(net.vulkanmod.render.pipeline.RenderPipeline renderPipeline) {
+        Pipeline pipeline = (Pipeline) renderPipeline;
         VkCommandBuffer commandBuffer = currentCmdBuffer;
         if (GuiRenderTrace.isActive()) {
             boolean hasColorModulator = pipeline.getBuffers().stream()
@@ -663,7 +667,8 @@ public class Renderer {
         pipeline.bindDescriptorSets(commandBuffer, currentFrame);
     }
 
-    public void pushConstants(Pipeline pipeline) {
+    public void pushConstants(net.vulkanmod.render.pipeline.RenderPipeline renderPipeline) {
+        Pipeline pipeline = (Pipeline) renderPipeline;
         VkCommandBuffer commandBuffer = currentCmdBuffer;
 
         PushConstants pushConstants = pipeline.getPushConstants();

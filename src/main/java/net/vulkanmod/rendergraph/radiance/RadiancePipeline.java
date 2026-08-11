@@ -1,8 +1,7 @@
 package net.vulkanmod.rendergraph.radiance;
 
-import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.renderer.RenderType;
 import net.vulkanmod.render.chunk.build.thread.ThreadBuilderPack;
+import net.vulkanmod.render.sodium.SodiumShaderBridge;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.rendergraph.radiance.pipeline.*;
@@ -15,35 +14,28 @@ import net.vulkanmod.rendergraph.radiance.pipeline.terrain.TerrainEarlyZPipeline
 import net.vulkanmod.rendergraph.radiance.pipeline.terrain.TerrainFadePipeline;
 import net.vulkanmod.rendergraph.radiance.pipeline.terrain.TerrainPipeline;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
+import net.vulkanmod.vulkan.shader.PipelineManager;
 import net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry;
 
-import java.util.function.Function;
+public class RadiancePipeline extends PipelineManager {
+    private GraphicsPipeline terrainShaderEarlyZ, terrainShader, terrainFadeShader, fastBlitPipeline, renderScaleBlitPipeline, vsrUpscalePipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline, externalLodSolidPipeline, externalLodTexturedSolidPipeline;
+    private GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline;
+    private GraphicsPipeline materialPipeline;
 
-public abstract class PipelineManager {
-    public static VertexFormat TERRAIN_VERTEX_FORMAT;
-
-    public static void setTerrainVertexFormat(VertexFormat format) {
-        TERRAIN_VERTEX_FORMAT = format;
-    }
-
-    static GraphicsPipeline terrainShaderEarlyZ, terrainShader, terrainFadeShader, fastBlitPipeline, renderScaleBlitPipeline, vsrUpscalePipeline, externalLodPipeline, externalLodTexturedPipeline, externalLodWaterPipeline, externalLodWaterTexturedPipeline, externalLodSolidPipeline, externalLodTexturedSolidPipeline;
-    static GraphicsPipeline shadowTerrainSolidPipeline, shadowTerrainCutoutPipeline, shadowTerrainTintPipeline;
-    static GraphicsPipeline materialPipeline;
-
-    private static Function<TerrainRenderType, GraphicsPipeline> shaderGetter;
-
-    public static void init() {
+    @Override
+    public void init() {
         setTerrainVertexFormat(CustomVertexFormat.COMPRESSED_TERRAIN);
         createBasicPipelines();
         setDefaultShader();
         ThreadBuilderPack.defaultTerrainBuilderConstructor();
     }
 
-    public static void setDefaultShader() {
+    @Override
+    public void setDefaultShader() {
         setShaderGetter(renderType -> terrainShader);
     }
 
-    private static void createBasicPipelines() {
+    private void createBasicPipelines() {
         PipelineRegistry.register(
                 TerrainPipeline.class,
                 TerrainEarlyZPipeline.class,
@@ -75,81 +67,47 @@ public abstract class PipelineManager {
         shadowTerrainTintPipeline = PipelineRegistry.get(ShadowTerrainTintPipeline.class);
         materialPipeline = PipelineRegistry.get(RadianceMaterialPipeline.class);
 
+        registerTerrainRole(ROLE_TERRAIN_MAIN, this::getTerrainShader);
+        registerTerrainRole(ROLE_TERRAIN_FADE, renderType -> terrainFadeShader);
+        registerTerrainRole(ROLE_SHADOW_TERRAIN, this::getShadowTerrainShader);
+        registerTerrainRole(ROLE_SHADOW_TINT, renderType -> shadowTerrainTintPipeline);
+        registerTerrainRole(ROLE_MATERIAL, renderType -> materialPipeline);
+
+        registerPipeline(PIPELINE_FAST_BLIT, fastBlitPipeline);
+        registerPipeline(PIPELINE_RENDER_SCALE_BLIT, renderScaleBlitPipeline);
+        registerPipeline(PIPELINE_VSR_UPSCALE, vsrUpscalePipeline);
+
         PipelineRegistry.register(ExternalLodPipeline.class);
         externalLodPipeline = PipelineRegistry.get(ExternalLodPipeline.class);
+        registerPipeline(PIPELINE_EXTERNAL_LOD, externalLodPipeline);
 
         PipelineRegistry.register(ExternalLodTexturedPipeline.class);
         externalLodTexturedPipeline = PipelineRegistry.get(ExternalLodTexturedPipeline.class);
+        registerPipeline(PIPELINE_EXTERNAL_LOD_TEXTURED, externalLodTexturedPipeline);
 
         PipelineRegistry.register(ExternalLodWaterPipeline.class);
         externalLodWaterPipeline = PipelineRegistry.get(ExternalLodWaterPipeline.class);
+        registerPipeline(PIPELINE_EXTERNAL_LOD_WATER, externalLodWaterPipeline);
 
         PipelineRegistry.register(ExternalLodWaterTexturedPipeline.class);
         externalLodWaterTexturedPipeline = PipelineRegistry.get(ExternalLodWaterTexturedPipeline.class);
+        registerPipeline(PIPELINE_EXTERNAL_LOD_WATER_TEXTURED, externalLodWaterTexturedPipeline);
 
         PipelineRegistry.register(ExternalLodSolidPipeline.class);
         externalLodSolidPipeline = PipelineRegistry.get(ExternalLodSolidPipeline.class);
+        registerPipeline(PIPELINE_EXTERNAL_LOD_SOLID, externalLodSolidPipeline);
 
         PipelineRegistry.register(ExternalLodTexturedSolidPipeline.class);
         externalLodTexturedSolidPipeline = PipelineRegistry.get(ExternalLodTexturedSolidPipeline.class);
+        registerPipeline(PIPELINE_EXTERNAL_LOD_TEXTURED_SOLID, externalLodTexturedSolidPipeline);
     }
 
-    public static GraphicsPipeline getTerrainShader(TerrainRenderType renderType) {
-        GraphicsPipeline sodiumPipeline = net.vulkanmod.render.sodium.SodiumShaderBridge.getPipeline(renderType);
+    public GraphicsPipeline getTerrainShader(TerrainRenderType renderType) {
+        GraphicsPipeline sodiumPipeline = SodiumShaderBridge.getPipeline(renderType);
         return sodiumPipeline != null ? sodiumPipeline : shaderGetter.apply(renderType);
     }
 
-    public static GraphicsPipeline getNativeTerrainShader() {
-        return terrainShader;
-    }
-
-    public static GraphicsPipeline getTerrainFadeShader() {
-        return terrainFadeShader;
-    }
-
-    public static GraphicsPipeline getShadowTerrainShader(TerrainRenderType renderType) {
+    public GraphicsPipeline getShadowTerrainShader(TerrainRenderType renderType) {
         return renderType == TerrainRenderType.SOLID ? shadowTerrainSolidPipeline : shadowTerrainCutoutPipeline;
-    }
-
-    public static GraphicsPipeline getShadowTerrainTintShader() {
-        return shadowTerrainTintPipeline;
-    }
-
-    public static GraphicsPipeline getMaterialShader() {
-        return materialPipeline;
-    }
-
-    public static void setShaderGetter(Function<TerrainRenderType, GraphicsPipeline> consumer) {
-        shaderGetter = consumer;
-    }
-
-    public static GraphicsPipeline getTerrainDirectShader(RenderType renderType) {
-        return terrainShader;
-    }
-
-    public static GraphicsPipeline getTerrainIndirectShader(RenderType renderType) {
-        return terrainShaderEarlyZ;
-    }
-
-    public static GraphicsPipeline getFastBlitPipeline() { return fastBlitPipeline; }
-
-    public static GraphicsPipeline getRenderScaleBlitPipeline() { return renderScaleBlitPipeline; }
-
-    public static GraphicsPipeline getVsrUpscalePipeline() { return vsrUpscalePipeline; }
-
-    public static GraphicsPipeline getExternalLodPipeline() { return externalLodPipeline; }
-
-    public static GraphicsPipeline getExternalLodTexturedPipeline() { return externalLodTexturedPipeline; }
-
-    public static GraphicsPipeline getExternalLodWaterPipeline() { return externalLodWaterPipeline; }
-
-    public static GraphicsPipeline getExternalLodWaterTexturedPipeline() { return externalLodWaterTexturedPipeline; }
-
-    public static GraphicsPipeline getExternalLodSolidPipeline() { return externalLodSolidPipeline; }
-
-    public static GraphicsPipeline getExternalLodTexturedSolidPipeline() { return externalLodTexturedSolidPipeline; }
-
-    public static void destroyPipelines() {
-        PipelineRegistry.cleanUp();
     }
 }
