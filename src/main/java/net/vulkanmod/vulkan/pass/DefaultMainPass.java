@@ -21,7 +21,7 @@ import net.vulkanmod.vulkan.framebuffer.SwapChain;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import net.vulkanmod.vulkan.shader.PipelineState;
 import net.vulkanmod.vulkan.shader.RenderPipelineProvider;
-import net.vulkanmod.vulkan.shader.RenderPipelines;
+import net.vulkanmod.plugin.PluginRegistry;
 import net.vulkanmod.vulkan.shader.pipeline.PipelineRegistry;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 import net.vulkanmod.vulkan.texture.VulkanImage;
@@ -104,7 +104,7 @@ public class DefaultMainPass implements MainPass {
     DefaultMainPass() {
         this.swapChain = Vulkan.getSwapChain();
         this.mainFramebuffer = this.swapChain;
-        this.frameGraph = RenderPipelines.active().frameGraph().get();
+        this.frameGraph = PluginRegistry.activeShader().frameGraph().get();
 
         bindRenderPasses();
         createPresentRenderPass();
@@ -904,12 +904,12 @@ public class DefaultMainPass implements MainPass {
     }
 
     /**
-     * Runs the selected shader as a compiled-in {@link RenderPipelines} plugin's {@link FrameGraphImpl}
+     * Runs the selected shader as a compiled-in {@link PluginRegistry} plugin's {@link FrameGraphImpl}
      */
     public boolean resolvePluginFrameGraph(VkCommandBuffer commandBuffer, MemoryStack stack, boolean keepRendering,
                                             VulkanImage worldDepth, VulkanImage fgDepth) {
         String id = Initializer.CONFIG.selectedShader;
-        RenderPipelineProvider provider = RenderPipelines.get(id);
+        RenderPipelineProvider provider = PluginRegistry.get(id);
         if (provider == null) {
             return false;
         }

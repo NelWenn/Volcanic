@@ -26,7 +26,7 @@ import java.util.Set;
  * classé. D'où la demande d'un {@code kind()} explicite.
  */
 public final class MenuPlugins {
-    private static final String PIPELINE_SPI = "net.vulkanmod.render.plugin.RenderPipelinePlugin";
+    private static final String PIPELINE_SPI = "net.vulkanmod.plugin.RenderPipelinePlugin";
 
     private static List<MenuPlugin> cached;
 

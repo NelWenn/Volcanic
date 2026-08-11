@@ -1,4 +1,4 @@
-package net.vulkanmod.render.plugin;
+package net.vulkanmod.io.plugin;
 
 /**
  * Restricts a plugin jar's classloader to the JDK, the graphics libraries the engine itself uses

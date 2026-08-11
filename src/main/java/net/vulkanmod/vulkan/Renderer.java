@@ -9,6 +9,7 @@ import net.vulkanmod.compat.observer.CompatProfiler;
 import net.vulkanmod.compat.observer.GuiRenderTrace;
 import net.vulkanmod.gl.GlFramebuffer;
 import net.vulkanmod.mixin.window.WindowAccessor;
+import net.vulkanmod.plugin.PluginRegistry;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.buffer.UploadManager;
 import net.vulkanmod.render.optimization.AdaptiveChunkUploadBudget;
@@ -118,7 +119,7 @@ public class Renderer {
         imagesNum = getSwapChain().getImagesNum();
 
         mainPass = DefaultMainPass.create();
-        pipelineManager = RenderPipelines.active().pipelineManager().get();
+        pipelineManager = PluginRegistry.activeShader().pipelineManager().get();
     }
 
     public static void setLineWidth(float width) {

@@ -1456,7 +1456,7 @@ public final class SettingsCatalog {
         return lodCullingAvailable;
     }
 
-    private static final String PLUGIN_SPI = "net.vulkanmod.render.plugin.RenderPipelinePlugin";
+    private static final String PLUGIN_SPI = "net.vulkanmod.plugin.RenderPipelinePlugin";
 
     private void bindShadersCurrent() {
         bindings.put(SettingsDefinitions.SHADERS_ENABLED, SettingBinding.of(

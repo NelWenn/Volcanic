@@ -1,8 +1,9 @@
-package net.vulkanmod.render.plugin;
+package net.vulkanmod.io.plugin;
 
 import net.neoforged.fml.loading.FMLPaths;
 import net.vulkanmod.Initializer;
-import net.vulkanmod.vulkan.shader.RenderPipelines;
+import net.vulkanmod.plugin.PluginRegistry;
+import net.vulkanmod.plugin.RenderPipelinePlugin;
 
 import java.io.IOException;
 import java.net.URL;
@@ -22,11 +23,10 @@ import java.util.stream.Stream;
  * JVM permissions), so the user should only install pipelines he trusts.
  * TODO: more sandboxing on the loaded jars
  */
-public final class RenderPipelineJarLoader {
+public final class PluginJarLoader {
     private static boolean loaded = false;
 
-    private RenderPipelineJarLoader() {
-    }
+    private PluginJarLoader() {}
 
     public static synchronized void loadAll() {
         if (loaded)
@@ -57,11 +57,11 @@ public final class RenderPipelineJarLoader {
     private static void loadJar(Path jar) {
         try {
             URL url = jar.toUri().toURL();
-            ClassLoader api = new ApiClassLoader(RenderPipelineJarLoader.class.getClassLoader());
+            ClassLoader api = new ApiClassLoader(PluginJarLoader.class.getClassLoader());
             URLClassLoader pluginLoader = new URLClassLoader(jar.getFileName().toString(), new URL[]{url}, api);
 
             for (RenderPipelinePlugin plugin : ServiceLoader.load(RenderPipelinePlugin.class, pluginLoader)) {
-                RenderPipelines.registerPlugin(plugin, pluginLoader);
+                PluginRegistry.registerPlugin(plugin, pluginLoader);
                 Initializer.LOGGER.info("Registered render pipeline '{}' ({}) from {}", plugin.id(), plugin.name(), jar.getFileName());
             }
         } catch (Throwable t) {
