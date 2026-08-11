@@ -12,13 +12,13 @@ class TabStripModelTest {
 
     @Test
     void aStripThatFitsIsNotScrolled() {
-        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 5, 14, 1000));
+        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 5, 14, 1000, 0));
     }
 
     @Test
     void scrollingBringsAnOverflowingTabFullyIntoView() {
         List<Rect> boxes = sixTabs();
-        int offset = TabStripModel.scrollToReveal(boxes, 5, 14, 300);
+        int offset = TabStripModel.scrollToReveal(boxes, 5, 14, 300, 0);
         assertTrue(offset > 0);
         Rect revealed = TabStripModel.shifted(boxes, offset).get(5);
         assertTrue(revealed.right() <= 300);
@@ -27,13 +27,13 @@ class TabStripModelTest {
 
     @Test
     void scrollingBackToTheFirstTabReturnsToTheOrigin() {
-        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 0, 14, 300));
+        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 0, 14, 300, 0));
     }
 
     @Test
     void scrollNeverExceedsWhatTheContentNeeds() {
         List<Rect> boxes = sixTabs();
-        int offset = TabStripModel.scrollToReveal(boxes, 5, 14, 300);
+        int offset = TabStripModel.scrollToReveal(boxes, 5, 14, 300, 0);
         int total = boxes.get(boxes.size() - 1).right() - 14;
         assertEquals(total - (300 - 14), offset);
     }
@@ -41,22 +41,22 @@ class TabStripModelTest {
     @Test
     void shiftingKeepsHitTestingAndPaintingInAgreement() {
         List<Rect> boxes = sixTabs();
-        List<Rect> shifted = TabStripModel.shifted(boxes, TabStripModel.scrollToReveal(boxes, 5, 14, 300));
+        List<Rect> shifted = TabStripModel.shifted(boxes, TabStripModel.scrollToReveal(boxes, 5, 14, 300, 0));
         Rect target = shifted.get(5);
         assertEquals(5, TabStripModel.indexAt(shifted, target.x() + 1, target.y() + 1));
     }
 
     @Test
     void scrollIsZeroForAnEmptyStripOrAnIndexOutOfRange() {
-        assertEquals(0, TabStripModel.scrollToReveal(List.of(), 0, 14, 300));
-        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), -1, 14, 300));
-        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 99, 14, 300));
+        assertEquals(0, TabStripModel.scrollToReveal(List.of(), 0, 14, 300, 0));
+        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), -1, 14, 300, 0));
+        assertEquals(0, TabStripModel.scrollToReveal(sixTabs(), 99, 14, 300, 0));
     }
 
     @Test
     void scrollRejectsAnInvertedViewportAndNullBoxes() {
-        assertThrows(IllegalArgumentException.class, () -> TabStripModel.scrollToReveal(sixTabs(), 0, 300, 14));
-        assertThrows(IllegalArgumentException.class, () -> TabStripModel.scrollToReveal(null, 0, 14, 300));
+        assertThrows(IllegalArgumentException.class, () -> TabStripModel.scrollToReveal(sixTabs(), 0, 300, 14, 0));
+        assertThrows(IllegalArgumentException.class, () -> TabStripModel.scrollToReveal(null, 0, 14, 300, 0));
         assertThrows(IllegalArgumentException.class, () -> TabStripModel.shifted(null, 5));
     }
 

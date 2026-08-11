@@ -71,11 +71,7 @@ public final class PluginPageLayout {
         int height = contentHeight(pluginCount, modCount, breakpoint);
 
         if (pluginCount == 0 && modCount == 0) {
-            int cardWidth = Math.min(EMPTY_W, usable);
-            int free = content.height() - BOTTOM - EMPTY_H;
-            Rect empty = new Rect(x + Math.max(0, (usable - cardWidth) / 2),
-                    base + Math.max(0, free / 2), cardWidth, EMPTY_H);
-            return new Page(NO_BLOCK, NO_BLOCK, empty, Rect.EMPTY, height);
+            return new Page(NO_BLOCK, NO_BLOCK, emptyCard(content, x, usable, base), Rect.EMPTY, height);
         }
 
         int offset = 0;
@@ -107,6 +103,13 @@ public final class PluginPageLayout {
             mods = block(x, base, offset, usable, modCount, MOD_ROW_H, MOD_ROW_GAP, false);
         }
         return new Page(plugins, mods, Rect.EMPTY, showcase, height);
+    }
+
+    static Rect emptyCard(Rect content, int x, int usable, int base) {
+        int cardWidth = Math.min(EMPTY_W, usable);
+        int free = content.height() - BOTTOM - EMPTY_H;
+        return new Rect(x + Math.max(0, (usable - cardWidth) / 2),
+                base + Math.max(0, free / 2), cardWidth, EMPTY_H);
     }
 
     public static Slots slots(Rect row, boolean toggleable) {
@@ -216,7 +219,7 @@ public final class PluginPageLayout {
         return Math.max(0, Math.min(scroll, maxScroll(content, pluginCount, modCount, breakpoint)));
     }
 
-    private static Block block(int x, int base, int offset, int usable, int count,
+    static Block block(int x, int base, int offset, int usable, int count,
                                int rowHeight, int rowGap, boolean placeholder) {
         Rect heading = new Rect(x, base + offset + 1,
                 Math.max(0, usable - COUNT_W - 6), SMALL_LINE);
@@ -231,7 +234,7 @@ public final class PluginPageLayout {
         return new Block(heading, tally, rule, rows, placeholder);
     }
 
-    private static int blockHeight(int count, int rowHeight, int rowGap) {
+    static int blockHeight(int count, int rowHeight, int rowGap) {
         return HEADING_H + HEADING_GAP + count * (rowHeight + rowGap) - rowGap;
     }
 }

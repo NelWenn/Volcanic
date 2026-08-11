@@ -128,30 +128,6 @@ public final class TabStripModel {
         return List.copyOf(boxes);
     }
 
-    public static int scrollToReveal(List<Rect> boxes, int index, int viewportLeft, int viewportRight) {
-        if (boxes == null) {
-            throw new IllegalArgumentException("boxes must not be null");
-        }
-        if (viewportRight < viewportLeft) {
-            throw new IllegalArgumentException("viewportRight must not precede viewportLeft");
-        }
-        if (boxes.isEmpty() || index < 0 || index >= boxes.size()) {
-            return 0;
-        }
-
-        int total = boxes.get(boxes.size() - 1).right() - viewportLeft;
-        int maximum = Math.max(0, total - (viewportRight - viewportLeft));
-        Rect target = boxes.get(index);
-        int offset = 0;
-        if (target.right() > viewportRight) {
-            offset = target.right() - viewportRight;
-        }
-        if (target.x() - offset < viewportLeft) {
-            offset = target.x() - viewportLeft;
-        }
-        return Math.max(0, Math.min(offset, maximum));
-    }
-
     public static List<Rect> shifted(List<Rect> boxes, int offsetX) {
         if (boxes == null) {
             throw new IllegalArgumentException("boxes must not be null");

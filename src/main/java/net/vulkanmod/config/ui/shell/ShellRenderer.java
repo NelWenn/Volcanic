@@ -2482,7 +2482,7 @@ public final class ShellRenderer {
         return trimToWidth(font, text, Math.round(width / scale));
     }
 
-    private static String trimToWidth(Font font, String text, int width) {
+    static String trimToWidth(Font font, String text, int width) {
         if (width <= 0 || font.width(text) <= width) {
             return text;
         }
@@ -3234,7 +3234,7 @@ public final class ShellRenderer {
         int height = rect.height();
         for (Rect span : RoundedScanline.fillSpans(rect, radius)) {
             float progress = height == 1 ? 0.0f : (float) (span.y() - rect.y()) / (height - 1);
-            painter.fill(span, lerpArgb(topArgb, bottomArgb, progress));
+            painter.fill(span, Motion.blend(topArgb, bottomArgb, progress));
         }
     }
 
@@ -3262,18 +3262,6 @@ public final class ShellRenderer {
 
     private static String label(NavPresenter presenter, RouteId route) {
         return I18n.get(presenter.titleKeyOf(route));
-    }
-
-    static int lerpArgb(int from, int to, float progress) {
-        int alpha = lerpChannel(from >>> 24, to >>> 24, progress);
-        int red = lerpChannel((from >> 16) & 0xFF, (to >> 16) & 0xFF, progress);
-        int green = lerpChannel((from >> 8) & 0xFF, (to >> 8) & 0xFF, progress);
-        int blue = lerpChannel(from & 0xFF, to & 0xFF, progress);
-        return (alpha << 24) | (red << 16) | (green << 8) | blue;
-    }
-
-    private static int lerpChannel(int from, int to, float progress) {
-        return Math.round(from + (to - from) * progress);
     }
 
     private static void requireInputs(Font font, ShellLayout layout, NavPresenter presenter) {

@@ -7,8 +7,6 @@ public final class CompatPageLayout {
     public static final int ROW_H = 28;
     public static final int ROW_GAP = 2;
 
-    private static final int SMALL_LINE = PresetCardLayout.SMALL_LINE;
-
     public record Page(List<PluginPageLayout.Block> blocks, Rect empty, int height) {
         public Page {
             blocks = List.copyOf(blocks);
@@ -39,11 +37,7 @@ public final class CompatPageLayout {
         int height = contentHeight(counts);
 
         if (total(counts) == 0) {
-            int cardWidth = Math.min(PluginPageLayout.EMPTY_W, usable);
-            int free = content.height() - PluginPageLayout.BOTTOM - PluginPageLayout.EMPTY_H;
-            Rect empty = new Rect(x + Math.max(0, (usable - cardWidth) / 2),
-                    base + Math.max(0, free / 2), cardWidth, PluginPageLayout.EMPTY_H);
-            return new Page(List.of(), empty, height);
+            return new Page(List.of(), PluginPageLayout.emptyCard(content, x, usable, base), height);
         }
 
         List<PluginPageLayout.Block> blocks = new ArrayList<>(counts.size());
@@ -59,8 +53,8 @@ public final class CompatPageLayout {
                 offset += PluginPageLayout.BLOCK_GAP;
             }
             first = false;
-            blocks.add(block(x, base + offset, usable, count));
-            offset += blockHeight(count);
+            blocks.add(PluginPageLayout.block(x, base + offset, 0, usable, count, ROW_H, ROW_GAP, false));
+            offset += PluginPageLayout.blockHeight(count, ROW_H, ROW_GAP);
         }
         return new Page(blocks, Rect.EMPTY, height);
     }
@@ -80,7 +74,7 @@ public final class CompatPageLayout {
                 total += PluginPageLayout.BLOCK_GAP;
             }
             first = false;
-            total += blockHeight(count);
+            total += PluginPageLayout.blockHeight(count, ROW_H, ROW_GAP);
         }
         return total == 0
                 ? PluginPageLayout.EMPTY_H + PluginPageLayout.BOTTOM
@@ -92,26 +86,6 @@ public final class CompatPageLayout {
             throw new IllegalArgumentException("content must not be null");
         }
         return Math.max(0, contentHeight(counts) - content.height());
-    }
-
-    private static PluginPageLayout.Block block(int x, int top, int usable, int count) {
-        Rect heading = new Rect(x, top + 1,
-                Math.max(0, usable - PluginPageLayout.COUNT_W - 6), SMALL_LINE);
-        Rect tally = new Rect(x + usable - PluginPageLayout.COUNT_W, top + 1,
-                PluginPageLayout.COUNT_W, SMALL_LINE);
-        Rect rule = new Rect(x, top + PluginPageLayout.HEADING_H - 1, usable, 1);
-
-        int rowsTop = top + PluginPageLayout.HEADING_H + PluginPageLayout.HEADING_GAP;
-        List<Rect> rows = new ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
-            rows.add(new Rect(x, rowsTop + index * (ROW_H + ROW_GAP), usable, ROW_H));
-        }
-        return new PluginPageLayout.Block(heading, tally, rule, rows, false);
-    }
-
-    private static int blockHeight(int count) {
-        return PluginPageLayout.HEADING_H + PluginPageLayout.HEADING_GAP
-                + count * (ROW_H + ROW_GAP) - ROW_GAP;
     }
 
     private static int total(List<Integer> counts) {

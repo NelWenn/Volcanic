@@ -439,7 +439,7 @@ public final class SettingRowRenderer {
         paintArrow(painter, font, next, ARROW_RIGHT, enabled, hovered,
                 nextHovered || (left > 0 && dir > 0));
 
-        String shown = trimmed(font, text, value.width() - ARROW_GAP * 2);
+        String shown = ShellRenderer.trimToWidth(font, text, value.width() - ARROW_GAP * 2);
         painter.text(value.x() + (value.width() - font.width(shown)) / 2 + dir * shift, textTop(value),
                 shown, left > 0 ? theme.color(ColorToken.TEXT_PRIMARY) : valueArgb(enabled), false);
     }
@@ -452,7 +452,7 @@ public final class SettingRowRenderer {
                     text, valueArgb(enabled));
             return;
         }
-        String shown = listening ? I18n.get(KEY_LISTENING) : trimmed(font, text, box.width() - 6);
+        String shown = listening ? I18n.get(KEY_LISTENING) : ShellRenderer.trimToWidth(font, text, box.width() - 6);
         ShellRenderer.paintRoundedFill(painter, box, SettingRowLayout.ARROW_RADIUS,
                 theme.color(listening ? ColorToken.ACCENT_DEEP : ColorToken.SURFACE_SUNKEN));
         ShellRenderer.paintRoundedOutline(painter, box, SettingRowLayout.ARROW_RADIUS,
@@ -475,17 +475,6 @@ public final class SettingRowRenderer {
         int ink = Math.max(1, font.width(glyph) - 1);
         painter.text(box.x() + (box.width() - ink) / 2, box.y() + (box.height() - GLYPH_HEIGHT) / 2, glyph,
                 arrowArgb(enabled, pointed ? 1.0f : rowHovered), false);
-    }
-
-    private static String trimmed(Font font, String text, int width) {
-        if (width <= 0 || font.width(text) <= width) {
-            return text;
-        }
-        String cut = text;
-        while (!cut.isEmpty() && font.width(cut + "…") > width) {
-            cut = cut.substring(0, cut.length() - 1);
-        }
-        return cut.isEmpty() ? text : cut + "…";
     }
 
     private void paintValue(SurfacePainter painter, Font font, Rect box, int right, String text, int argb) {
@@ -519,7 +508,7 @@ public final class SettingRowRenderer {
     }
 
     private int blend(ColorToken idle, ColorToken active, float progress) {
-        return ShellRenderer.lerpArgb(theme.color(idle), theme.color(active), progress);
+        return Motion.blend(theme.color(idle), theme.color(active), progress);
     }
 
     private static int textTop(Rect box) {
