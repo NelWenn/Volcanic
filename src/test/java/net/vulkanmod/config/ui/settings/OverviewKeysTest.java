@@ -1,7 +1,6 @@
 package net.vulkanmod.config.ui.settings;
 
 import net.vulkanmod.config.ui.core.BoundVerdict;
-import net.vulkanmod.config.ui.core.Recommendation;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -22,18 +21,6 @@ class OverviewKeysTest {
         for (BoundVerdict verdict : BoundVerdict.values()) {
             if (!declares(lang, verdict.messageKey())) {
                 missing.add(verdict.messageKey());
-            }
-        }
-        assertEquals(List.of(), missing);
-    }
-
-    @Test
-    void everyRecommendationKeyResolves() throws IOException {
-        List<String> lang = Files.readAllLines(LANG);
-        List<String> missing = new ArrayList<>();
-        for (String key : Recommendation.keys()) {
-            if (!declares(lang, key)) {
-                missing.add(key);
             }
         }
         assertEquals(List.of(), missing);

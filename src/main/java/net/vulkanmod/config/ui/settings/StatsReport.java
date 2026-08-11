@@ -249,15 +249,6 @@ public final class StatsReport {
         }
     }
 
-    private static TaskDispatcher dispatcher() {
-        try {
-            WorldRenderer renderer = WorldRenderer.getInstance();
-            return renderer == null ? null : renderer.getTaskDispatcher();
-        } catch (Throwable unavailable) {
-            return null;
-        }
-    }
-
     private static String vram() {
         try {
             return MemoryManager.getInstance().getAllocatedDeviceMemoryMB() + " MB";

@@ -14,12 +14,10 @@ public final class FrameGraphLayout {
     public static final int AXIS_W = 44;
     public static final int MARKER_H = 3;
     public static final int MARKER_GAP = 2;
-    public static final int PLOT_GAP = 12;
     public static final int GC_BAND_H = 14;
     public static final int PAUSE_W = 72;
     public static final int PAUSE_H = 17;
     public static final int STUTTER_H = 13;
-    public static final int STUTTER_GAP = 1;
     public static final int PROFILE_H = 13;
     public static final int PROFILE_GAP = 2;
     public static final int BLOCK_GAP = 16;
@@ -38,8 +36,6 @@ public final class FrameGraphLayout {
     public static final int SWATCH = 6;
     private static final int MAX_USABLE = 560;
     public static final int TILE_H = 20;
-    public static final int TILE_GAP = 3;
-    public static final int FOOTER_GAP = 12;
     public static final int LINE = 7;
     public static final int BOTTOM = 12;
 

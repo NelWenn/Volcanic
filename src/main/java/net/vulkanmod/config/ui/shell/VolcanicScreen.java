@@ -6,7 +6,6 @@ import net.minecraft.network.chat.Component;
 import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
-import net.vulkanmod.config.ui.core.ProfileChipRow;
 import net.vulkanmod.config.ui.core.FrameGraphLayout;
 import net.vulkanmod.config.ui.core.InfoRowLayout;
 import net.vulkanmod.config.ui.core.PluginPageLayout;

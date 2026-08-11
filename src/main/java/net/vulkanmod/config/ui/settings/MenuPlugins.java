@@ -40,10 +40,6 @@ public final class MenuPlugins {
         return cached;
     }
 
-    public static void forget() {
-        cached = null;
-    }
-
     public static List<MenuSetting> settingsOf(MenuPlugin plugin) {
         if (plugin == null) {
             throw new IllegalArgumentException("plugin must not be null");
@@ -185,10 +181,6 @@ public final class MenuPlugins {
 
     public static Showcase showcaseOf(String pluginId) {
         return SHOWCASES.computeIfAbsent(pluginId, MenuPlugins::readShowcase);
-    }
-
-    public static void forgetShowcases() {
-        SHOWCASES.clear();
     }
 
     private static Showcase readShowcase(String pluginId) {

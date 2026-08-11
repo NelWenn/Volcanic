@@ -35,7 +35,6 @@ import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
 import net.vulkanmod.config.ui.core.PresetCardModel;
 import net.vulkanmod.config.ui.core.PresetRating;
-import net.vulkanmod.config.ui.core.Recommendation;
 import net.vulkanmod.config.ui.settings.OverviewSignals;
 import net.vulkanmod.vulkan.SessionSamples;
 import net.vulkanmod.config.ui.core.Gradient;
@@ -48,7 +47,6 @@ import net.vulkanmod.config.ui.core.CoalScene;
 import net.vulkanmod.config.ui.core.Motion;
 import net.vulkanmod.config.ui.core.NavNode;
 import net.vulkanmod.config.ui.core.OverviewModel;
-import net.vulkanmod.config.ui.core.ProfileChipRow;
 import net.vulkanmod.config.ui.core.PresetFx;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RoundedScanline;
@@ -153,12 +151,6 @@ public final class ShellRenderer {
     private static final int TOOLTIP_RADIUS = 4;
     private static final int OVERLAY_PAD_X = 8;
     private static final int RESULT_RADIUS = 4;
-    private static final String KEY_DETAILS_EMPTY = "vulkanmod.details.empty";
-    private static final String KEY_DETAILS_PERFORMANCE = "vulkanmod.details.performance";
-    private static final String KEY_DETAILS_VISUAL = "vulkanmod.details.visual";
-    private static final String KEY_DETAILS_RECOMMENDED = "vulkanmod.details.recommended";
-    private static final String KEY_DETAILS_RESTART = "vulkanmod.details.restart";
-    private static final String KEY_DETAILS_EXPERIMENTAL = "vulkanmod.details.experimental";
     private static final int DETAILS_GLYPH = 7;
     private static final int DETAILS_GLYPH_GAP = 3;
     private static final RouteId OVERVIEW = RouteId.parse("overview");
@@ -181,8 +173,6 @@ public final class ShellRenderer {
     private static final String KEY_STATS_UNIT_FPS = "vulkanmod.ui.stats.unit.fps";
     private static final String KEY_STATS_UNIT_MS = "vulkanmod.ui.stats.unit.ms";
     private static final String KEY_STATS_PROFILE = "vulkanmod.ui.stats.profile";
-    private static final String KEY_STATS_CAUSE_GC = "vulkanmod.ui.stats.cause.gc";
-    private static final String KEY_STATS_CAUSE_UPLOAD = "vulkanmod.ui.stats.cause.upload";
     private static final String KEY_STATS_CAUSE_NONE = "vulkanmod.ui.stats.cause.none";
     private static final String KEY_STATS_SCALE = "vulkanmod.ui.stats.scale";
     private static final String KEY_STATS_GROUP_FINGERPRINT = "vulkanmod.ui.stats.group.fingerprint";
@@ -221,10 +211,6 @@ public final class ShellRenderer {
     private static final String KEY_STATS_NO_SAMPLES = "vulkanmod.ui.stats.nosamples";
     private static final String KEY_STATS_GROUP_FINDINGS = "vulkanmod.ui.stats.group.findings";
     private static final String KEY_STATS_LEGEND = "vulkanmod.ui.stats.legend";
-    private static final String DASH = "—";
-    private static final String[] STAT_TILES = {
-            "vulkanmod.ui.stats.average", "vulkanmod.ui.stats.median", "vulkanmod.ui.stats.low1",
-            "vulkanmod.ui.stats.low01", "vulkanmod.ui.stats.p95", "vulkanmod.ui.stats.spikes"};
     private static final String KEY_DEVELOPER_INTRO = "vulkanmod.ui.developer.intro";
     private static final RouteId DEVELOPER = RouteId.parse("developer");
     private static final String KEY_PLUGINS_OPEN = "vulkanmod.ui.plugins.open";
@@ -234,7 +220,6 @@ public final class ShellRenderer {
     private long showcaseElapsed = 9_999L;
     private static final String KEY_PLUGINS_NONE = "vulkanmod.ui.plugins.none";
     private static final String KEY_PLUGINS_EMPTY_HINT = "vulkanmod.ui.plugins.empty.hint";
-    private static final int RATING_FROM_BOTTOM = 22;
     private static final String KEY_SUGGEST = "vulkanmod.overview.suggest";
     private static final String KEY_SUGGEST_WAIT = "vulkanmod.overview.suggest_wait";
     private static final String KEY_SUGGESTED = "vulkanmod.overview.suggested";
@@ -422,12 +407,6 @@ public final class ShellRenderer {
         this.pageElapsed = 0L;
     }
 
-    private static List<String> wrapped(Font font, String key, int wrapWidth) {
-        if (key == null || key.isBlank()) {
-            return List.of();
-        }
-        return wrappedText(font, I18n.get(key), wrapWidth);
-    }
 
     private static List<String> wrappedText(Font font, String text, int wrapWidth) {
         if (text == null || text.isBlank()) {
@@ -777,9 +756,6 @@ public final class ShellRenderer {
         return viewport.contains(mouseX, mouseY) ? model.entryIndexAt(viewport.contentY(mouseY)) : -1;
     }
 
-    public List<Rect> tabStripBoxes(Font font, ShellLayout layout, NavPresenter presenter) {
-        return tabStrip(font, layout, presenter).boxes();
-    }
 
     public TabStripModel.Strip tabStrip(Font font, ShellLayout layout, NavPresenter presenter) {
         return stripAt(font, layout, presenter, tabScroll.rendered(), -1);
@@ -893,20 +869,6 @@ public final class ShellRenderer {
                 SettingRowLayout.contentHeight(presenter.contentRowCount(), layout.breakpoint()), scroll);
     }
 
-    private static int revealIndex(NavPresenter presenter, List<NavNode> tabs) {
-        String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
-        RouteId current = presenter.stack().current();
-        int active = -1;
-        for (int i = 0; i < tabs.size(); i++) {
-            if (tabs.get(i).route().toString().equals(focusedId)) {
-                return i;
-            }
-            if (tabs.get(i).route().equals(current)) {
-                active = i;
-            }
-        }
-        return active;
-    }
 
     private void paintChrome(SurfacePainter painter, ShellLayout layout, boolean drawerOpen,
                              boolean searchFocused) {
@@ -2490,36 +2452,7 @@ public final class ShellRenderer {
         }
     }
 
-    private void paintStatTiles(SurfacePainter painter, Font font, FrameGraphLayout.Page page,
-                                FrameSamples.Summary play) {
-        for (int index = 0; index < page.tiles().size() && index < STAT_TILES.length; index++) {
-            Rect tile = page.tiles().get(index);
-            paintRoundedFill(painter, tile, SettingRowLayout.CARD_RADIUS,
-                    theme.color(ColorToken.SURFACE_CARD));
-            Rect label = FrameGraphLayout.tileLabel(tile);
-            painter.smallText(label.x() + 6, label.y(),
-                    smallTrim(painter, font, I18n.get(STAT_TILES[index]), label.width() - 12),
-                    theme.color(ColorToken.TEXT_FAINT));
-            Rect value = FrameGraphLayout.tileValue(tile);
-            String text = statValue(index, play);
-            painter.text(value.x() + 6, value.y(), trimToWidth(font, text, value.width() - 12),
-                    theme.color(text.equals(DASH) ? ColorToken.TEXT_MUTED : ColorToken.TEXT_PRIMARY), false);
-        }
-    }
 
-    private static String statValue(int index, FrameSamples.Summary play) {
-        if (play.count() < FrameSamples.READY_AT) {
-            return DASH;
-        }
-        return switch (index) {
-            case 0 -> String.format(Locale.ROOT, "%.0f fps", 1000.0f / play.average());
-            case 1 -> String.format(Locale.ROOT, "%.1f ms", play.median());
-            case 2 -> play.low1() < 0 ? DASH : String.format(Locale.ROOT, "%.0f fps", 1000.0f / play.low1());
-            case 3 -> play.low01() < 0 ? DASH : String.format(Locale.ROOT, "%.0f fps", 1000.0f / play.low01());
-            case 4 -> String.format(Locale.ROOT, "%.1f ms", play.p95());
-            default -> Integer.toString(play.spikes());
-        };
-    }
 
     private static String samplingLine(FrameSamples.Summary play) {
         return play.count() < FrameSamples.READY_AT

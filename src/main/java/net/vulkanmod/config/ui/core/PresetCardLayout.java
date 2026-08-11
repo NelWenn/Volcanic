@@ -27,10 +27,7 @@ public final class PresetCardLayout {
     public static final int ACCENT_WIDTH = 3;
     public static final int NAME_LINE = 9;
     public static final int SMALL_LINE = 7;
-    public static final int BAR_ROW = 9;
     public static final int MAX_CARD = 108;
-    public static final int THREE_WIDE_AT = 640;
-    public static final int TWO_WIDE_AT = 380;
     private static final int MIN_CARD = 88;
 
     private PresetCardLayout() {

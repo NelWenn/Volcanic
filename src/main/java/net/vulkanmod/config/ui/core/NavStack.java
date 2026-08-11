@@ -8,7 +8,6 @@ import java.util.List;
 public final class NavStack {
     private final NavTree tree;
     private final Deque<RouteId> back = new ArrayDeque<>();
-    private final Deque<RouteId> forward = new ArrayDeque<>();
     private RouteId current;
 
     public NavStack(NavTree tree, RouteId initial) {
@@ -35,7 +34,6 @@ public final class NavStack {
         }
         back.push(current);
         current = route;
-        forward.clear();
         return true;
     }
 
@@ -43,26 +41,12 @@ public final class NavStack {
         if (back.isEmpty()) {
             return false;
         }
-        forward.push(current);
         current = back.pop();
-        return true;
-    }
-
-    public boolean forward() {
-        if (forward.isEmpty()) {
-            return false;
-        }
-        back.push(current);
-        current = forward.pop();
         return true;
     }
 
     public boolean canGoBack() {
         return !back.isEmpty();
-    }
-
-    public boolean canGoForward() {
-        return !forward.isEmpty();
     }
 
     public List<RouteId> trail() {

@@ -14,7 +14,6 @@ public enum PerformancePreset {
             .adaptiveChunkUploads(true)
             .chunkUploadsPerFrame(3)
             .advCulling(1)
-            .entityCulling(true)
             .blockEntityCulling(true)
             .leavesQuality(1)
             .particleCulling(3)
@@ -35,7 +34,6 @@ public enum PerformancePreset {
             .adaptiveChunkUploads(true)
             .chunkUploadsPerFrame(5)
             .advCulling(2)
-            .entityCulling(true)
             .blockEntityCulling(true)
             .leavesQuality(1)
             .particleCulling(2)
@@ -56,7 +54,6 @@ public enum PerformancePreset {
             .adaptiveChunkUploads(true)
             .chunkUploadsPerFrame(16)
             .advCulling(2)
-            .entityCulling(true)
             .blockEntityCulling(true)
             .leavesQuality(1)
             .particleCulling(1)
@@ -77,7 +74,6 @@ public enum PerformancePreset {
             .adaptiveChunkUploads(true)
             .chunkUploadsPerFrame(16)
             .advCulling(2)
-            .entityCulling(true)
             .blockEntityCulling(true)
             .leavesQuality(1)
             .particleCulling(1)
@@ -99,7 +95,6 @@ public enum PerformancePreset {
     public final boolean adaptiveChunkUploads;
     public final int chunkUploadsPerFrame;
     public final int advCulling;
-    public final boolean entityCulling;
     public final boolean blockEntityCulling;
     public final int leavesQuality;
     public final int particleCulling;
@@ -122,7 +117,6 @@ public enum PerformancePreset {
         this.adaptiveChunkUploads = false;
         this.chunkUploadsPerFrame = 0;
         this.advCulling = 0;
-        this.entityCulling = false;
         this.blockEntityCulling = false;
         this.leavesQuality = 0;
         this.particleCulling = 0;
@@ -146,7 +140,6 @@ public enum PerformancePreset {
         this.adaptiveChunkUploads = builder.adaptiveChunkUploads;
         this.chunkUploadsPerFrame = builder.chunkUploadsPerFrame;
         this.advCulling = builder.advCulling;
-        this.entityCulling = builder.entityCulling;
         this.blockEntityCulling = builder.blockEntityCulling;
         this.leavesQuality = builder.leavesQuality;
         this.particleCulling = builder.particleCulling;
@@ -187,7 +180,6 @@ public enum PerformancePreset {
         private boolean adaptiveChunkUploads;
         private int chunkUploadsPerFrame;
         private int advCulling;
-        private boolean entityCulling;
         private boolean blockEntityCulling;
         private int leavesQuality;
         private int particleCulling;
@@ -225,11 +217,6 @@ public enum PerformancePreset {
 
         Builder advCulling(int value) {
             this.advCulling = value;
-            return this;
-        }
-
-        Builder entityCulling(boolean value) {
-            this.entityCulling = value;
             return this;
         }
 

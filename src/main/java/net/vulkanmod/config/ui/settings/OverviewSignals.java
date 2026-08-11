@@ -2,13 +2,11 @@ package net.vulkanmod.config.ui.settings;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
-import net.neoforged.fml.ModList;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.ui.core.BoundVerdict;
 import net.vulkanmod.config.ui.core.FrameSamples;
 import net.vulkanmod.config.ui.core.PresetSuggestion;
 import net.vulkanmod.config.ui.core.ProfileResults;
-import net.vulkanmod.config.ui.core.Recommendation;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.vulkan.FrameTimer;
 import net.vulkanmod.vulkan.SessionSamples;
@@ -46,8 +44,6 @@ public final class OverviewSignals {
 
     private static final String PRESET = "vulkanmod.options.performancePreset.";
     private static final int UNLIMITED_FPS = 260;
-    private static final List<String> FAR_TERRAIN = List.of("caldera", "distanthorizons");
-    private static final List<String> TICK_HEAVY = List.of("create", "createaddition", "createbigcannons");
 
     private OverviewSignals() {
     }
@@ -59,12 +55,6 @@ public final class OverviewSignals {
         }
         return BoundVerdict.of(new BoundVerdict.Signals(samples.median(), Math.max(0.0, FrameTimer.cpuBusyMs()),
                 FrameTimer.gpuMs(), capPeriodMs(), meshingSettles(), serverTickMs()));
-    }
-
-    public static Recommendation.Advice advice() {
-        FrameSamples samples = SessionSamples.samples();
-        return Recommendation.of(new Recommendation.Signals(samples.count(), verdict(), headroom(),
-                stutter(), shaderPack(), loaded(FAR_TERRAIN), loaded(TICK_HEAVY)));
     }
 
     public static String suggestedPresetKey(String playingKey) {
@@ -128,25 +118,6 @@ public final class OverviewSignals {
                 .orElse(null);
     }
 
-    public static ProfileResults results() {
-        return RESULTS;
-    }
-
-    public static double headroom() {
-        FrameSamples samples = SessionSamples.samples();
-        double budget = capPeriodMs();
-        if (!samples.ready() || budget <= 0.0) {
-            return 0.0;
-        }
-        return (budget - samples.median()) / budget;
-    }
-
-    public static double stutter() {
-        FrameSamples samples = SessionSamples.samples();
-        double median = samples.median();
-        return samples.ready() && median > 0.0 ? samples.p95() / median : 1.0;
-    }
-
     private static double capPeriodMs() {
         Minecraft minecraft = Minecraft.getInstance();
         int limit = minecraft.options.framerateLimit().get();
@@ -167,17 +138,4 @@ public final class OverviewSignals {
         return minecraft.getSingleplayerServer().getAverageTickTimeNanos() / 1.0e6;
     }
 
-    private static boolean shaderPack() {
-        return Initializer.CONFIG != null && Initializer.CONFIG.shadersEnabled
-                && !"off".equals(Initializer.CONFIG.selectedShader);
-    }
-
-    private static boolean loaded(List<String> modIds) {
-        for (String id : modIds) {
-            if (ModList.get().isLoaded(id)) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

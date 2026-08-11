@@ -27,10 +27,6 @@ public final class EntityCulling {
     }
 
     public static boolean isVisible(Frustum frustum, AABB aabb) {
-//        if (!Initializer.CONFIG.entityCulling) {
-//            return frustum.isVisible(aabb);
-//        }
-
         if (!frustum.isVisible(aabb)) {
             return false;
         }

@@ -16,7 +16,6 @@ public final class PerformancePresetApplier {
         }
 
         config.advCulling = preset.advCulling;
-        config.entityCulling = preset.entityCulling;
         config.blockEntityCulling = preset.blockEntityCulling;
         config.leavesQuality = preset.leavesQuality;
         config.particleCulling = preset.particleCulling;

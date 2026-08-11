@@ -44,7 +44,6 @@ public class Config {
     public boolean lodDepthSnapshot = true;
 
     public boolean uniqueOpaqueLayer = true;
-    public boolean entityCulling = true;
     public boolean blockEntityCulling = true;
     public static final int BLOCK_ENTITY_DISTANCE_UNLIMITED = 128;
 

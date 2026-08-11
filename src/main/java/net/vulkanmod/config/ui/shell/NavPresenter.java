@@ -13,8 +13,6 @@ import net.vulkanmod.config.ui.core.NavStack;
 import net.vulkanmod.config.ui.core.NavTree;
 import net.vulkanmod.config.ui.core.PendingChanges;
 import net.vulkanmod.config.ui.core.PresetCardModel;
-import net.vulkanmod.config.ui.core.ProfileChipRow;
-import net.vulkanmod.config.ui.core.ProfileMatcher;
 import net.vulkanmod.config.ui.core.FrameSamples;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingId;
@@ -53,7 +51,6 @@ public final class NavPresenter {
     private final DeferredValues deferred = new DeferredValues();
     private final List<String> screenOnlyModIds;
     private List<PluginPage> pluginPages;
-    private List<ProfileChipRow.Chip> profileChips;
     private List<PresetCardModel.Card> presetCards;
     private Favorites favorites;
     private SettingId capturing;
@@ -71,10 +68,6 @@ public final class NavPresenter {
 
     public String tabRevealId() {
         return tabRevealId;
-    }
-
-    public void revealTab(String routeId) {
-        this.tabRevealId = routeId;
     }
 
     public NavPresenter() {
@@ -343,7 +336,6 @@ public final class NavPresenter {
             return false;
         }
 
-        this.profileChips = null;
         this.presetCards = null;
         SettingBinding binding = catalog.binding(meta.id());
         if (deferred.set(meta.id(), value, binding.get())) {
@@ -414,7 +406,6 @@ public final class NavPresenter {
     private int stutterSamples;
     private List<net.vulkanmod.render.profiling.StackSampler.Frame> allocators = List.of();
     private int allocatorSamples;
-    private float historyPeak;
     private float historyMedian = -1.0f;
     private long captureEndMs;
     private int selectedStutter;
@@ -492,10 +483,6 @@ public final class NavPresenter {
         return allocatorSamples;
     }
 
-    public float historyPeak() {
-        return historyPeak;
-    }
-
     public float historyMedian() {
         return historyMedian;
     }
@@ -538,7 +525,6 @@ public final class NavPresenter {
         this.stutters = List.of();
         this.stutterProfile = List.of();
         this.stutterSamples = 0;
-        this.historyPeak = 0.0f;
         this.historyMedian = -1.0f;
     }
 
@@ -575,7 +561,6 @@ public final class NavPresenter {
                     history.allocationRateMbPerSecond());
             this.machineRows = net.vulkanmod.config.ui.settings.StatsReport.machine();
             this.columns = history.columns(Math.max(1, wantedColumns));
-            this.historyPeak = history.peak();
             this.historyMedian = history.medianAverage();
             this.stutters = history.worst(5, FrameSamples.spikeFloor(historyMedian));
             this.captureEndMs = history.size() == 0 ? System.currentTimeMillis()
@@ -703,7 +688,6 @@ public final class NavPresenter {
     }
 
     public void apply() {
-        this.profileChips = null;
         this.presetCards = null;
         boolean[] touchedPlugin = {false};
         catalog.beginBatch();
@@ -727,20 +711,9 @@ public final class NavPresenter {
     }
 
     public void discard() {
-        this.profileChips = null;
         this.presetCards = null;
         deferred.clear();
         pending.clear();
-    }
-
-    public List<ProfileChipRow.Chip> profileChips() {
-        if (profileChips == null) {
-            Map<String, Map<SettingId, Object>> profiles = changeableProfiles();
-            this.profileChips = ProfileChipRow.chips(List.copyOf(profiles.keySet()),
-                    PerformancePreset.CUSTOM.translationKey,
-                    ProfileMatcher.match(profiles, changeableValues()));
-        }
-        return profileChips;
     }
 
     public List<PresetCardModel.Card> presetCards() {

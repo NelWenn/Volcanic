@@ -27,7 +27,6 @@ class NavStackTest {
         NavStack stack = stack();
         assertEquals(OVERVIEW, stack.current());
         assertFalse(stack.canGoBack());
-        assertFalse(stack.canGoForward());
     }
 
     @Test
@@ -54,7 +53,7 @@ class NavStackTest {
     }
 
     @Test
-    void backAndForwardRetraceTheSamePath() {
+    void backRetracesThePathAndStopsAtTheStart() {
         NavStack stack = stack();
         stack.navigate(RENDERING);
         stack.navigate(CULLING);
@@ -63,20 +62,7 @@ class NavStackTest {
         assertTrue(stack.back());
         assertEquals(OVERVIEW, stack.current());
         assertFalse(stack.back());
-        assertTrue(stack.forward());
-        assertEquals(RENDERING, stack.current());
-    }
-
-    @Test
-    void navigatingAfterBackDropsTheForwardHistory() {
-        NavStack stack = stack();
-        stack.navigate(RENDERING);
-        stack.navigate(CULLING);
-        stack.back();
-        assertTrue(stack.canGoForward());
-        stack.navigate(OVERVIEW);
-        assertFalse(stack.canGoForward());
-        assertFalse(stack.forward());
+        assertEquals(OVERVIEW, stack.current());
     }
 
     @Test
