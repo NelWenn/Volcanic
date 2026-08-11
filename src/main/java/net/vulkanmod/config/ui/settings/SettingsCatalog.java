@@ -149,6 +149,30 @@ public final class SettingsCatalog {
         registerMods();
     }
 
+    private boolean batching;
+    private boolean rebuildWanted;
+
+    private void requestChunkRebuild() {
+        if (batching) {
+            this.rebuildWanted = true;
+            return;
+        }
+        Minecraft.getInstance().levelRenderer.allChanged();
+    }
+
+    public void beginBatch() {
+        this.batching = true;
+        this.rebuildWanted = false;
+    }
+
+    public void endBatch() {
+        this.batching = false;
+        if (rebuildWanted) {
+            this.rebuildWanted = false;
+            Minecraft.getInstance().levelRenderer.allChanged();
+        }
+    }
+
     private void registerParticles() {
         List<ResourceLocation> ids;
         try {
@@ -743,7 +767,7 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.lodDepthSnapshot,
                 value -> {
                     Initializer.CONFIG.lodDepthSnapshot = boolValue(value);
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 })
                 .withDefault(() -> Boolean.TRUE));
 
@@ -751,7 +775,7 @@ public final class SettingsCatalog {
                 () -> cullingModeKey(Initializer.CONFIG.advCulling),
                 value -> {
                     Initializer.CONFIG.advCulling = cullingModeFor(label(value));
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 },
                 () -> CULLING_MODES.stream().map(SettingsCatalog::cullingModeKey).toList())
                 .withDefault(() -> cullingModeKey(CULLING_MODE_NORMAL)));
@@ -760,7 +784,7 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.blockEntityCulling,
                 value -> {
                     Initializer.CONFIG.blockEntityCulling = boolValue(value);
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 })
                 .withDefault(() -> Boolean.TRUE));
 
@@ -774,7 +798,7 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.lodGpuCulling,
                 value -> {
                     Initializer.CONFIG.lodGpuCulling = boolValue(value);
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 })
                 .withDefault(() -> Boolean.FALSE));
     }
@@ -800,7 +824,7 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw(),
                 value -> {
                     Initializer.CONFIG.indirectDraw = boolValue(value) && DeviceManager.supportsFastIndirectDraw();
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 })
                 .withDefault(() -> Boolean.TRUE));
 
@@ -808,7 +832,7 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.uniqueOpaqueLayer,
                 value -> {
                     Initializer.CONFIG.uniqueOpaqueLayer = boolValue(value);
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 })
                 .withDefault(() -> Boolean.TRUE));
     }
@@ -972,7 +996,7 @@ public final class SettingsCatalog {
                 () -> Initializer.CONFIG.ctmEnabled,
                 value -> {
                     Initializer.CONFIG.ctmEnabled = boolValue(value);
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 })
                 .withDefault(() -> Boolean.TRUE));
 
@@ -1007,7 +1031,7 @@ public final class SettingsCatalog {
                     int mode = ambientOcclusionFor(label(value));
                     Minecraft.getInstance().options.ambientOcclusion().set(mode > LightMode.FLAT);
                     Initializer.CONFIG.ambientOcclusion = mode;
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 },
                 () -> AMBIENT_OCCLUSION_MODES.stream().map(SettingsCatalog::ambientOcclusionKey).toList())
                 .withDefault(() -> ambientOcclusionKey(LightMode.SMOOTH)));
@@ -1016,7 +1040,7 @@ public final class SettingsCatalog {
                 () -> Minecraft.getInstance().options.biomeBlendRadius().get(),
                 value -> {
                     Minecraft.getInstance().options.biomeBlendRadius().set(intValue(value));
-                    Minecraft.getInstance().levelRenderer.allChanged();
+                    requestChunkRebuild();
                 },
                 SettingsDefinitions.BIOME_BLEND_MIN, SettingsDefinitions.BIOME_BLEND_MAX,
                 SettingsDefinitions.BIOME_BLEND_STEP)

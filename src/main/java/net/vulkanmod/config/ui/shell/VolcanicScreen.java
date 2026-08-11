@@ -147,6 +147,7 @@ public class VolcanicScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         this.keyboardMode = false;
+        presenter.capture(null);
         boolean handled = handleClick(mouseX, mouseY, button);
         if (handled && button == PRIMARY_BUTTON) {
             UiSounds.playClick();
@@ -171,6 +172,7 @@ public class VolcanicScreen extends Screen {
         }
         if (renderer.favoritesButton(this.font, layout).contains(x, y)) {
             presenter.openFavorites();
+            syncShellMode();
             return true;
         }
         if (layout.menuButton().contains(x, y)) {
@@ -290,6 +292,7 @@ public class VolcanicScreen extends Screen {
                     return super.keyPressed(keyCode, scanCode, modifiers);
                 }
                 presenter.back();
+                syncShellMode();
                 return true;
             }
             case NEXT, PREVIOUS, UP, DOWN, HOME, END -> {
@@ -311,6 +314,7 @@ public class VolcanicScreen extends Screen {
                 }
                 if (presenter.favoritesFocused()) {
                     presenter.openFavorites();
+                    syncShellMode();
                     return true;
                 }
                 SettingMeta focused = presenter.focusedSetting();
@@ -386,6 +390,7 @@ public class VolcanicScreen extends Screen {
     private void openResult(SearchIndex.Entry entry) {
         focusSearch(false);
         presenter.reveal(entry.id());
+        syncShellMode();
         syncContentScroll();
         revealFocusedSetting();
     }
@@ -703,13 +708,16 @@ public class VolcanicScreen extends Screen {
         return true;
     }
 
-    private void select(RouteId route, String regionId) {
-        boolean wasCollapsed = layout.collapsed();
-        presenter.navigate(route);
-        if (wasCollapsed != presenter.isDeveloper()) {
+    private void syncShellMode() {
+        if (layout.collapsed() != presenter.isDeveloper()) {
             setDrawerOpen(false);
             rebuildWidgets();
         }
+    }
+
+    private void select(RouteId route, String regionId) {
+        presenter.navigate(route);
+        syncShellMode();
         presenter.focus().focusRegion(regionId);
         presenter.focus().ring(regionId).focus(route.toString());
         presenter.refreshDiagnostics(renderer.statsColumns(layout, presenter));

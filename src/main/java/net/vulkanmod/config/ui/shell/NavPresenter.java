@@ -706,11 +706,20 @@ public final class NavPresenter {
         this.profileChips = null;
         this.presetCards = null;
         boolean[] touchedPlugin = {false};
-        deferred.drainTo((id, value) -> {
-            catalog.binding(id).set(value);
-            pending.unmark(id);
-            touchedPlugin[0] |= catalog.pluginIds().contains(id.namespace());
-        });
+        catalog.beginBatch();
+        try {
+            deferred.drainTo((id, value) -> {
+                try {
+                    catalog.binding(id).set(value);
+                } catch (Throwable refused) {
+                    Initializer.LOGGER.error("Could not apply {}", id, refused);
+                }
+                pending.unmark(id);
+                touchedPlugin[0] |= catalog.pluginIds().contains(id.namespace());
+            });
+        } finally {
+            catalog.endBatch();
+        }
         if (touchedPlugin[0]) {
             applyPlugins();
         }
