@@ -776,22 +776,22 @@ public final class ShellRenderer {
     }
 
     public List<Rect> tabStripBoxes(Font font, ShellLayout layout, NavPresenter presenter) {
+        return tabStrip(font, layout, presenter).boxes();
+    }
+
+    public TabStripModel.Strip tabStrip(Font font, ShellLayout layout, NavPresenter presenter) {
         requireInputs(font, layout, presenter);
         Rect strip = headerBand(layout, presenter).tabs();
-        if (strip.isEmpty()) {
-            return List.of();
-        }
         List<NavNode> tabs = presenter.subTabs();
+        if (strip.isEmpty() || tabs.isEmpty()) {
+            return new TabStripModel.Strip(List.of(), Rect.EMPTY, Rect.EMPTY, strip, 0);
+        }
         int[] widths = new int[tabs.size()];
         for (int i = 0; i < tabs.size(); i++) {
             widths[i] = font.width(I18n.get(tabs.get(i).titleKey()));
         }
-
-        int left = strip.x();
-        int right = Math.max(left, strip.right());
-        List<Rect> boxes = TabStripModel.layout(widths, left, strip.y());
-        return TabStripModel.shifted(boxes,
-                TabStripModel.scrollToReveal(boxes, revealIndex(presenter, tabs), left, right));
+        return TabStripModel.strip(widths, strip, presenter.tabOffset(),
+                revealIndex(presenter, tabs));
     }
 
     public int statsColumns(ShellLayout layout, NavPresenter presenter) {
@@ -3200,7 +3200,9 @@ public final class ShellRenderer {
             return;
         }
 
-        List<Rect> boxes = tabStripBoxes(font, layout, presenter);
+        TabStripModel.Strip strip = tabStrip(font, layout, presenter);
+        List<Rect> boxes = strip.boxes();
+        presenter.setTabOffset(strip.offset());
         RouteId current = presenter.stack().current();
         String focusedId = focusedIn(presenter, NavPresenter.REGION_CONTENT);
         int gradientTop = theme.color(ColorToken.ACCENT_BRIGHT);
@@ -3210,6 +3212,10 @@ public final class ShellRenderer {
         for (int i = 0; i < boxes.size(); i++) {
             Rect box = boxes.get(i);
             NavNode tab = tabs.get(i);
+            if (strip.scrollable()
+                    && (box.right() <= strip.viewport().x() || box.x() >= strip.viewport().right())) {
+                continue;
+            }
 
             if (tab.route().toString().equals(focusedId) && !tab.route().equals(current)) {
                 paintRoundedOutline(painter, box, PILL_RADIUS, theme.color(ColorToken.ACCENT));
@@ -3226,6 +3232,25 @@ public final class ShellRenderer {
                     text, Motion.blend(theme.color(ColorToken.TEXT_SECONDARY),
                             theme.color(ColorToken.TEXT_PRIMARY), covered), false);
         }
+
+        if (strip.scrollable()) {
+            paintTabArrow(painter, font, strip.prev(), "\u25C0", strip.offset() > 0);
+            paintTabArrow(painter, font, strip.next(), "\u25B6",
+                    strip.offset() < TabStripModel.maxOffset(boxes, strip.viewport()) + strip.offset());
+        }
+    }
+
+    private void paintTabArrow(SurfacePainter painter, Font font, Rect box, String glyph, boolean live) {
+        if (box.isEmpty()) {
+            return;
+        }
+        paintRoundedFill(painter, box, PILL_RADIUS,
+                theme.color(live ? ColorToken.SURFACE_NAV_ACTIVE : ColorToken.SURFACE_SUNKEN));
+        paintRoundedOutline(painter, box, PILL_RADIUS,
+                theme.color(live ? ColorToken.BORDER_ACCENT : ColorToken.BORDER_SUBTLE));
+        int ink = Math.max(1, font.width(glyph) - 1);
+        painter.text(box.x() + (box.width() - ink) / 2, box.y() + (box.height() - TEXT_HEIGHT) / 2, glyph,
+                theme.color(live ? ColorToken.TEXT_PRIMARY : ColorToken.TEXT_FAINT), false);
     }
 
     private static void paintRoundedGradient(SurfacePainter painter, Rect rect, int radius, int topArgb,

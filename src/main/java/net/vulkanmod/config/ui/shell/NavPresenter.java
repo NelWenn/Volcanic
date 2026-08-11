@@ -57,6 +57,15 @@ public final class NavPresenter {
     private List<PresetCardModel.Card> presetCards;
     private Favorites favorites;
     private SettingId capturing;
+    private int tabOffset;
+
+    public int tabOffset() {
+        return tabOffset;
+    }
+
+    public void setTabOffset(int offset) {
+        this.tabOffset = Math.max(0, offset);
+    }
 
     public NavPresenter() {
         List<String> modIds = catalog.modIds();

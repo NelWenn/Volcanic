@@ -100,4 +100,74 @@ class TabStripModelTest {
         assertThrows(IllegalArgumentException.class,
                 () -> TabStripModel.layout(new int[] { -1 }, 0, 0));
     }
+
+    private static final Rect BAND = new Rect(20, 40, 200, TabStripModel.HEIGHT);
+
+    private static int[] widths(int count, int each) {
+        int[] widths = new int[count];
+        java.util.Arrays.fill(widths, each);
+        return widths;
+    }
+
+    @Test
+    void tabsThatFitGetNoArrowsAndStartWhereTheBandStarts() {
+        TabStripModel.Strip strip = TabStripModel.strip(widths(3, 20), BAND, 0, 0);
+        assertFalse(strip.scrollable());
+        assertTrue(strip.prev().isEmpty());
+        assertTrue(strip.next().isEmpty());
+        assertEquals(BAND.x(), strip.boxes().get(0).x());
+        assertEquals(0, strip.offset());
+        assertTrue(strip.boxes().get(strip.boxes().size() - 1).right() <= BAND.right());
+    }
+
+    @Test
+    void tabsThatOverflowGetArrowsOnBothEdgesInsideTheBand() {
+        TabStripModel.Strip strip = TabStripModel.strip(widths(12, 40), BAND, 0, 0);
+        assertTrue(strip.scrollable());
+        assertEquals(BAND.x(), strip.prev().x());
+        assertEquals(BAND.right(), strip.next().right());
+        assertTrue(strip.viewport().x() >= strip.prev().right(),
+                "the tabs must start clear of the left arrow");
+        assertTrue(strip.viewport().right() <= strip.next().x(),
+                "the tabs must stop clear of the right arrow");
+    }
+
+    @Test
+    void scrollingRightMovesTheTabsLeftAndNeverPastTheLastOne() {
+        TabStripModel.Strip start = TabStripModel.strip(widths(12, 40), BAND, 0, -1);
+        TabStripModel.Strip moved = TabStripModel.strip(widths(12, 40), BAND, 60, -1);
+        assertTrue(moved.boxes().get(0).x() < start.boxes().get(0).x());
+
+        TabStripModel.Strip far = TabStripModel.strip(widths(12, 40), BAND, 100_000, -1);
+        assertEquals(far.viewport().right(), far.boxes().get(far.boxes().size() - 1).right(),
+                "the last tab must land flush with the right edge, never beyond it");
+    }
+
+    @Test
+    void anOffsetCannotDragTheStripPastItsStart() {
+        TabStripModel.Strip strip = TabStripModel.strip(widths(12, 40), BAND, -500, -1);
+        assertEquals(0, strip.offset());
+        assertEquals(strip.viewport().x(), strip.boxes().get(0).x());
+    }
+
+    @Test
+    void revealingATabOnlyNudgesTheOffsetItDoesNotRecentreIt() {
+        int[] widths = widths(12, 40);
+        TabStripModel.Strip held = TabStripModel.strip(widths, BAND, 120, -1);
+        TabStripModel.Strip visible = TabStripModel.strip(widths, BAND, 120, 3);
+        assertEquals(held.offset(), visible.offset(),
+                "a tab already on screen must not move the strip");
+
+        TabStripModel.Strip revealed = TabStripModel.strip(widths, BAND, 0, 11);
+        assertTrue(revealed.offset() > 0, "the last tab must be pulled into view");
+        assertTrue(revealed.boxes().get(11).right() <= revealed.viewport().right());
+    }
+
+    @Test
+    void anEmptyStripIsNotScrollableAndHasNoBoxes() {
+        TabStripModel.Strip none = TabStripModel.strip(new int[0], BAND, 0, 0);
+        assertTrue(none.boxes().isEmpty());
+        assertFalse(none.scrollable());
+        assertTrue(TabStripModel.strip(widths(3, 20), Rect.EMPTY, 0, 0).boxes().isEmpty());
+    }
 }
