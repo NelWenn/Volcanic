@@ -4,7 +4,6 @@ import it.unimi.dsi.fastutil.ints.Int2ReferenceOpenHashMap;
 import net.vulkanmod.gl.GlBuffer;
 import net.vulkanmod.gl.GlFramebuffer;
 import net.vulkanmod.gl.GlProgram;
-import net.vulkanmod.rendergraph.radiance.PipelineManager;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -12,6 +11,7 @@ import net.vulkanmod.vulkan.memory.IndexBuffer;
 import net.vulkanmod.vulkan.memory.MemoryTypes;
 import net.vulkanmod.vulkan.memory.VertexBuffer;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
+import net.vulkanmod.vulkan.shader.PipelineManager;
 import net.vulkanmod.vulkan.util.MappedBuffer;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -93,7 +93,7 @@ public final class ExternalTerrainRenderBridge {
             return;
         }
 
-        int indexBytes = Math.min(count * indexType.size, Math.max(0, indexGlBuffer.getSize() - (int) indicesOffset));
+        int indexBytes = Math.clamp(indexGlBuffer.getSize() - (int) indicesOffset, 0, count * indexType.size);
         if (indexBytes <= 0) {
             record(DrawOutcome.EMPTY_INDEX_RANGE, () -> "count=%d offset=%d indexBytes=%d".formatted(count, indicesOffset, indexGlBuffer.getSize()));
             return;
@@ -109,7 +109,7 @@ public final class ExternalTerrainRenderBridge {
             GlFramebuffer.bindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
         }
 
-        GraphicsPipeline pipeline = PipelineManager.getExternalLodPipeline();
+        GraphicsPipeline pipeline = Renderer.getInstance().getPipelineManager().getPipeline(PipelineManager.PIPELINE_EXTERNAL_LOD);
         if (pipeline == null) {
             record(DrawOutcome.MISSING_PIPELINE);
             return;
@@ -268,9 +268,8 @@ public final class ExternalTerrainRenderBridge {
     }
 
     static int maxIndexWithinVertexBounds(ByteBuffer indexData, IndexBuffer.IndexType indexType, int vertexCount) {
-        if (vertexCount <= 0) {
+        if (vertexCount <= 0)
             return -1;
-        }
 
         ByteBuffer indices = indexData.duplicate();
         indices.order(indexData.order());

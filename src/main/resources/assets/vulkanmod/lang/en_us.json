@@ -88,6 +88,7 @@
   "vulkanmod.options.glFboViewport": "GL FBO Viewport",
   "vulkanmod.options.glFboViewport.tooltip": "Uses the framebuffer-object viewport convention for mods that render to their own render targets. Requires restart.",
   "vulkanmod.keybind.toggle_debug_overlay": "Toggle Debug Overlay",
+  "vulkanmod.keybind.toggle_framegraph_overlay": "Toggle Framegraph Overlay",
   "vulkanmod.keybind.toggle_fps_overlay": "Toggle FPS Display",
   "vulkanmod.keybind.open_options": "Open Volcanic Settings",
   "vulkanmod.options.title": "Volcanic Graphics",

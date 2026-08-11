@@ -4,7 +4,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.client.event.ModelEvent;
@@ -19,6 +18,7 @@ import net.vulkanmod.compat.CompatReport;
 import net.vulkanmod.compat.RuntimeOptions;
 import net.vulkanmod.render.cit.CitModelRegistrar;
 import net.vulkanmod.render.fusion.FusionModelLoader;
+import net.vulkanmod.vulkan.MoltenVKConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -38,6 +38,7 @@ public class Initializer {
 
 		try {
 			Platform.init();
+			MoltenVKConfig.apply();
 			VideoModeManager.init();
 			Path configPath = Path.of("config", "vulkanmod_settings.json");
 			CONFIG = loadConfig(configPath);
@@ -52,12 +53,14 @@ public class Initializer {
 
 	public Initializer(IEventBus modEventBus, ModContainer modContainer) {
 		VERSION = modContainer.getModInfo().getVersion().toString();
+
 		modEventBus.addListener(this::onInitializeClient);
 		net.vulkanmod.sound.UiSounds.register(modEventBus);
 		modEventBus.addListener(CitModelRegistrar::onRegisterAdditional);
 		modEventBus.addListener((ModelEvent.RegisterGeometryLoaders event) ->
 				event.register(ResourceLocation.fromNamespaceAndPath("fusion", "model"),
 						FusionModelLoader.INSTANCE));
+
 		modContainer.registerExtensionPoint(IConfigScreenFactory.class,
 				(Supplier<IConfigScreenFactory>) () ->
 						(container, parent) -> new VolcanicScreen(Component.translatable("vulkanmod.options.title"), parent));
@@ -73,16 +76,16 @@ public class Initializer {
 		}
 		UpdateChecker.checkForUpdates();
 		CompatBootstrap.init();
-		if (RuntimeOptions.diagnosticsEnabled()) {
+		if (RuntimeOptions.diagnosticsEnabled())
 			CompatReport.logReport();
-		}
+
 		CompatReport.logRuntimeHints();
 	}
 
 	private static Config loadConfig(Path path) {
 		Config config = Config.load(path);
 
-		if(config == null) {
+		if (config == null) {
 			config = new Config();
 			config.performancePreset = net.vulkanmod.config.PerformancePreset.QUALITY.id;
 			config.write();

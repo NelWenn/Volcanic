@@ -9,7 +9,7 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.ResourceLocation;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
-import net.vulkanmod.gui.DebugOverlay;
+import net.vulkanmod.gui.debug.DebugOverlay;
 import net.vulkanmod.gui.HudHandler;
 import org.lwjgl.glfw.GLFW;
 import net.vulkanmod.Initializer;

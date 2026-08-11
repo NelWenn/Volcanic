@@ -3,7 +3,7 @@ package net.vulkanmod.render.profiling;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.vulkanmod.Initializer;
-import net.vulkanmod.gui.DebugOverlay;
+import net.vulkanmod.gui.debug.DebugOverlay;
 import net.vulkanmod.gui.HUD;
 import net.vulkanmod.gui.HudHandler;
 import net.vulkanmod.vulkan.FrameTimer;
