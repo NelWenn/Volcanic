@@ -3028,6 +3028,7 @@ public final class ShellRenderer {
         return switch (tone) {
             case GOOD -> ColorToken.SUCCESS;
             case WARN -> ColorToken.WARNING;
+            case MUTED -> ColorToken.TEXT_MUTED;
             default -> ColorToken.ACCENT;
         };
     }

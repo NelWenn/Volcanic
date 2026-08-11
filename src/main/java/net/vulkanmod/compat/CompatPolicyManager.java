@@ -45,6 +45,18 @@ public class CompatPolicyManager {
         return CompatMode.SAFE;
     }
 
+    public static boolean isVerified(String modId) {
+        return isVerifiedVersion(modId, CompatDetector.getModVersion(modId.toLowerCase()));
+    }
+
+    public static boolean isVerifiedVersion(String modId, String activeVersion) {
+        if (modId == null || activeVersion == null) {
+            return false;
+        }
+        String expected = verifiedModVersions.get(modId.toLowerCase());
+        return expected != null && activeVersion.startsWith(expected);
+    }
+
     public static CompatCategory getCompatCategory(String modId) {
         String normalizedId = modId.toLowerCase();
 

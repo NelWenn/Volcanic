@@ -18,6 +18,7 @@ public final class MenuCompat {
     public enum Tone {
         GOOD,
         NOTE,
+        MUTED,
         WARN
     }
 
@@ -84,12 +85,15 @@ public final class MenuCompat {
                 if (!CompatDetector.isModLoaded(modId)) {
                     continue;
                 }
-                CompatMode mode = CompatPolicyManager.getCompatMode(modId);
+                CompatCategory category = CompatPolicyManager.getCompatCategory(modId);
+                boolean unsupported = category == CompatCategory.RENDERER_GL;
+                boolean verified = !unsupported && CompatPolicyManager.isVerified(modId);
                 entries.add(new Entry(modName(modId),
-                        categoryLabel(CompatPolicyManager.getCompatCategory(modId))
-                                + versionSuffix(CompatDetector.getModVersion(modId)),
-                        modeLabel(mode),
-                        mode == CompatMode.INCOMPATIBLE ? Tone.WARN : Tone.GOOD));
+                        categoryLabel(category) + versionSuffix(CompatDetector.getModVersion(modId)),
+                        I18n.get(unsupported ? "vulkanmod.ui.compat.state.unsupported"
+                                : verified ? "vulkanmod.ui.compat.state.verified"
+                                : "vulkanmod.ui.compat.state.untested"),
+                        unsupported ? Tone.WARN : verified ? Tone.GOOD : Tone.MUTED));
             }
         } catch (Throwable t) {
             return List.of();
