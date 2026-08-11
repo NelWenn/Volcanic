@@ -82,9 +82,6 @@ public final class SettingsCatalog {
 
     private static final List<Integer> MIPMAP_LEVELS = List.of(0, 1, 2, 3, 4);
     private static final List<Integer> ANISOTROPY_LEVELS = List.of(1, 2, 4, 8, 16);
-    private static final List<Integer> DEBUG_MENU_KEYS = List.of(GLFW.GLFW_KEY_UNKNOWN,
-            GLFW.GLFW_KEY_F6, GLFW.GLFW_KEY_F7, GLFW.GLFW_KEY_F8, GLFW.GLFW_KEY_F9,
-            GLFW.GLFW_KEY_F10, GLFW.GLFW_KEY_END, GLFW.GLFW_KEY_HOME, GLFW.GLFW_KEY_INSERT);
     private static final int MIPMAP_LEVELS_DEFAULT = 4;
 
     private static final List<Integer> AMBIENT_OCCLUSION_MODES =
@@ -929,11 +926,11 @@ public final class SettingsCatalog {
                 })
                 .withDefault(() -> Boolean.FALSE));
 
-        bindings.put(SettingsDefinitions.DEBUG_MENU_KEY, SettingBinding.choosing(
-                SettingsCatalog::debugMenuKeyLabel,
-                value -> bindDebugMenuKey(label(value)),
-                () -> DEBUG_MENU_KEYS.stream().map(SettingsCatalog::keyLabel).toList())
-                .withDefault(() -> keyLabel(GLFW.GLFW_KEY_END)));
+        bindings.put(SettingsDefinitions.DEBUG_MENU_KEY, SettingBinding.of(
+                SettingsCatalog::debugMenuKeyCode,
+                value -> bindDebugMenuKey(intValue(value)))
+                .withFormatter(value -> keyLabel(intValue(value)))
+                .withDefault(() -> GLFW.GLFW_KEY_END));
 
         bindings.put(SettingsDefinitions.VSR_DEBUG, SettingBinding.of(
                 () -> Initializer.CONFIG.vsrDebug,
@@ -1201,26 +1198,21 @@ public final class SettingsCatalog {
         return InputConstants.Type.KEYSYM.getOrCreate(code).getDisplayName().getString();
     }
 
-    private static String debugMenuKeyLabel() {
+    private static int debugMenuKeyCode() {
         DebugOverlay overlay = debugMenu();
-        return overlay == null ? keyLabel(GLFW.GLFW_KEY_END)
-                : overlay.getToggleKeyMapping().getKey().getDisplayName().getString();
+        return overlay == null ? GLFW.GLFW_KEY_END : overlay.getToggleKeyMapping().getKey().getValue();
     }
 
-    private static void bindDebugMenuKey(String label) {
+    private static void bindDebugMenuKey(int code) {
         DebugOverlay overlay = debugMenu();
         if (overlay == null) {
             return;
         }
-        for (int code : DEBUG_MENU_KEYS) {
-            if (keyLabel(code).equals(label)) {
-                Minecraft.getInstance().options.setKey(overlay.getToggleKeyMapping(),
-                        InputConstants.Type.KEYSYM.getOrCreate(code));
-                KeyMapping.resetMapping();
-                return;
-            }
-        }
-        throw new IllegalArgumentException("unknown debug menu key " + label);
+        Minecraft.getInstance().options.setKey(overlay.getToggleKeyMapping(),
+                code == GLFW.GLFW_KEY_UNKNOWN
+                        ? InputConstants.UNKNOWN
+                        : InputConstants.Type.KEYSYM.getOrCreate(code));
+        KeyMapping.resetMapping();
     }
 
     private static String blockEntityDistanceLabel(Object value) {

@@ -2598,6 +2598,8 @@ public final class ShellRenderer {
             SettingMeta meta = ((NavPresenter.SettingRow) rows.get(i)).meta();
             SettingBinding binding = catalog.binding(meta.id());
             String key = meta.id().toString();
+            rowRenderer.setCapturing(presenter.capturing() == null
+                    ? null : presenter.capturing().toString());
             boolean onRow = meta.equals(pointed);
             rowRenderer.render(painter, font, box, meta, binding, presenter.valueOf(meta),
                     catalog.enabled(meta.id()),

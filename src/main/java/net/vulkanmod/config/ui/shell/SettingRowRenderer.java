@@ -77,7 +77,9 @@ public final class SettingRowRenderer {
             ".##...##.",
             "##.....##"};
 
+    private static final String KEY_LISTENING = "vulkanmod.ui.keybind.listening";
     private final Theme theme;
+    private String capturing;
 
     public SettingRowRenderer(Theme theme) {
         if (theme == null) {
@@ -91,6 +93,10 @@ public final class SettingRowRenderer {
                        boolean favorite, boolean starHovered, boolean prevHovered, boolean nextHovered) {
         render(painter, font, box, meta, binding, value, enabled, hovered, resettable, resetHovered,
                 favorite, starHovered, prevHovered, nextHovered, 0L);
+    }
+
+    public void setCapturing(String settingId) {
+        this.capturing = settingId;
     }
 
     public void tick(long deltaMs) {
@@ -200,6 +206,8 @@ public final class SettingRowRenderer {
                     meta.id().toString(), deltaMs);
             case ENUM -> paintCycler(painter, font, box, I18n.get(display),
                     enabled, highlighted, prevHovered, nextHovered, key, deltaMs);
+            case KEY -> paintKeyBind(painter, font, box, binding.display(value), enabled,
+                    key.equals(capturing));
         }
     }
 
@@ -434,6 +442,23 @@ public final class SettingRowRenderer {
         String shown = trimmed(font, text, value.width() - ARROW_GAP * 2);
         painter.text(value.x() + (value.width() - font.width(shown)) / 2 + dir * shift, textTop(value),
                 shown, left > 0 ? theme.color(ColorToken.TEXT_PRIMARY) : valueArgb(enabled), false);
+    }
+
+    private void paintKeyBind(SurfacePainter painter, Font font, Rect row, String text,
+                              boolean enabled, boolean listening) {
+        Rect box = SettingRowLayout.cyclerValueBox(row);
+        if (box.isEmpty()) {
+            paintValue(painter, font, row, SettingRowLayout.cardBox(row).right() - SettingRowLayout.CARD_PAD_X,
+                    text, valueArgb(enabled));
+            return;
+        }
+        String shown = listening ? I18n.get(KEY_LISTENING) : trimmed(font, text, box.width() - 6);
+        ShellRenderer.paintRoundedFill(painter, box, SettingRowLayout.ARROW_RADIUS,
+                theme.color(listening ? ColorToken.ACCENT_DEEP : ColorToken.SURFACE_SUNKEN));
+        ShellRenderer.paintRoundedOutline(painter, box, SettingRowLayout.ARROW_RADIUS,
+                theme.color(listening ? ColorToken.ACCENT : ColorToken.BORDER_DEFAULT));
+        painter.text(box.x() + (box.width() - font.width(shown)) / 2, textTop(box), shown,
+                listening ? theme.color(ColorToken.TEXT_PRIMARY) : valueArgb(enabled), false);
     }
 
     private void paintArrow(SurfacePainter painter, Font font, Rect box, String glyph,

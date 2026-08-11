@@ -254,6 +254,15 @@ public class VolcanicScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (presenter.capturing() != null) {
+            if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+                presenter.capture(null);
+            } else {
+                presenter.bindCaptured(keyCode);
+            }
+            UiSounds.playClick();
+            return true;
+        }
         KeyAction action = UiKeys.actionFor(keyCode, modifiers);
         if (action == KeyAction.SEARCH && search != null) {
             focusSearch(true);

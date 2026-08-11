@@ -56,6 +56,7 @@ public final class NavPresenter {
     private List<ProfileChipRow.Chip> profileChips;
     private List<PresetCardModel.Card> presetCards;
     private Favorites favorites;
+    private SettingId capturing;
 
     public NavPresenter() {
         List<String> modIds = catalog.modIds();
@@ -268,8 +269,27 @@ public final class NavPresenter {
         return switch (meta.type()) {
             case BOOL -> set(meta, !boolValue(meta, valueOf(meta)));
             case ENUM -> step(meta, 1);
+            case KEY -> capture(meta.id());
             case INT -> false;
         };
+    }
+
+    public SettingId capturing() {
+        return capturing;
+    }
+
+    public boolean capture(SettingId id) {
+        this.capturing = id;
+        return id != null;
+    }
+
+    public boolean bindCaptured(int keyCode) {
+        if (capturing == null) {
+            return false;
+        }
+        SettingMeta meta = catalog.registry().get(capturing);
+        this.capturing = null;
+        return set(meta, keyCode);
     }
 
     public boolean step(SettingMeta meta, int direction) {
