@@ -35,3 +35,7 @@ run/
 docs/superpowers/
 docs/options-menu-*
 docs/xaero-compat.md
+
+# working notes stay local; the README logo does not
+docs/*
+!docs/logo.png
