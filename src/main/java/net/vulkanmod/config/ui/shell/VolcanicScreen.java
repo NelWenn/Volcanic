@@ -70,6 +70,7 @@ public class VolcanicScreen extends Screen {
 
     @Override
     protected void init() {
+        net.vulkanmod.config.ui.settings.MenuCompat.invalidate();
         this.layout = ShellLayout.of(this.width, this.height, presenter.isDeveloper());
         if (presenter.isDeveloper()) {
             net.vulkanmod.render.profiling.StackSampler.setRunning(true);
@@ -529,6 +530,10 @@ public class VolcanicScreen extends Screen {
         }
         if (presenter.isDeveloperStats()) {
             return renderer.statsMaxScroll(content, presenter, layout.breakpoint()) + reserve;
+        }
+        if (presenter.isCompatibility()) {
+            return net.vulkanmod.config.ui.core.CompatPageLayout.maxScroll(content,
+                    net.vulkanmod.config.ui.settings.MenuCompat.counts()) + reserve;
         }
         if (PluginSettings.ROOT.equals(presenter.stack().current())) {
             return PluginPageLayout.maxScroll(content, presenter.pluginPages().size(),

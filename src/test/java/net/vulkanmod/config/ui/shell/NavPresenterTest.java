@@ -31,7 +31,7 @@ class NavPresenterTest {
     @Test
     void everyTopLevelRouteIsASidebarRow() {
         NavPresenter presenter = new NavPresenter();
-        assertEquals(11, presenter.tree().sidebarRows().size());
+        assertEquals(12, presenter.tree().sidebarRows().size());
         assertSidebarRowsAreExactlyTheTopLevelRoutes(presenter.tree());
     }
 
@@ -54,7 +54,7 @@ class NavPresenterTest {
             assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
         }
         assertEquals(List.of(RouteId.parse("mods.jade"), RouteId.parse("mods.create")), pages);
-        assertEquals(11, tree.sidebarRows().size());
+        assertEquals(12, tree.sidebarRows().size());
         assertFalse(tree.contains(RouteId.parse("jade")), "a mod must not become a top-level category");
     }
 
@@ -81,7 +81,7 @@ class NavPresenterTest {
             assertFalse(node.sidebarVisible(), "a mod page is not a sidebar row: " + node.route());
         }
         assertEquals(List.of(RouteId.parse("mods.jade"), RouteId.parse("mods.waystones")), pages);
-        assertEquals(11, tree.sidebarRows().size());
+        assertEquals(12, tree.sidebarRows().size());
     }
 
     @Test
@@ -189,7 +189,7 @@ class NavPresenterTest {
     void everyNavigationKeyResolvesInEnUs() throws IOException {
         Map<String, String> lang = readLang();
         List<String> keys = navigationKeys(new NavPresenter().tree());
-        assertEquals(41, keys.size());
+        assertEquals(42, keys.size());
 
         List<String> unresolved = new ArrayList<>();
         for (String key : keys) {

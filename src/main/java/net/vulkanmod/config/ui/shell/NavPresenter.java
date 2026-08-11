@@ -318,6 +318,11 @@ public final class NavPresenter {
     private static final RouteId OVERVIEW_ROUTE = RouteId.parse("overview");
     private static final RouteId FAVORITES_ROUTE = RouteId.parse("favorites");
     private static final RouteId MODS_ROUTE = RouteId.parse("mods");
+    public static final RouteId COMPATIBILITY_ROUTE = RouteId.parse("compatibility");
+
+    public boolean isCompatibility() {
+        return COMPATIBILITY_ROUTE.equals(stack.current());
+    }
 
     public Optional<String> modScreen() {
         return modScreenOf(stack.current(), screenOnlyModIds);
@@ -981,6 +986,8 @@ public final class NavPresenter {
                         "vulkanmod.ui.plugin.group." + group, null, false));
             }
         }
+
+        builder.add(new NavNode(COMPATIBILITY_ROUTE, "vulkanmod.ui.page.compatibility", null, true));
 
         builder.add(new NavNode(RouteId.parse("advanced"), "vulkanmod.ui.page.advanced", "vulkanmod.ui.section.system", true))
                 .add(new NavNode(RouteId.parse("advanced.renderer"), "vulkanmod.ui.page.advanced.renderer", null, false))

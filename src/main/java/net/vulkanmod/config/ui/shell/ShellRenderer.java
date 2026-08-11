@@ -26,8 +26,10 @@ import net.vulkanmod.config.ui.settings.Diagnosis;
 import net.vulkanmod.config.ui.settings.StatsReport;
 import net.vulkanmod.vulkan.FrameTimer;
 import net.vulkanmod.config.ui.core.PageHeader;
+import net.vulkanmod.config.ui.core.CompatPageLayout;
 import net.vulkanmod.config.ui.core.PluginPageLayout;
 import net.vulkanmod.config.ui.core.PluginShowcase;
+import net.vulkanmod.config.ui.settings.MenuCompat;
 import net.vulkanmod.config.ui.settings.MenuPlugins;
 import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
@@ -172,6 +174,9 @@ public final class ShellRenderer {
     private static final String KEY_PLUGIN_SETTINGS = "vulkanmod.ui.plugins.groups";
     private static final String KEY_PLUGIN_NO_SETTINGS = "vulkanmod.ui.plugins.nogroups";
     private static final String KEY_PLUGINS_INTRO = "vulkanmod.ui.plugins.intro";
+    private static final String KEY_COMPAT_INTRO = "vulkanmod.ui.compat.intro";
+    private static final String KEY_COMPAT_EMPTY = "vulkanmod.ui.compat.empty";
+    private static final String KEY_COMPAT_EMPTY_HINT = "vulkanmod.ui.compat.empty.hint";
     private static final String KEY_STATS_WAITING = "vulkanmod.ui.stats.waiting";
     private static final String KEY_STATS_UNIT_FPS = "vulkanmod.ui.stats.unit.fps";
     private static final String KEY_STATS_UNIT_MS = "vulkanmod.ui.stats.unit.ms";
@@ -858,6 +863,9 @@ public final class ShellRenderer {
             return ScrollIndicator.of(body, PluginPageLayout.contentHeight(presenter.pluginPages().size(),
                     presenter.catalog().modIds().size(), layout.breakpoint()), scroll);
         }
+        if (NavPresenter.COMPATIBILITY_ROUTE.equals(current)) {
+            return ScrollIndicator.of(body, CompatPageLayout.contentHeight(MenuCompat.counts()), scroll);
+        }
         if (OVERVIEW.equals(current)) {
             return ScrollIndicator.of(body, PresetCardLayout.page(body, presenter.presetCards().size(),
                     0, layout.breakpoint(),
@@ -1311,6 +1319,9 @@ public final class ShellRenderer {
         }
         if (PluginSettings.ROOT.equals(current)) {
             return KEY_PLUGINS_INTRO;
+        }
+        if (NavPresenter.COMPATIBILITY_ROUTE.equals(current)) {
+            return KEY_COMPAT_INTRO;
         }
         if (EXPERIMENTAL.equals(current)) {
             return KEY_EXPERIMENTAL_INTRO;
@@ -2633,6 +2644,10 @@ public final class ShellRenderer {
             paintCentredNotice(painter, font, contentBody(layout, presenter), I18n.get(KEY_PLUGIN_EMPTY));
             return true;
         }
+        if (NavPresenter.COMPATIBILITY_ROUTE.equals(current)) {
+            paintCompatPage(painter, font, layout, presenter, deltaMs, contentScroll, mouseX, mouseY);
+            return true;
+        }
 
         Rect button = modScreenButton(font, layout, presenter);
         if (button.isEmpty()) {
@@ -2942,6 +2957,94 @@ public final class ShellRenderer {
             paintRoundedOutline(painter, row, SettingRowLayout.CARD_RADIUS,
                     theme.color(ColorToken.ACCENT));
         }
+    }
+
+    public CompatPageLayout.Page compatPage(ShellLayout layout, NavPresenter presenter, int scroll) {
+        return CompatPageLayout.page(contentBody(layout, presenter), MenuCompat.counts(), Math.max(0, scroll));
+    }
+
+    private void paintCompatPage(SurfacePainter painter, Font font, ShellLayout layout,
+                                 NavPresenter presenter, long deltaMs,
+                                 int scroll, int mouseX, int mouseY) {
+        CompatPageLayout.Page page = compatPage(layout, presenter, scroll);
+        if (!page.empty().isEmpty()) {
+            paintCompatEmptyCard(painter, font, page.empty());
+            return;
+        }
+
+        List<MenuCompat.Section> sections = MenuCompat.sections();
+        int base = 0;
+        for (int index = 0; index < page.blocks().size() && index < sections.size(); index++) {
+            MenuCompat.Section section = sections.get(index);
+            PluginPageLayout.Block block = page.blocks().get(index);
+            if (block.rows().isEmpty()) {
+                continue;
+            }
+            paintPluginHeading(painter, font, block, I18n.get(section.key()), section.entries().size(),
+                    index == 0 ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_FAINT, index == 0);
+            List<Rect> rows = shiftedRows(block.rows(), base);
+            for (int row = 0; row < rows.size() && row < section.entries().size(); row++) {
+                paintCompatRow(painter, font, rows.get(row), section.entries().get(row),
+                        base + row, deltaMs, mouseX, mouseY);
+            }
+            base += section.entries().size();
+        }
+    }
+
+    private void paintCompatRow(SurfacePainter painter, Font font, Rect row, MenuCompat.Entry entry,
+                                int index, long deltaMs, int mouseX, int mouseY) {
+        if (row.isEmpty()) {
+            return;
+        }
+        boolean hovered = row.contains(mouseX, mouseY);
+        float lit = hover.advance("compat:" + index, hovered, deltaMs);
+        paintRoundedFill(painter, row, SettingRowLayout.CARD_RADIUS, Motion.blend(
+                theme.color(ColorToken.SURFACE_SUNKEN), theme.color(ColorToken.SURFACE_CARD), lit));
+        paintRoundedOutline(painter, row, SettingRowLayout.CARD_RADIUS, Motion.blend(
+                theme.color(ColorToken.BORDER_SUBTLE), theme.color(ColorToken.BORDER_DEFAULT), lit));
+
+        ColorToken accent = compatToken(entry.tone());
+        PluginPageLayout.Slots slots = PluginPageLayout.slots(row, false);
+        paintAccentStripe(painter, row, slots.accent(), theme.color(accent));
+
+        if (!slots.name().isEmpty()) {
+            painter.text(slots.name().x(), slots.name().y(),
+                    trimToWidth(font, entry.name(), slots.name().width()),
+                    theme.color(ColorToken.TEXT_PRIMARY), false);
+        }
+        if (!slots.note().isEmpty()) {
+            painter.smallText(slots.note().x(), slots.note().y(),
+                    smallTrim(painter, font, entry.note(), slots.note().width()),
+                    theme.color(hovered ? ColorToken.TEXT_SECONDARY : ColorToken.TEXT_FAINT));
+        }
+        if (!slots.state().isEmpty()) {
+            String state = entry.state().toUpperCase(Locale.ROOT);
+            painter.smallText(slots.state().right() - smallWidth(painter, font, state),
+                    slots.state().y(), state, theme.color(accent));
+        }
+    }
+
+    private static ColorToken compatToken(MenuCompat.Tone tone) {
+        return switch (tone) {
+            case GOOD -> ColorToken.SUCCESS;
+            case WARN -> ColorToken.WARNING;
+            default -> ColorToken.ACCENT;
+        };
+    }
+
+    private void paintCompatEmptyCard(SurfacePainter painter, Font font, Rect card) {
+        paintRoundedFill(painter, card, SettingRowLayout.CARD_RADIUS,
+                theme.color(ColorToken.SURFACE_SUNKEN));
+        paintRoundedOutline(painter, card, SettingRowLayout.CARD_RADIUS,
+                theme.color(ColorToken.BORDER_SUBTLE));
+        Rect title = PluginPageLayout.emptyTitle(card);
+        if (!title.isEmpty()) {
+            painter.text(title.x(), title.y(),
+                    trimToWidth(font, I18n.get(KEY_COMPAT_EMPTY), title.width()),
+                    theme.color(ColorToken.TEXT_DEFAULT), false);
+        }
+        paintSmallLines(painter, font, PluginPageLayout.emptyBody(card),
+                I18n.get(KEY_COMPAT_EMPTY_HINT), ColorToken.TEXT_FAINT);
     }
 
     private void paintPluginNote(SurfacePainter painter, Font font, Rect row, String text) {
