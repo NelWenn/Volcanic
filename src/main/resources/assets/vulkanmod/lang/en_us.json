@@ -469,5 +469,7 @@
   "vulkanmod.ui.compat.state.linked": "Linked",
   "vulkanmod.ui.compat.state.untested": "Untested",
   "vulkanmod.ui.compat.state.unsupported": "Unsupported",
-  "vulkanmod.ui.compat.state.supported": "Supported"
+  "vulkanmod.ui.compat.state.supported": "Supported",
+  "vulkanmod.options.statsSampleInMenus": "Keep Measuring In Menus",
+  "vulkanmod.options.statsSampleInMenus.tooltip": "The frame history normally stops the moment a screen opens, so the graph on the Statistics page is frozen at the instant you go to look at it. Turn this on and menu frames keep feeding the graph.\n\nThey never reach the median, 1%% low or 95th percentile that the Overview page and the profile results are built from: those stay pure gameplay whatever this is set to. Menu frames are not representative of play, so the graph and its worst-frame list will include them."
 }

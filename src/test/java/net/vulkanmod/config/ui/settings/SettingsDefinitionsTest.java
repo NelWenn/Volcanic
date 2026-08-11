@@ -35,7 +35,7 @@ class SettingsDefinitionsTest {
 
     @Test
     void theSettingsThatKeptATooltipAreTheOnesThatDescribeThemselves() {
-        assertEquals(43, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
+        assertEquals(44, allSettings().stream().filter(meta -> meta.descriptionKey() != null).count());
     }
 
     @Test

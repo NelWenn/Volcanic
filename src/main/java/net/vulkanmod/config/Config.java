@@ -122,6 +122,7 @@ public class Config {
     public boolean showFpsCounter = false;
     public boolean showCoordinates = false;
     public boolean perfLog = false;
+    public boolean statsSampleInMenus = false;
     public boolean vulkanValidation = false;
     public int anisotropicFiltering = 1;
 

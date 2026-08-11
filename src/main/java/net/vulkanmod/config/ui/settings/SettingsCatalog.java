@@ -895,6 +895,11 @@ public final class SettingsCatalog {
                 })
                 .withDefault(() -> Boolean.FALSE));
 
+        bindings.put(SettingsDefinitions.STATS_SAMPLE_IN_MENUS, SettingBinding.of(
+                () -> Initializer.CONFIG.statsSampleInMenus,
+                value -> Initializer.CONFIG.statsSampleInMenus = boolValue(value))
+                .withDefault(() -> Boolean.FALSE));
+
         bindings.put(SettingsDefinitions.DEBUG_OVERLAY, SettingBinding.of(
                 () -> Minecraft.getInstance().getDebugOverlay().showDebugScreen(),
                 value -> {

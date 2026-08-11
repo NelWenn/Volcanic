@@ -50,10 +50,12 @@ public final class SessionSamples {
         boolean playing = counts();
         net.vulkanmod.render.profiling.StackSampler.setGameplay(playing);
         net.vulkanmod.render.profiling.StackSampler.watch(Thread.currentThread().threadId());
-        if (!playing) {
+        if (!playing && !charts()) {
             return;
         }
-        SAMPLES.record(fingerprint(), frameMs);
+        if (playing) {
+            SAMPLES.record(fingerprint(), frameMs);
+        }
         long nowMs = System.currentTimeMillis();
         long gcMs = totalGcMillis();
         Runtime runtime = Runtime.getRuntime();
@@ -98,6 +100,16 @@ public final class SessionSamples {
         } catch (Throwable unavailable) {
             // the counters simply stay at their previous value
         }
+    }
+
+    private static boolean charts() {
+        Config config = Initializer.CONFIG;
+        if (config == null || !config.statsSampleInMenus) {
+            return false;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null && minecraft.screen != null && minecraft.level != null
+                && minecraft.isWindowActive();
     }
 
     private static boolean counts() {

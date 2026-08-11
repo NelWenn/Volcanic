@@ -61,6 +61,7 @@ public final class SettingsDefinitions {
     public static final SettingId DEBUG_OVERLAY = SettingId.parse("vulkanmod:developer.debug_overlay");
     public static final SettingId SHOW_COORDINATES = SettingId.parse("vulkanmod:developer.show_coordinates");
     public static final SettingId PERF_LOG = SettingId.parse("vulkanmod:developer.perf_log");
+    public static final SettingId STATS_SAMPLE_IN_MENUS = SettingId.parse("vulkanmod:developer.stats_sample_in_menus");
     public static final SettingId VULKAN_VALIDATION = SettingId.parse("vulkanmod:advanced.vulkan_validation");
     public static final SettingId VSR_DEBUG = SettingId.parse("vulkanmod:developer.vsr_debug");
     public static final SettingId PBR_DEBUG_NORMALS = SettingId.parse("vulkanmod:developer.pbr_debug_normals");
@@ -573,6 +574,11 @@ public final class SettingsDefinitions {
                         .descriptionKey("vulkanmod.options.perfLog.tooltip")
                         .scope(ApplyScope.INSTANT)
                         .performance(ImpactLevel.LOW).visual(ImpactLevel.NONE).build(),
+                new SettingMeta.Builder(STATS_SAMPLE_IN_MENUS, DEVELOPER_TOOLS,
+                        "vulkanmod.options.statsSampleInMenus", SettingType.BOOL, SettingSource.VOLCANIC)
+                        .descriptionKey("vulkanmod.options.statsSampleInMenus.tooltip")
+                        .scope(ApplyScope.INSTANT)
+                        .performance(ImpactLevel.NONE).visual(ImpactLevel.NONE).build(),
                 new SettingMeta.Builder(DEBUG_OVERLAY, DEVELOPER_TOOLS, "vulkanmod.options.debugOverlay",
                         SettingType.BOOL, SettingSource.VOLCANIC)
                         .descriptionKey("vulkanmod.options.debugOverlay.tooltip")
