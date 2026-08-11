@@ -49,6 +49,37 @@ public final class TabStripModel {
                 viewport, clamped);
     }
 
+    public static int stepOffset(Strip strip, int direction) {
+        if (strip == null) {
+            throw new IllegalArgumentException("strip must not be null");
+        }
+        if (direction == 0 || !strip.scrollable()) {
+            return strip.offset();
+        }
+        Rect viewport = strip.viewport();
+        List<Rect> boxes = strip.boxes();
+        if (direction > 0) {
+            for (Rect box : boxes) {
+                if (box.right() > viewport.right()) {
+                    return strip.offset() + box.right() - viewport.right();
+                }
+            }
+            return strip.offset();
+        }
+        for (int index = boxes.size() - 1; index >= 0; index--) {
+            Rect box = boxes.get(index);
+            if (box.x() < viewport.x()) {
+                return Math.max(0, strip.offset() - (viewport.x() - box.x()));
+            }
+        }
+        return strip.offset();
+    }
+
+    public static boolean fullyVisible(Strip strip, Rect box) {
+        return !strip.scrollable()
+                || (box.x() >= strip.viewport().x() && box.right() <= strip.viewport().right());
+    }
+
     public static int maxOffset(List<Rect> boxes, Rect viewport) {
         if (boxes == null || viewport == null) {
             throw new IllegalArgumentException("boxes and viewport must not be null");

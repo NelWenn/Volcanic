@@ -790,8 +790,14 @@ public final class ShellRenderer {
         for (int i = 0; i < tabs.size(); i++) {
             widths[i] = font.width(I18n.get(tabs.get(i).titleKey()));
         }
-        return TabStripModel.strip(widths, strip, presenter.tabOffset(),
-                revealIndex(presenter, tabs));
+        int reveal = -1;
+        String wanted = presenter.tabRevealId();
+        for (int i = 0; wanted != null && i < tabs.size(); i++) {
+            if (tabs.get(i).route().toString().equals(wanted)) {
+                reveal = i;
+            }
+        }
+        return TabStripModel.strip(widths, strip, presenter.tabOffset(), reveal);
     }
 
     public int statsColumns(ShellLayout layout, NavPresenter presenter) {
@@ -3212,8 +3218,7 @@ public final class ShellRenderer {
         for (int i = 0; i < boxes.size(); i++) {
             Rect box = boxes.get(i);
             NavNode tab = tabs.get(i);
-            if (strip.scrollable()
-                    && (box.right() <= strip.viewport().x() || box.x() >= strip.viewport().right())) {
+            if (!TabStripModel.fullyVisible(strip, box)) {
                 continue;
             }
 
@@ -3236,7 +3241,7 @@ public final class ShellRenderer {
         if (strip.scrollable()) {
             paintTabArrow(painter, font, strip.prev(), "\u25C0", strip.offset() > 0);
             paintTabArrow(painter, font, strip.next(), "\u25B6",
-                    strip.offset() < TabStripModel.maxOffset(boxes, strip.viewport()) + strip.offset());
+                    TabStripModel.maxOffset(boxes, strip.viewport()) > 0);
         }
     }
 

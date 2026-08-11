@@ -58,6 +58,7 @@ public final class NavPresenter {
     private Favorites favorites;
     private SettingId capturing;
     private int tabOffset;
+    private String tabRevealId;
 
     public int tabOffset() {
         return tabOffset;
@@ -65,6 +66,15 @@ public final class NavPresenter {
 
     public void setTabOffset(int offset) {
         this.tabOffset = Math.max(0, offset);
+        this.tabRevealId = null;
+    }
+
+    public String tabRevealId() {
+        return tabRevealId;
+    }
+
+    public void revealTab(String routeId) {
+        this.tabRevealId = routeId;
     }
 
     public NavPresenter() {
@@ -819,6 +829,7 @@ public final class NavPresenter {
         boolean moved = stack.navigate(destinationOf(tree, route));
         if (moved) {
             rebuildContentRing();
+            this.tabRevealId = stack.current().toString();
         }
         return moved;
     }

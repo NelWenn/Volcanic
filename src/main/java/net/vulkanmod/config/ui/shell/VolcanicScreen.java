@@ -43,7 +43,6 @@ public class VolcanicScreen extends Screen {
     private static final int PRIMARY_BUTTON = 0;
     private static final long NANOS_PER_MS = 1_000_000L;
     private static final Theme THEME = Theme.volcanic();
-    private static final int TAB_NUDGE = 60;
 
     private final Screen parent;
     private final NavPresenter presenter = new NavPresenter();
@@ -514,19 +513,17 @@ public class VolcanicScreen extends Screen {
         List<Rect> boxes = strip.boxes();
         if (strip.scrollable()) {
             if (strip.prev().contains(mouseX, mouseY)) {
-                return nudgeTabs(strip, -TAB_NUDGE);
+                return nudgeTabs(strip, -1);
             }
             if (strip.next().contains(mouseX, mouseY)) {
-                return nudgeTabs(strip, TAB_NUDGE);
+                return nudgeTabs(strip, 1);
             }
         }
         int index = TabStripModel.indexAt(boxes, mouseX, mouseY);
         if (index < 0) {
             return false;
         }
-        Rect box = boxes.get(index);
-        if (strip.scrollable()
-                && (box.x() < strip.viewport().x() || box.right() > strip.viewport().right())) {
+        if (!TabStripModel.fullyVisible(strip, boxes.get(index))) {
             return true;
         }
 
@@ -534,9 +531,8 @@ public class VolcanicScreen extends Screen {
         return true;
     }
 
-    private boolean nudgeTabs(TabStripModel.Strip strip, int by) {
-        int maximum = TabStripModel.maxOffset(strip.boxes(), strip.viewport()) + strip.offset();
-        presenter.setTabOffset(Math.max(0, Math.min(strip.offset() + by, maximum)));
+    private boolean nudgeTabs(TabStripModel.Strip strip, int direction) {
+        presenter.setTabOffset(TabStripModel.stepOffset(strip, direction));
         UiSounds.playClick();
         return true;
     }

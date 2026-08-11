@@ -170,4 +170,56 @@ class TabStripModelTest {
         assertFalse(none.scrollable());
         assertTrue(TabStripModel.strip(widths(3, 20), Rect.EMPTY, 0, 0).boxes().isEmpty());
     }
+
+    @Test
+    void anArrowStepLandsWholeTabsAgainstTheEdgeNeverHalfOfOne() {
+        TabStripModel.Strip strip = TabStripModel.strip(widths(12, 40), BAND, 0, -1);
+        int stepped = TabStripModel.stepOffset(strip, 1);
+        assertTrue(stepped > 0);
+
+        TabStripModel.Strip after = TabStripModel.strip(widths(12, 40), BAND, stepped, -1);
+        Rect last = null;
+        for (Rect box : after.boxes()) {
+            if (box.right() <= after.viewport().right()) {
+                last = box;
+            }
+        }
+        assertEquals(after.viewport().right(), last.right(),
+                "the step must leave a tab flush with the right edge");
+    }
+
+    @Test
+    void steppingBackReturnsToTheStartAndStops() {
+        int[] widths = widths(12, 40);
+        TabStripModel.Strip strip = TabStripModel.strip(widths, BAND, 0, -1);
+        int forward = TabStripModel.stepOffset(strip, 1);
+        TabStripModel.Strip moved = TabStripModel.strip(widths, BAND, forward, -1);
+        assertEquals(0, TabStripModel.stepOffset(moved, -1));
+
+        TabStripModel.Strip home = TabStripModel.strip(widths, BAND, 0, -1);
+        assertEquals(0, TabStripModel.stepOffset(home, -1), "there is nothing to the left of the start");
+    }
+
+    @Test
+    void aStripThatFitsIgnoresItsArrowsAndShowsEveryTab() {
+        TabStripModel.Strip strip = TabStripModel.strip(widths(3, 20), BAND, 0, 0);
+        assertEquals(0, TabStripModel.stepOffset(strip, 1));
+        assertEquals(0, TabStripModel.stepOffset(strip, -1));
+        for (Rect box : strip.boxes()) {
+            assertTrue(TabStripModel.fullyVisible(strip, box));
+        }
+    }
+
+    @Test
+    void aTabHangingOverTheViewportEdgeCountsAsHidden() {
+        TabStripModel.Strip strip = TabStripModel.strip(widths(12, 40), BAND, 0, -1);
+        boolean anyHidden = false;
+        for (Rect box : strip.boxes()) {
+            if (!TabStripModel.fullyVisible(strip, box)) {
+                anyHidden = true;
+                assertTrue(box.right() > strip.viewport().right() || box.x() < strip.viewport().x());
+            }
+        }
+        assertTrue(anyHidden, "an overflowing strip must hide something");
+    }
 }
