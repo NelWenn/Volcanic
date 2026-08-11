@@ -11,10 +11,12 @@ public final class CompatMods {
     public static final String[] GAMEPLAY_UI_MOD_IDS = loadLines("/assets/vulkanmod/compat/gameplay_ui_mod_ids.txt");
     public static final String[] RENDERER_GL_MOD_IDS = loadLines("/assets/vulkanmod/compat/renderer_gl_incompatible_mod_ids.txt");
     public static final String[] EXTRA_REPORT_MOD_IDS = loadLines("/assets/vulkanmod/compat/report_mod_ids.txt");
+    public static final String[] UNSUPPORTED_MOD_IDS = loadLines("/assets/vulkanmod/compat/unsupported_mod_ids.txt");
     public static final String[] REPORT_MOD_IDS = mergeUnique(
             LIBRARY_MOD_IDS,
             GAMEPLAY_UI_MOD_IDS,
             RENDERER_GL_MOD_IDS,
+            UNSUPPORTED_MOD_IDS,
             EXTRA_REPORT_MOD_IDS
     );
 

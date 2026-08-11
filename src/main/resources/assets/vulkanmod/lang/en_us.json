@@ -436,7 +436,7 @@
   "vulkanmod.overview.select": "SELECT",
   "vulkanmod.ui.plugins.close": "Click to close the showcase",
   "vulkanmod.ui.plugins.settings_button": "Settings ›",
-  "vulkanmod.ui.compat.intro": "Which mods Volcanic recognised in this profile, and every adjustment it made to draw alongside them. Recognising a mod is not a promise that it works.",
+  "vulkanmod.ui.compat.intro": "Which mods Volcanic recognised in this profile, and every adjustment it made to draw alongside them. Supported means it was installed and tested; Untested means nobody has tried it yet.",
   "vulkanmod.ui.compat.empty": "Nothing to report.",
   "vulkanmod.ui.compat.empty.hint": "Volcanic found no mod that needs special handling, and it made no adjustment to anyone else's rendering.",
   "vulkanmod.ui.compat.mods": "MODS VOLCANIC RECOGNISED",
@@ -467,7 +467,7 @@
   "vulkanmod.ui.compat.tweak.polytone": "Its texture variants and block offsets are wired into chunk meshing.",
   "vulkanmod.ui.compat.state.bypassed": "Bypassed",
   "vulkanmod.ui.compat.state.linked": "Linked",
-  "vulkanmod.ui.compat.state.verified": "Verified",
   "vulkanmod.ui.compat.state.untested": "Untested",
-  "vulkanmod.ui.compat.state.unsupported": "Unsupported"
+  "vulkanmod.ui.compat.state.unsupported": "Unsupported",
+  "vulkanmod.ui.compat.state.supported": "Supported"
 }

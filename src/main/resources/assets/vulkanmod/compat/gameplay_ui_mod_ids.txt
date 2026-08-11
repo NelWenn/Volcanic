@@ -22,3 +22,6 @@ bettercombat
 firstperson
 customplayermodels
 physicsmod
+aeronautics
+aeronautics_bundled
+resourcify

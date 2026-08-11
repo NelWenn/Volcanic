@@ -45,6 +45,15 @@ public class CompatPolicyManager {
         return CompatMode.SAFE;
     }
 
+    public static boolean isUnsupported(String modId) {
+        if (modId == null) {
+            return false;
+        }
+        String normalizedId = modId.toLowerCase();
+        return getCompatCategory(normalizedId) == CompatCategory.RENDERER_GL
+                || CompatMods.contains(CompatMods.UNSUPPORTED_MOD_IDS, normalizedId);
+    }
+
     public static boolean isVerified(String modId) {
         return isVerifiedVersion(modId, CompatDetector.getModVersion(modId.toLowerCase()));
     }

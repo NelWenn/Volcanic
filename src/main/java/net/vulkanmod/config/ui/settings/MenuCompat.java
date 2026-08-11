@@ -85,15 +85,15 @@ public final class MenuCompat {
                 if (!CompatDetector.isModLoaded(modId)) {
                     continue;
                 }
-                CompatCategory category = CompatPolicyManager.getCompatCategory(modId);
-                boolean unsupported = category == CompatCategory.RENDERER_GL;
-                boolean verified = !unsupported && CompatPolicyManager.isVerified(modId);
+                boolean unsupported = CompatPolicyManager.isUnsupported(modId);
+                boolean supported = !unsupported && CompatPolicyManager.isVerified(modId);
                 entries.add(new Entry(modName(modId),
-                        categoryLabel(category) + versionSuffix(CompatDetector.getModVersion(modId)),
+                        categoryLabel(CompatPolicyManager.getCompatCategory(modId))
+                                + versionSuffix(CompatDetector.getModVersion(modId)),
                         I18n.get(unsupported ? "vulkanmod.ui.compat.state.unsupported"
-                                : verified ? "vulkanmod.ui.compat.state.verified"
+                                : supported ? "vulkanmod.ui.compat.state.supported"
                                 : "vulkanmod.ui.compat.state.untested"),
-                        unsupported ? Tone.WARN : verified ? Tone.GOOD : Tone.MUTED));
+                        unsupported ? Tone.WARN : supported ? Tone.GOOD : Tone.MUTED));
             }
         } catch (Throwable t) {
             return List.of();

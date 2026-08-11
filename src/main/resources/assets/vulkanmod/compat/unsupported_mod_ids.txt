@@ -1,0 +1,8 @@
+# Mods that were installed and tested against Volcanic and did NOT work.
+# The menu reports these as Unsupported whatever version is installed.
+# Renderer/OpenGL mods do not belong here: they are already unsupported by
+# renderer_gl_incompatible_mod_ids.txt. Add an id here once a test has
+# actually been run; anything absent from both this file and
+# verified_mod_versions.properties is reported as Untested.
+journeymap
+resourcify

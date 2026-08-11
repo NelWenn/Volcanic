@@ -2,6 +2,8 @@ package net.vulkanmod.compat;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -9,8 +11,10 @@ class CompatPolicyManagerTest {
     @Test
     void aModWeActuallyCheckedReadsVerifiedOnTheVersionWeChecked() {
         assertTrue(CompatPolicyManager.isVerifiedVersion("distanthorizons", "2.1.2-a"));
-        assertTrue(CompatPolicyManager.isVerifiedVersion("create", "0.5.1.f"));
-        assertTrue(CompatPolicyManager.isVerifiedVersion("CREATE", "0.5.1.f"),
+        assertTrue(CompatPolicyManager.isVerifiedVersion("create", "6.0.10"));
+        assertTrue(CompatPolicyManager.isVerifiedVersion("jei", "19.44.0.399"));
+        assertTrue(CompatPolicyManager.isVerifiedVersion("aeronautics", "1.2.1"));
+        assertTrue(CompatPolicyManager.isVerifiedVersion("CREATE", "6.0.10"),
                 "mod ids are matched case-insensitively");
     }
 
@@ -23,8 +27,8 @@ class CompatPolicyManagerTest {
 
     @Test
     void adifferentVersionOfACheckedModIsStillUnverified() {
-        assertFalse(CompatPolicyManager.isVerifiedVersion("create", "0.6.0"),
-                "0.5 was checked, 0.6 was not");
+        assertFalse(CompatPolicyManager.isVerifiedVersion("create", "0.5.1.f"),
+                "6.0 is what runs on this Minecraft version, 0.5 was never checked here");
         assertFalse(CompatPolicyManager.isVerifiedVersion("distanthorizons", "3.0.0"));
     }
 
@@ -36,11 +40,38 @@ class CompatPolicyManagerTest {
     }
 
     @Test
-    void everyVerifiedEntryNamesAModTheReportActuallyWalks() {
-        for (String modId : CompatMods.REPORT_MOD_IDS) {
-            assertFalse(modId.isBlank());
+    void aModWeTestedAndFoundBrokenReadsUnsupportedAtAnyVersion() {
+        assertTrue(CompatPolicyManager.isUnsupported("journeymap"));
+        assertTrue(CompatPolicyManager.isUnsupported("resourcify"));
+        assertTrue(CompatPolicyManager.isUnsupported("JourneyMap"), "ids are case-insensitive here too");
+        assertTrue(CompatPolicyManager.isUnsupported("distanthorizons"),
+                "an OpenGL renderer stays unsupported without being listed twice");
+    }
+
+    @Test
+    void aModWeHaveNoVerdictOnIsNeitherSupportedNorUnsupported() {
+        assertFalse(CompatPolicyManager.isUnsupported("appleskin"));
+        assertFalse(CompatPolicyManager.isVerifiedVersion("appleskin", "2.5.1"));
+        assertFalse(CompatPolicyManager.isUnsupported(null));
+    }
+
+    @Test
+    void everyModWeHaveAVerdictOnActuallyShowsUpOnThePage() {
+        for (String modId : CompatMods.UNSUPPORTED_MOD_IDS) {
+            assertTrue(CompatMods.contains(CompatMods.REPORT_MOD_IDS, modId),
+                    modId + " has a verdict nobody will ever read");
         }
-        assertTrue(CompatMods.contains(CompatMods.RENDERER_GL_MOD_IDS, "distanthorizons"),
-                "a renderer mod must stay unsupported whatever version is installed");
+        for (String modId : List.of("create", "jei", "aeronautics")) {
+            assertTrue(CompatMods.contains(CompatMods.REPORT_MOD_IDS, modId),
+                    modId + " was tested but the page never walks it");
+        }
+    }
+
+    @Test
+    void aModCannotBeCalledSupportedAndUnsupportedAtOnce() {
+        for (String modId : CompatMods.UNSUPPORTED_MOD_IDS) {
+            assertFalse(CompatPolicyManager.isVerifiedVersion(modId, "1"),
+                    modId + " is listed as broken and as verified");
+        }
     }
 }
