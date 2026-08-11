@@ -279,6 +279,14 @@ public final class FrameTimer {
         Initializer.LOGGER.info(String.format(
                 "  breakdown: upload=%.2fms  setup/cull=%.2fms  terrain=%.2fms  entities/BE/GUI=%.2fms  |  GC=%.2fms/frame",
                 upload, setup, terrain, renderOther, gcMsPerFrame));
+        Initializer.LOGGER.info(String.format(
+                "  terrain: visibleSections=%d  draws=%d  meshQueue=%d  uploadQueue=%d  builders=%d/%d",
+                net.vulkanmod.render.profiling.RenderCounters.visibleSections(),
+                net.vulkanmod.render.profiling.RenderCounters.terrainDraws(),
+                net.vulkanmod.render.profiling.RenderCounters.meshQueue(),
+                net.vulkanmod.render.profiling.RenderCounters.uploadQueue(),
+                net.vulkanmod.render.profiling.RenderCounters.idleBuilders(),
+                net.vulkanmod.render.profiling.RenderCounters.builders()));
 
         int pipelineBuilds = net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuilds();
         double pipelineBuildMs = net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuildMs();
