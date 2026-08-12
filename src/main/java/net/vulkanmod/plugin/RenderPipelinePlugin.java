@@ -2,7 +2,11 @@ package net.vulkanmod.plugin;
 
 import net.vulkanmod.config.plugin.PluginTargetType;
 import net.vulkanmod.docs.Size;
+import net.vulkanmod.render.framegraph.FrameGraph;
 import net.vulkanmod.render.framegraph.FrameGraphImpl;
+import net.vulkanmod.vulkan.pass.EngineContext;
+import net.vulkanmod.vulkan.pass.EngineResourceRegistry;
+import net.vulkanmod.vulkan.pass.PipelineCapabilities;
 import net.vulkanmod.vulkan.shader.PipelineManager;
 
 import java.util.ServiceLoader;
@@ -43,4 +47,12 @@ public interface RenderPipelinePlugin {
     PipelineManager createPipelineManager();
 
     FrameGraphImpl createFrameGraph();
+
+    default PipelineCapabilities createCapabilities() {
+        return new PipelineCapabilities();
+    }
+
+    default void onActivate(EngineContext context, EngineResourceRegistry resources) {}
+
+    default void configureGraph(FrameGraph graph, EngineContext context) {}
 }

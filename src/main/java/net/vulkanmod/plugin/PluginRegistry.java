@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Plugin registry which hold all of the installed Volcanic plugins
+ * Plugin registries that hold all the installed Volcanic plugins
  */
 public final class PluginRegistry {
 
@@ -40,7 +40,8 @@ public final class PluginRegistry {
                     pipelineManager.setResourceClassLoader(resourceLoader);
                     return pipelineManager;
                 },
-                plugin::createFrameGraph
+                plugin::createFrameGraph,
+                plugin
         ));
     }
 
@@ -77,5 +78,6 @@ public final class PluginRegistry {
 
         registerPlugin(new RadiancePipelinePlugin());
         PluginJarLoader.loadAll();
+        setActiveShader("radiance");
     }
 }

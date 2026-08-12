@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.BlockDestructionProgress;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.Vec3;
+import net.vulkanmod.config.Config;
 import net.vulkanmod.render.chunk.TerrainRenderState;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.framegraph.Phase;
@@ -78,7 +79,7 @@ public abstract class LevelRendererMixin {
 
     @Unique
     private void volcanic$renderEntityShadows(Camera camera, DeltaTracker deltaTracker) {
-        net.vulkanmod.config.Config cfg = net.vulkanmod.Initializer.CONFIG;
+        Config cfg = net.vulkanmod.Initializer.CONFIG;
         if (!cfg.shadersEnabled || !cfg.isCamille() || !cfg.shadowsEnabled)
             return;
 
@@ -103,7 +104,7 @@ public abstract class LevelRendererMixin {
 
     @Inject(method = "renderLevel", at = @At("HEAD"))
     private void prepareLevelRenderState(DeltaTracker deltaTracker, boolean bl, Camera camera, GameRenderer gameRenderer, LightTexture lightTexture, Matrix4f matrix4f, Matrix4f matrix4f2, CallbackInfo ci) {
-        if (DefaultMainPass.postShaderActive()) {
+        if (DefaultMainPass.postShaderActiveStatic()) {
             VRenderSystem.snapshotPrevFrameMatrices();
         }
         volcanic$prepareWorldPassRenderState();
@@ -124,7 +125,7 @@ public abstract class LevelRendererMixin {
         FrameTimer timer = FrameTimer.instance();
         long t = timer != null ? System.nanoTime() : 0;
         VRenderSystem.captureExternalLodViewMatrix(modelView);
-        boolean postShader = DefaultMainPass.postShaderActive();
+        boolean postShader = DefaultMainPass.postShaderActiveStatic();
 
         if (renderType == RenderType.translucent()) {
             Renderer.getInstance().getMainPass().captureOpaqueDepth();
@@ -132,7 +133,7 @@ public abstract class LevelRendererMixin {
                 Renderer.getInstance().getMainPass()
                         .prepareMaterialBuffer(camX, camY, camZ, modelView, projectionMatrix);
 
-                try (MemoryStack stack = org.lwjgl.system.MemoryStack.stackPush()) {
+                try (MemoryStack stack = MemoryStack.stackPush()) {
                     volcanic$getMainPass().getFrameGraph().get().execute(
                             Phase.MID_RENDER,
                             Renderer.getCommandBuffer(), stack, name -> null, () -> {});

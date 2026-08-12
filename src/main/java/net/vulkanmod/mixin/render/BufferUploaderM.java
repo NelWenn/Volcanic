@@ -2,11 +2,16 @@ package net.vulkanmod.mixin.render;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.ShaderInstance;
+import net.vulkanmod.Initializer;
+import net.vulkanmod.compat.RuntimeOptions;
 import net.vulkanmod.compat.observer.GuiRenderTrace;
 import net.vulkanmod.gl.GlTexture;
 import net.vulkanmod.interfaces.ShaderMixed;
+import net.vulkanmod.rendergraph.radiance.RadianceShadowProvider;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
 import net.vulkanmod.vulkan.shader.GraphicsPipeline;
@@ -17,6 +22,7 @@ import net.vulkanmod.vulkan.texture.VTextureSelector;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -48,8 +54,8 @@ public class BufferUploaderM {
             String shaderName = shaderInstance.getName();
 
             if (!shaderInstance.getVertexFormat().equals(parameters.format())) {
-                if (net.vulkanmod.compat.RuntimeOptions.diagnosticsEnabled()) {
-                    net.vulkanmod.Initializer.LOGGER.warn("Vertex format mismatch for shader {}", shaderName);
+                if (RuntimeOptions.diagnosticsEnabled()) {
+                    Initializer.LOGGER.warn("Vertex format mismatch for shader {}", shaderName);
                 }
 
             }
@@ -64,18 +70,18 @@ public class BufferUploaderM {
                 return;
             }
 
-            if (isFlatGuiDraw(shaderName, parameters)) {
-                configureFlatGuiDrawState();
-            } else if (isOrthographicProjection() && isFlatGuiFormat(parameters.format())) {
+            if (volcanic$isFlatGuiDraw(shaderName, parameters)) {
+                volcanic$configureFlatGuiDrawState();
+            } else if (volcanic$isOrthographicProjection() && volcanic$isFlatGuiFormat(parameters.format())) {
                 VRenderSystem.disableDepthTest();
                 VRenderSystem.depthMask(false);
                 VRenderSystem.disableCull();
             }
 
-            traceHudDraw(shaderName, pipeline, parameters);
+            volcanic$traceHudDraw(shaderName, pipeline, parameters);
 
             VRenderSystem.setPrimitiveTopology(parameters.mode());
-            if (net.vulkanmod.vulkan.pass.DefaultMainPass.inEntityShadowPass) {
+            if (RadianceShadowProvider.inEntityShadowPass) {
                 PipelineState.blendInfo.enabled = false;
                 VRenderSystem.colorMask = PipelineState.ColorMask.getColorMask(true, true, true, true);
                 VRenderSystem.depthMask = true;
@@ -111,38 +117,45 @@ public class BufferUploaderM {
         meshData.close();
     }
 
-    private static boolean isFlatGuiDraw(String shaderName, MeshData.DrawState parameters) {
-        return isFlatGuiShader(shaderName)
-                && isOrthographicProjection();
+    @Unique
+    private static boolean volcanic$isFlatGuiDraw(String shaderName, MeshData.DrawState parameters) {
+        return volcanic$isFlatGuiShader(shaderName)
+                && volcanic$isOrthographicProjection();
     }
 
-    private static boolean isFlatGuiFormat(com.mojang.blaze3d.vertex.VertexFormat format) {
-        return com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_TEX.equals(format)
-                || com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_TEX_COLOR.equals(format);
+    @Unique
+    private static boolean volcanic$isFlatGuiFormat(VertexFormat format) {
+        return DefaultVertexFormat.POSITION_TEX.equals(format)
+                || DefaultVertexFormat.POSITION_TEX_COLOR.equals(format);
     }
 
-    private static boolean isFlatGuiShader(String shaderName) {
+    @Unique
+    private static boolean volcanic$isFlatGuiShader(String shaderName) {
         return "position_tex".equals(shaderName)
                 || "position_tex_color".equals(shaderName)
                 || shaderName.startsWith("rendertype_gui")
                 || shaderName.startsWith("rendertype_text");
     }
 
-    private static boolean isOrthographicProjection() {
+    @Unique
+    private static boolean volcanic$isOrthographicProjection() {
         return RenderSystem.getProjectionMatrix().m33() == 1.0f;
     }
 
-    private static void configureFlatGuiDrawState() {
+    @Unique
+    private static void volcanic$configureFlatGuiDrawState() {
         VRenderSystem.disableDepthTest();
         VRenderSystem.depthMask(false);
         VRenderSystem.disableCull();
         VRenderSystem.enableBlend();
-        if (!isVignetteBlendState()) {
+
+        if (!volcanic$isVignetteBlendState()) {
             VRenderSystem.blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
         }
     }
 
-    private static boolean isVignetteBlendState() {
+    @Unique
+    private static boolean volcanic$isVignetteBlendState() {
         PipelineState.BlendInfo blendInfo = PipelineState.blendInfo;
         return blendInfo.enabled
                 && blendInfo.srcRgbFactor == VK_BLEND_FACTOR_ZERO
@@ -151,7 +164,8 @@ public class BufferUploaderM {
                 && blendInfo.dstAlphaFactor == VK_BLEND_FACTOR_ZERO;
     }
 
-    private static void traceHudDraw(String shaderName, GraphicsPipeline pipeline, MeshData.DrawState parameters) {
+    @Unique
+    private static void volcanic$traceHudDraw(String shaderName, GraphicsPipeline pipeline, MeshData.DrawState parameters) {
         if (!GuiRenderTrace.isActive()) {
             return;
         }

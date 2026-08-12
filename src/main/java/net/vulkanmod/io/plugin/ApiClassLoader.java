@@ -9,21 +9,23 @@ package net.vulkanmod.io.plugin;
 final class ApiClassLoader extends ClassLoader {
     private static final String[] PACKAGE_PREFIXES = {
             "net.vulkanmod.vulkan.shader",
+            "net.vulkanmod.vulkan.pass",
             "net.vulkanmod.render.framegraph",
             "net.vulkanmod.render.pipeline",
-            "net.vulkanmod.render.plugin",
             "net.vulkanmod.render.vertex",
             "net.vulkanmod.vulkan.texture",
             "net.vulkanmod.vulkan.framebuffer",
             "net.vulkanmod.vulkan.util",
             "net.vulkanmod.vulkan.memory",
             "net.vulkanmod.vulkan.device",
+            "net.vulkanmod.plugin"
     };
 
     private static final String[] EXACT_CLASSES = {
             "net.vulkanmod.vulkan.Renderer",
             "net.vulkanmod.vulkan.Vulkan",
             "net.vulkanmod.vulkan.VRenderSystem",
+            "net.vulkanmod.render.chunk.build.thread.ThreadBuilderPack"
     };
 
     private final ClassLoader engine;

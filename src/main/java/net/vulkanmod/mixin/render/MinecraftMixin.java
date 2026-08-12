@@ -8,6 +8,8 @@ import net.minecraft.client.GraphicsStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
 import net.minecraft.client.main.GameConfig;
+import net.neoforged.fml.loading.ImmediateWindowHandler;
+import net.vulkanmod.compat.EarlyWindowCompat;
 import net.vulkanmod.compat.ExternalClientFaultBoundary;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.compat.opengl.GlCapabilitiesFallback;
@@ -28,6 +30,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @Mixin(Minecraft.class)
 public class MinecraftMixin {
@@ -76,12 +80,12 @@ public class MinecraftMixin {
 
     @Redirect(method = "runTick", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;bindWrite(Z)V"))
     private void redirectMainTarget1(RenderTarget instance, boolean bl) {
-        Renderer.getInstance().getMainPass().mainTargetBindWrite();
+        Renderer.getInstance().getMainPass().rebindMainTarget();
     }
 
     @Redirect(method = "runTick", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;unbindWrite()V"))
     private void redirectMainTarget2(RenderTarget instance) {
-        Renderer.getInstance().getMainPass().mainTargetUnbindWrite();
+        // this is now handled by the new engine lifecycle
     }
 
     @Redirect(method = "runTick", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/pipeline/RenderTarget;blitToScreen(II)V"))
@@ -139,12 +143,13 @@ public class MinecraftMixin {
     private void keepVar(Minecraft instance, boolean value) { }
 
     @Redirect(method = "setOverlay", at = @At(value = "INVOKE", target = "Lnet/neoforged/fml/loading/ImmediateWindowHandler;loadingOverlay(Ljava/util/function/Supplier;Ljava/util/function/Supplier;Ljava/util/function/Consumer;Z)Ljava/util/function/Supplier;", remap = false), require = 0)
-    private java.util.function.Supplier redirectLoadingOverlay(java.util.function.Supplier mc, java.util.function.Supplier rm, java.util.function.Consumer listener, boolean bl) {
-        if (net.vulkanmod.compat.EarlyWindowCompat.isHandoffComplete()) {
-            net.vulkanmod.Initializer.LOGGER.info("VulkanMod: Handoff is active, forcing vanilla LoadingOverlay instead of FML overlay.");
+    private Supplier redirectLoadingOverlay(Supplier mc, Supplier rm, Consumer listener, boolean bl) {
+        if (EarlyWindowCompat.isHandoffComplete()) {
+            Initializer.LOGGER.info("VulkanMod: Handoff is active, forcing vanilla LoadingOverlay instead of FML overlay.");
             return mc;
         }
-        return net.neoforged.fml.loading.ImmediateWindowHandler.loadingOverlay(mc, rm, listener, bl);
+
+        return ImmediateWindowHandler.loadingOverlay(mc, rm, listener, bl);
     }
 
 }

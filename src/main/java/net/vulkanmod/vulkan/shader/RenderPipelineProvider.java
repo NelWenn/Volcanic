@@ -1,6 +1,7 @@
 package net.vulkanmod.vulkan.shader;
 
 import net.vulkanmod.plugin.PluginRegistry;
+import net.vulkanmod.plugin.RenderPipelinePlugin;
 import net.vulkanmod.render.framegraph.FrameGraphImpl;
 
 import java.util.function.Supplier;
@@ -11,5 +12,10 @@ import java.util.function.Supplier;
  * {@link FrameGraphImpl} (the post-process frame graph it drives). Register one via
  * {@link PluginRegistry#register} to make it selectable like Radiance.
  */
-public record RenderPipelineProvider(String id, Supplier<PipelineManager> pipelineManager, Supplier<FrameGraphImpl> frameGraph) {
+public record RenderPipelineProvider(
+        String id,
+        Supplier<PipelineManager> pipelineManager,
+        Supplier<FrameGraphImpl> frameGraph,
+        RenderPipelinePlugin plugin
+) {
 }

@@ -9,12 +9,12 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.ResourceLocation;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
+import net.vulkanmod.api.MenuPlugin;
 import net.vulkanmod.gui.debug.DebugOverlay;
 import net.vulkanmod.gui.HudHandler;
 import org.lwjgl.glfw.GLFW;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.particle.ParticleToggles;
-import net.vulkanmod.render.profiling.ProfilerOverlay;
 import net.vulkanmod.vulkan.MoltenVKConfig;
 import net.vulkanmod.compat.opengl.GlDrawOptions;
 import net.vulkanmod.api.LodCulling;
@@ -22,7 +22,6 @@ import net.vulkanmod.compat.capabilities.ExternalRenderPathOptions;
 import net.vulkanmod.compat.external.ExternalRenderPathSupport;
 import net.vulkanmod.config.GraphicsModeCompatibility;
 import net.vulkanmod.config.PerformancePreset;
-import net.vulkanmod.config.PerformancePresetApplier;
 import net.vulkanmod.config.Platform;
 import net.vulkanmod.config.RenderScale;
 import net.vulkanmod.config.VsrPreset;
@@ -216,7 +215,7 @@ public final class SettingsCatalog {
     }
 
     private void registerPlugins() {
-        for (net.vulkanmod.api.MenuPlugin plugin : MenuPlugins.discover()) {
+        for (MenuPlugin plugin : MenuPlugins.discover()) {
             try {
                 PluginSettings.Converted converted =
                         PluginSettings.convert(plugin.id(), MenuPlugins.settingsOf(plugin));
@@ -226,6 +225,7 @@ public final class SettingsCatalog {
                     }
                 }
                 converted.metas().forEach(registry::register);
+
                 bindings.putAll(converted.bindings());
                 pluginIds.add(plugin.id());
             } catch (RuntimeException failure) {
@@ -246,6 +246,7 @@ public final class SettingsCatalog {
                 registerGuarded(mod);
             }
         }
+
         for (ModSettings mod : read(ModConfigReader::readAll)) {
             if (!optedIn.contains(mod.modId())) {
                 registerGuarded(mod);
@@ -493,7 +494,7 @@ public final class SettingsCatalog {
     }
 
     private static Optional<String> shaderPack() {
-        if (!DefaultMainPass.postShaderActive()) {
+        if (!DefaultMainPass.postShaderActiveStatic()) {
             return Optional.empty();
         }
         String selected = Initializer.CONFIG.selectedShader;
