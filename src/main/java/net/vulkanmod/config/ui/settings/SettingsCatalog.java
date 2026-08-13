@@ -1024,7 +1024,7 @@ public final class SettingsCatalog {
                 () -> Minecraft.getInstance().options.cloudStatus().get().getKey(),
                 value -> Minecraft.getInstance().options.cloudStatus().set(cloudStatusFor(label(value))),
                 () -> Arrays.stream(CloudStatus.values()).map(CloudStatus::getKey).toList())
-                .withDefault(CloudStatus.FANCY::getKey));
+                .withDefault(() -> CloudStatus.FANCY.getKey()));
 
         bindings.put(SettingsDefinitions.WEATHER_RENDERING, SettingBinding.of(
                 () -> Initializer.CONFIG.weatherRendering,
