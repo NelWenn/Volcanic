@@ -2694,8 +2694,9 @@ public final class ShellRenderer {
             this.showcaseShownId = plugin.id();
             this.showcaseElapsed = 0L;
         }
+
         float reveal = motionEnabled() ? Motion.easeOut(showcaseElapsed, 200) : 1.0f;
-        MenuPlugins.Showcase art = MenuPlugins.showcaseOf(plugin.id());
+        MenuPlugins.Showcase art = MenuPlugins.showcaseOf(MenuPlugins.byId(plugin.id()));
         PluginShowcase.Slots slots = PluginShowcase.slots(frame);
 
         if (art.banner() != null) {
@@ -2714,11 +2715,14 @@ public final class ShellRenderer {
                 int tone = PresetIcons.tone(null);
                 painter.fill(frame, theme.color(ColorToken.SURFACE_SUNKEN));
                 painter.gradient(frame, Motion.fade(tone, 0.0f), Motion.fade(tone, 0.3f));
+
                 int seed = plugin.id().hashCode();
                 for (int dot = 0; dot < 70; dot++) {
                     int h = seed * 31 + dot * 0x9E3779B9;
+
                     int dx = Math.floorMod(h, Math.max(1, frame.width() - 2));
                     int dy = Math.floorMod(h >> 8, Math.max(1, frame.height() / 3));
+
                     painter.fill(new Rect(frame.x() + 1 + dx,
                             frame.bottom() - 2 - dy, 1 + Math.floorMod(h >> 16, 2), 1),
                             Motion.fade(tone, 0.25f + 0.04f * Math.floorMod(h >> 20, 8)));

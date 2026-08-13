@@ -1,21 +1,19 @@
 package net.vulkanmod.config.ui.settings;
 
-import net.vulkanmod.api.MenuPlugin;
-import net.vulkanmod.api.MenuSetting;
+import net.vulkanmod.Initializer;
 import net.vulkanmod.config.ui.core.ApplyScope;
 import net.vulkanmod.config.ui.core.RouteId;
 import net.vulkanmod.config.ui.core.SettingId;
 import net.vulkanmod.config.ui.core.SettingMeta;
 import net.vulkanmod.config.ui.core.SettingSource;
 import net.vulkanmod.config.ui.core.SettingType;
+import net.vulkanmod.plugin.PluginEntry;
+import net.vulkanmod.plugin.SettingsRegistry;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 public final class PluginSettings {
+
     public static final RouteId ROOT = RouteId.parse("plugins");
     private static final String PATH_PREFIX = "plugin/";
 
@@ -33,61 +31,93 @@ public final class PluginSettings {
         return routeOf(pluginId).child(group.toLowerCase(Locale.ROOT));
     }
 
-    public static SettingId idOf(String pluginId, MenuSetting setting) {
+    public static SettingId idOf(String pluginId, String categoryId, String fieldName) {
         return SettingId.of(requireId(pluginId),
-                PATH_PREFIX + setting.group().toLowerCase(Locale.ROOT) + "/" + setting.key());
+                PATH_PREFIX + categoryId.toLowerCase(Locale.ROOT) + "/" + fieldName);
     }
 
-    public static Converted convert(String pluginId, List<MenuSetting> settings) {
+    public static Converted convert(String pluginId, Collection<SettingsRegistry.CategoryEntry> categories) {
         requireId(pluginId);
-        if (settings == null) {
-            throw new IllegalArgumentException("settings must not be null");
+        if (categories == null) {
+            throw new IllegalArgumentException("categories must not be null");
         }
+
         List<SettingMeta> metas = new ArrayList<>();
         Map<SettingId, SettingBinding> bindings = new LinkedHashMap<>();
-        for (MenuSetting setting : settings) {
-            SettingId id = idOf(pluginId, setting);
-            if (bindings.containsKey(id)) {
-                continue;
+
+        for (SettingsRegistry.CategoryEntry category : categories) {
+            for (Map.Entry<String, SettingsRegistry.FieldEntry> field : category.fields.entrySet()) {
+                String fieldName = field.getKey();
+                SettingsRegistry.FieldEntry fieldEntry = field.getValue();
+
+                SettingType type = typeOf(fieldEntry.field.value);
+                if (type == null) {
+                    Initializer.LOGGER.warn("Plugin {} field {}/{} has an unsupported value type ({}), skipping",
+                            pluginId, category.id, fieldName,
+                            fieldEntry.field.value == null ? "null" : fieldEntry.field.value.getClass());
+                    continue;
+                }
+
+                SettingId id = idOf(pluginId, category.id, fieldName);
+                if (bindings.containsKey(id))
+                    continue;
+
+                metas.add(metaOf(pluginId, id, category, fieldEntry, type));
+                bindings.put(id, bindingOf(pluginId, category.id, fieldName, fieldEntry, type));
             }
-            metas.add(metaOf(pluginId, id, setting));
-            bindings.put(id, bindingOf(setting));
         }
+
         return new Converted(List.copyOf(metas), Map.copyOf(bindings));
     }
 
-    public static Converted convert(MenuPlugin plugin, List<MenuSetting> settings) {
-        return convert(plugin.id(), settings);
+    public static Converted convert(PluginEntry plugin, Collection<SettingsRegistry.CategoryEntry> categories) {
+        return convert(plugin.getPlugin().id(), categories);
     }
 
-    private static SettingMeta metaOf(String pluginId, SettingId id, MenuSetting setting) {
+    private static SettingMeta metaOf(String pluginId, SettingId id, SettingsRegistry.CategoryEntry category,
+                                      SettingsRegistry.FieldEntry entry, SettingType type) {
         SettingMeta.Builder builder = new SettingMeta.Builder(id,
-                routeOf(pluginId, setting.group()), setting.titleKey(), typeOf(setting),
-                SettingSource.PLUGINS)
-                .scope(setting.restartRequired() ? ApplyScope.RESTART : ApplyScope.INSTANT);
-        if (setting.descriptionKey() != null) {
-            builder.descriptionKey(setting.descriptionKey());
+                routeOf(pluginId, category.id), entry.field.nameKey, type, SettingSource.PLUGINS)
+                .scope(ApplyScope.INSTANT);
+
+        if (entry.field.descriptionKey != null) {
+            builder.descriptionKey(entry.field.descriptionKey);
         }
+
         return builder.build();
     }
 
-    private static SettingType typeOf(MenuSetting setting) {
-        return switch (setting.kind()) {
-            case TOGGLE -> SettingType.BOOL;
-            case SLIDER -> SettingType.INT;
-            case CHOICE -> SettingType.ENUM;
-        };
+    private static SettingType typeOf(Object value) {
+        if (value instanceof Boolean) {
+            return SettingType.BOOL;
+        }
+        if (value instanceof Integer || value instanceof Long || value instanceof Short || value instanceof Byte) {
+            return SettingType.INT;
+        }
+        if (value instanceof Enum<?>) {
+            return SettingType.ENUM;
+        }
+        return null;
     }
 
-    private static SettingBinding bindingOf(MenuSetting setting) {
-        SettingBinding binding = switch (setting.kind()) {
-            case TOGGLE -> SettingBinding.of(setting::get, setting::set);
-            case SLIDER -> SettingBinding.ranged(setting::get, setting::set,
-                    setting.min(), setting.max(), setting.step());
-            case CHOICE -> SettingBinding.choosing(setting::get, setting::set, setting::choices);
+    private static SettingBinding bindingOf(String pluginId, String categoryId, String fieldName,
+                                            SettingsRegistry.FieldEntry entry, SettingType type) {
+        Object initial = entry.field.value;
+
+        SettingBinding binding = switch (type) {
+            case BOOL, INT, KEY -> SettingBinding.of(
+                    () -> entry.field.value,
+                    newValue -> SettingsRegistry.setValue(pluginId, categoryId, fieldName, newValue));
+            case ENUM -> {
+                Object[] choices = initial.getClass().getEnumConstants();
+                yield SettingBinding.choosing(
+                        () -> entry.field.value,
+                        newValue -> SettingsRegistry.setValue(pluginId, categoryId, fieldName, newValue),
+                        () -> List.of(Arrays.toString(choices)));
+            }
         };
-        Object fallback = setting.defaultValue();
-        return fallback == null ? binding : binding.withDefault(() -> fallback);
+
+        return binding.withDefault(() -> initial);
     }
 
     private static String requireId(String pluginId) {

@@ -9,9 +9,9 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.ResourceLocation;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
-import net.vulkanmod.api.MenuPlugin;
 import net.vulkanmod.gui.debug.DebugOverlay;
 import net.vulkanmod.gui.HudHandler;
+import net.vulkanmod.plugin.PluginEntry;
 import org.lwjgl.glfw.GLFW;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.particle.ParticleToggles;
@@ -215,10 +215,10 @@ public final class SettingsCatalog {
     }
 
     private void registerPlugins() {
-        for (MenuPlugin plugin : MenuPlugins.discover()) {
+        for (PluginEntry plugin : MenuPlugins.discover()) {
             try {
                 PluginSettings.Converted converted =
-                        PluginSettings.convert(plugin.id(), MenuPlugins.settingsOf(plugin));
+                        PluginSettings.convert(plugin.getPlugin().id(), MenuPlugins.settingsOf(plugin));
                 for (SettingMeta meta : converted.metas()) {
                     if (registry.contains(meta.id())) {
                         throw new IllegalArgumentException("duplicate setting id " + meta.id());
@@ -227,7 +227,7 @@ public final class SettingsCatalog {
                 converted.metas().forEach(registry::register);
 
                 bindings.putAll(converted.bindings());
-                pluginIds.add(plugin.id());
+                pluginIds.add(plugin.getPlugin().id());
             } catch (RuntimeException failure) {
                 Initializer.LOGGER.warn("Left plugin {} out of the menu: {}",
                         MenuPlugins.displayNameOf(plugin), failure.toString());

@@ -1,147 +1,88 @@
 package net.vulkanmod.config.ui.settings;
 
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceLocation;
 import net.vulkanmod.Initializer;
-import net.vulkanmod.api.MenuPlugin;
-import net.vulkanmod.api.MenuSetting;
+import net.vulkanmod.plugin.PluginEntry;
+import net.vulkanmod.plugin.PluginRegistry;
+import net.vulkanmod.plugin.RenderPipelinePlugin;
+import net.vulkanmod.plugin.SettingsRegistry;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.ServiceLoader;
-import java.util.Set;
+import java.io.InputStream;
+import java.util.*;
 
-/**
- * PROVISOIRE — le point de branchement à remplacer quand la pipeline déclarera ses paramètres.
- *
- * <p>REVO : c'est ici et nulle part ailleurs que le menu lit les plugins. Le jour où
- * {@code RenderPipelinePlugin} porte un discriminant et des paramètres, remplace
- * {@link #discover()} par un chargement de ton SPI, supprime {@code net.vulkanmod.api.MenuPlugin}
- * et {@code net.vulkanmod.api.MenuSetting}, et rien d'autre ne bouge : les pages, les onglets et
- * la sidebar consomment déjà le résultat de cette classe.
- *
- * <p>Un plugin qui implémente {@code RenderPipelinePlugin} est un shader et n'apparaît PAS ici : il
- * garde sa place dans la catégorie Shaders. C'est le seul discriminant dont on dispose aujourd'hui,
- * et il est bancal — un plugin non-shader qui déclarerait quand même un frame graph serait mal
- * classé. D'où la demande d'un {@code kind()} explicite.
- */
 public final class MenuPlugins {
-    private static final String PIPELINE_SPI = "net.vulkanmod.plugin.RenderPipelinePlugin";
-
-    private static List<MenuPlugin> cached;
 
     private MenuPlugins() {
     }
 
-    public static List<MenuPlugin> discover() {
-        if (cached == null) {
-            cached = load();
-        }
-        return cached;
+    public static List<PluginEntry> discover() {
+        List<PluginEntry> entries = new ArrayList<>(PluginRegistry.getPlugins().values());
+        entries.sort(Comparator.comparing(MenuPlugins::displayNameOf, String.CASE_INSENSITIVE_ORDER));
+        return List.copyOf(entries);
     }
 
-    public static List<MenuSetting> settingsOf(MenuPlugin plugin) {
-        if (plugin == null) {
-            throw new IllegalArgumentException("plugin must not be null");
-        }
-        try {
-            List<MenuSetting> declared = plugin.settings();
-            return declared == null ? List.of() : List.copyOf(declared);
-        } catch (Throwable failure) {
-            Initializer.LOGGER.warn("Plugin {} failed to declare its settings: {}",
-                    plugin.id(), failure.toString());
-            return List.of();
-        }
+    public static PluginEntry byId(String id) {
+        return id == null ? null : PluginRegistry.getPlugins().get(id);
     }
 
-    public static String displayNameOf(MenuPlugin plugin) {
+    public static String displayNameOf(PluginEntry entry) {
+        if (entry == null)
+            return "?";
+
+        RenderPipelinePlugin plugin = entry.getPlugin();
         try {
-            String name = plugin.displayName();
+            String name = plugin.name();
             return name == null || name.isBlank() ? plugin.id() : name;
         } catch (Throwable failure) {
-            Initializer.LOGGER.warn("Plugin {} failed to give its name: {}", safeId(plugin), failure.toString());
-            return safeId(plugin) == null ? "?" : safeId(plugin);
+            String id = safeId(plugin);
+            Initializer.LOGGER.warn("Plugin {} failed to give its name: {}", id, failure.toString());
+            return id == null ? "?" : id;
         }
     }
 
-    public static boolean enabledOf(MenuPlugin plugin) {
-        try {
-            return plugin.enabled();
-        } catch (Throwable failure) {
-            Initializer.LOGGER.warn("Plugin {} failed to report its state: {}",
-                    safeId(plugin), failure.toString());
-            return false;
-        }
+    public static boolean enabledOf(PluginEntry entry) {
+        return entry != null && entry.isEnabled();
     }
 
-    public static void applyTo(MenuPlugin plugin) {
-        try {
-            plugin.onApply();
-        } catch (Throwable failure) {
-            Initializer.LOGGER.warn("Plugin {} failed on apply: {}", safeId(plugin), failure.toString());
-        }
+    public static boolean toggleableOf(PluginEntry entry) {
+        return entry != null && entry.isToggleable();
     }
 
-    public static boolean toggleableOf(MenuPlugin plugin) {
-        try {
-            return plugin.toggleable();
-        } catch (Throwable failure) {
-            Initializer.LOGGER.warn("Plugin {} failed on toggleable(): {}",
-                    safeId(plugin), failure.toString());
-            return false;
+    public static void setEnabled(PluginEntry entry, boolean enabled) {
+        if (entry == null) {
+            return;
         }
-    }
-
-    public static void setEnabled(MenuPlugin plugin, boolean enabled) {
-        try {
-            plugin.setEnabled(enabled);
-            plugin.onApply();
-        } catch (Throwable failure) {
-            Initializer.LOGGER.warn("Plugin {} refused to change state: {}",
-                    safeId(plugin), failure.toString());
-        }
-    }
-
-    public static MenuPlugin byId(String id) {
-        for (MenuPlugin plugin : discover()) {
-            if (id != null && id.equals(safeId(plugin))) {
-                return plugin;
+        if (!entry.isToggleable()) {
+            if (enabled != entry.isEnabled()) {
+                Initializer.LOGGER.warn("Plugin {} is not toggleable, ignoring state change",
+                        safeId(entry.getPlugin()));
             }
+
+            return;
         }
-        return null;
+        entry.setEnabled(enabled);
     }
 
-    public static List<String> groupsOf(MenuPlugin plugin) {
-        Set<String> groups = new LinkedHashSet<>();
-        for (MenuSetting setting : settingsOf(plugin)) {
-            groups.add(setting.group().toLowerCase(Locale.ROOT));
+    public static Collection<SettingsRegistry.CategoryEntry> settingsOf(PluginEntry entry) {
+        if (entry == null) {
+            return List.of();
         }
+        String id = safeId(entry.getPlugin());
+        return id == null ? List.of() : SettingsRegistry.getCategories(id).values();
+    }
+
+    public static List<String> groupsOf(PluginEntry entry) {
+        Set<String> groups = new LinkedHashSet<>();
+
+        for (SettingsRegistry.CategoryEntry category : settingsOf(entry))
+            groups.add(category.id.toLowerCase(Locale.ROOT));
+
         return List.copyOf(groups);
     }
 
-    private static List<MenuPlugin> load() {
-        Set<String> shaderIds = pipelinePluginIds();
-        List<MenuPlugin> found = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        try {
-            for (MenuPlugin plugin : ServiceLoader.load(MenuPlugin.class)) {
-                String id = safeId(plugin);
-                if (id == null || shaderIds.contains(id) || !seen.add(id)) {
-                    continue;
-                }
-                found.add(plugin);
-            }
-        } catch (Throwable failure) {
-            Initializer.LOGGER.warn("Plugin discovery unavailable: {}", failure.toString());
-            return List.of();
-        }
-        if (!found.isEmpty()) {
-            Initializer.LOGGER.info("Menu plugins discovered: {}", seen);
-        }
-        return List.copyOf(found);
-    }
-
-    private static String safeId(MenuPlugin plugin) {
+    private static String safeId(RenderPipelinePlugin plugin) {
         try {
             String id = plugin.id();
             return id == null || id.isBlank() ? null : id;
@@ -151,60 +92,40 @@ public final class MenuPlugins {
         }
     }
 
-    private static Set<String> pipelinePluginIds() {
-        Set<String> ids = new LinkedHashSet<>();
-        try {
-            Class<?> spi = Class.forName(PIPELINE_SPI);
-            for (Object plugin : ServiceLoader.load(spi)) {
-                Object id = spi.getMethod("id").invoke(plugin);
-                if (id instanceof String text && !text.isBlank()) {
-                    ids.add(text);
-                }
-            }
-        } catch (ClassNotFoundException absent) {
-            return ids;
-        } catch (Throwable failure) {
-            Initializer.LOGGER.warn("Could not list pipeline plugins: {}", failure.toString());
+    public record Art(ResourceLocation texture, int width, int height, float midLuma) {}
+
+    public record Showcase(String byline, String description, List<String> tags,
+                           Art icon, Art banner) {}
+
+    private static final Map<String, Showcase> SHOWCASES = new HashMap<>();
+
+    public static Showcase showcaseOf(PluginEntry entry) {
+        if (entry == null) {
+            return new Showcase(null, null, List.of(), null, null);
         }
-        return ids;
-    }
-
-    public record Art(net.minecraft.resources.ResourceLocation texture, int width, int height,
-                      float midLuma) {
-    }
-
-    public record Showcase(String byline, String description, java.util.List<String> tags,
-                           Art icon, Art banner) {
-    }
-
-    private static final java.util.Map<String, Showcase> SHOWCASES = new java.util.HashMap<>();
-
-    public static Showcase showcaseOf(String pluginId) {
-        return SHOWCASES.computeIfAbsent(pluginId, MenuPlugins::readShowcase);
-    }
-
-    private static Showcase readShowcase(String pluginId) {
-        MenuPlugin plugin = byId(pluginId);
-        if (plugin == null) {
-            return new Showcase(null, null, java.util.List.of(), null, null);
+        String id = safeId(entry.getPlugin());
+        if (id == null) {
+            return new Showcase(null, null, List.of(), null, null);
         }
+        return SHOWCASES.computeIfAbsent(id, key -> readShowcase(entry.getPlugin()));
+    }
+
+    private static Showcase readShowcase(RenderPipelinePlugin plugin) {
         String byline = null;
         String description = null;
-        java.util.List<String> tags = java.util.List.of();
+        List<String> tags = List.of();
         Art icon = null;
         Art banner = null;
+
         try {
             byline = plugin.byline();
             description = plugin.description();
-            java.util.List<String> declared = plugin.tags();
-            if (declared != null && !declared.isEmpty()) {
-                tags = java.util.List.copyOf(declared.subList(0, Math.min(4, declared.size())));
-            }
-            icon = artOf(plugin.iconTexture());
-            banner = artOf(plugin.bannerTexture());
+            tags = List.of(plugin.tags());
+            icon = artOf(plugin.icon());
+            banner = artOf(plugin.banner());
         } catch (Throwable failure) {
             Initializer.LOGGER.warn("Plugin {} failed to dress its showcase: {}",
-                    pluginId, failure.toString());
+                    safeId(plugin), failure.toString());
         }
         return new Showcase(byline, description, tags, icon, banner);
     }
@@ -214,31 +135,35 @@ public final class MenuPlugins {
             return null;
         }
         try {
-            net.minecraft.resources.ResourceLocation texture =
-                    net.minecraft.resources.ResourceLocation.parse(path);
-            var resource = net.minecraft.client.Minecraft.getInstance().getResourceManager()
-                    .getResource(texture);
-            if (resource.isEmpty()) {
+            ResourceLocation texture = ResourceLocation.parse(path);
+            var resource = Minecraft.getInstance().getResourceManager().getResource(texture);
+
+            if (resource.isEmpty())
                 return null;
-            }
-            try (java.io.InputStream in = resource.get().open();
-                 com.mojang.blaze3d.platform.NativeImage image =
-                         com.mojang.blaze3d.platform.NativeImage.read(in)) {
+
+            try (InputStream in = resource.get().open();
+                 NativeImage image = NativeImage.read(in)) {
+
                 int width = image.getWidth();
                 int height = image.getHeight();
-                if (width <= 0 || height <= 0) {
+
+                if (width <= 0 || height <= 0)
                     return null;
-                }
+
                 float total = 0.0f;
                 int samples = 0;
+
                 int stepX = Math.max(1, width / 32);
                 int stepY = Math.max(1, height / 24);
+
                 for (int y = Math.round(height * 0.30f); y < height * 0.75f; y += stepY) {
                     for (int x = 0; x < width; x += stepX) {
                         int abgr = image.getPixelRGBA(x, y);
+
                         int red = abgr & 0xFF;
                         int green = (abgr >> 8) & 0xFF;
                         int blue = (abgr >> 16) & 0xFF;
+
                         total += (0.299f * red + 0.587f * green + 0.114f * blue) / 255.0f;
                         samples++;
                     }

@@ -2,9 +2,12 @@ package net.vulkanmod.rendergraph.radiance;
 
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.plugin.PluginTargetType;
+import net.vulkanmod.plugin.SettingsRegistry;
 import net.vulkanmod.render.framegraph.FrameGraph;
 import net.vulkanmod.render.framegraph.FrameGraphImpl;
 import net.vulkanmod.plugin.RenderPipelinePlugin;
+import net.vulkanmod.rendergraph.radiance.settings.RadianceRenderSettings;
+import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.pass.EngineContext;
 import net.vulkanmod.vulkan.pass.EngineResourceRegistry;
 import net.vulkanmod.vulkan.pass.PipelineCapabilities;
@@ -14,6 +17,7 @@ import net.vulkanmod.vulkan.shader.PipelineManager;
 import net.vulkanmod.vulkan.texture.VTextureSelector;
 
 public final class RadiancePipelinePlugin implements RenderPipelinePlugin {
+
     @Override
     public String id() {
         return "radiance";
@@ -116,6 +120,8 @@ public final class RadiancePipelinePlugin implements RenderPipelinePlugin {
             MaterialProvider mat = getActiveMaterial(context);
             return mat != null ? mat.getMaterialDepthImage() : null;
         });
+
+        SettingsRegistry.register(id(), new RadianceRenderSettings());
     }
 
     @Override
@@ -127,13 +133,13 @@ public final class RadiancePipelinePlugin implements RenderPipelinePlugin {
     }
 
     private static ShadowProvider getActiveShadow(EngineContext context) {
-        net.vulkanmod.vulkan.Renderer renderer = net.vulkanmod.vulkan.Renderer.getInstance();
+        Renderer renderer = Renderer.getInstance();
         if (renderer == null) return null;
         return renderer.getMainPass().getCapabilities().shadow().orElse(null);
     }
 
     private static MaterialProvider getActiveMaterial(EngineContext context) {
-        net.vulkanmod.vulkan.Renderer renderer = net.vulkanmod.vulkan.Renderer.getInstance();
+        Renderer renderer = Renderer.getInstance();
         if (renderer == null) return null;
         return renderer.getMainPass().getCapabilities().material().orElse(null);
     }

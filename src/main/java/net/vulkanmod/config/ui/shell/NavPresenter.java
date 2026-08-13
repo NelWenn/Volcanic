@@ -3,28 +3,15 @@ package net.vulkanmod.config.ui.shell;
 import net.neoforged.fml.ModList;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.PerformancePreset;
-import net.vulkanmod.config.ui.core.DeferredValues;
-import net.vulkanmod.config.ui.core.Favorites;
-import net.vulkanmod.config.ui.core.FocusHandoff;
-import net.vulkanmod.config.ui.core.FocusModel;
-import net.vulkanmod.config.ui.core.FocusRing;
-import net.vulkanmod.config.ui.core.NavNode;
-import net.vulkanmod.config.ui.core.NavStack;
-import net.vulkanmod.config.ui.core.NavTree;
-import net.vulkanmod.config.ui.core.PendingChanges;
-import net.vulkanmod.config.ui.core.PresetCardModel;
-import net.vulkanmod.config.ui.core.FrameSamples;
-import net.vulkanmod.config.ui.core.RouteId;
-import net.vulkanmod.config.ui.core.SettingId;
-import net.vulkanmod.config.ui.core.SettingMeta;
-import net.vulkanmod.config.ui.core.SettingType;
-import net.vulkanmod.config.ui.core.SidebarModel;
+import net.vulkanmod.config.ui.core.*;
 import net.vulkanmod.config.ui.mods.ModScreens;
 import net.vulkanmod.config.ui.mods.ModSettings;
-import net.vulkanmod.config.ui.settings.SettingBinding;
-import net.vulkanmod.config.ui.settings.PluginSettings;
-import net.vulkanmod.config.ui.settings.SettingsCatalog;
-import net.vulkanmod.config.ui.settings.UiState;
+import net.vulkanmod.config.ui.settings.*;
+import net.vulkanmod.plugin.PluginEntry;
+import net.vulkanmod.render.chunk.WorldRenderer;
+import net.vulkanmod.render.profiling.StackSampler;
+import net.vulkanmod.render.profiling.Telemetry;
+import net.vulkanmod.vulkan.SessionSamples;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -145,14 +132,14 @@ public final class NavPresenter {
     }
 
     public void togglePlugin(String pluginId) {
-        net.vulkanmod.api.MenuPlugin plugin =
-                net.vulkanmod.config.ui.settings.MenuPlugins.byId(pluginId);
+        PluginEntry plugin =
+                MenuPlugins.byId(pluginId);
         if (plugin == null
-                || !net.vulkanmod.config.ui.settings.MenuPlugins.toggleableOf(plugin)) {
+                || !MenuPlugins.toggleableOf(plugin)) {
             return;
         }
-        net.vulkanmod.config.ui.settings.MenuPlugins.setEnabled(plugin,
-                !net.vulkanmod.config.ui.settings.MenuPlugins.enabledOf(plugin));
+        MenuPlugins.setEnabled(plugin,
+                !MenuPlugins.enabledOf(plugin));
         this.pluginPages = discoverPluginPages();
         markGreyedPlugins();
     }
@@ -170,13 +157,13 @@ public final class NavPresenter {
 
     private static List<PluginPage> discoverPluginPages() {
         List<PluginPage> pages = new ArrayList<>();
-        for (net.vulkanmod.api.MenuPlugin plugin
-                : net.vulkanmod.config.ui.settings.MenuPlugins.discover()) {
-            pages.add(new PluginPage(plugin.id(),
-                    net.vulkanmod.config.ui.settings.MenuPlugins.displayNameOf(plugin),
-                    net.vulkanmod.config.ui.settings.MenuPlugins.groupsOf(plugin),
-                    net.vulkanmod.config.ui.settings.MenuPlugins.enabledOf(plugin),
-                    net.vulkanmod.config.ui.settings.MenuPlugins.toggleableOf(plugin)));
+        for (PluginEntry plugin
+                : MenuPlugins.discover()) {
+            pages.add(new PluginPage(plugin.getPlugin().id(),
+                    MenuPlugins.displayNameOf(plugin),
+                    MenuPlugins.groupsOf(plugin),
+                    MenuPlugins.enabledOf(plugin),
+                    MenuPlugins.toggleableOf(plugin)));
         }
         return List.copyOf(pages);
     }
@@ -398,23 +385,27 @@ public final class NavPresenter {
     public static final RouteId DEVELOPER_INFO = RouteId.parse("developer.info");
     public static final RouteId DEVELOPER_STATS = RouteId.parse("developer.stats");
 
-    private List<net.vulkanmod.config.ui.settings.SystemReport.Row> infoRows = List.of();
     private FrameSamples.Summary playSummary = new FrameSamples().summary();
-    private List<net.vulkanmod.config.ui.core.FrameHistory.Bucket> columns = List.of();
-    private List<net.vulkanmod.config.ui.core.FrameHistory.Bucket> stutters = List.of();
-    private List<net.vulkanmod.render.profiling.StackSampler.Frame> stutterProfile = List.of();
+
+    private List<SystemReport.Row> infoRows = List.of();
+    private List<FrameHistory.Bucket> columns = List.of();
+    private List<FrameHistory.Bucket> stutters = List.of();
+
+    private List<StackSampler.Frame> stutterProfile = List.of();
+    private List<StackSampler.Frame> allocators = List.of();
+
     private int stutterSamples;
-    private List<net.vulkanmod.render.profiling.StackSampler.Frame> allocators = List.of();
     private int allocatorSamples;
     private float historyMedian = -1.0f;
     private long captureEndMs;
     private int selectedStutter;
-    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> fingerprint = List.of();
-    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> sceneRows = List.of();
-    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> terrainRows = List.of();
-    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> memoryRows = List.of();
-    private List<net.vulkanmod.config.ui.settings.StatsReport.Cell> machineRows = List.of();
-    private List<net.vulkanmod.config.ui.settings.Diagnosis.Finding> findings = List.of();
+
+    private List<StatsReport.Cell> fingerprint = List.of();
+    private List<StatsReport.Cell> sceneRows = List.of();
+    private List<StatsReport.Cell> terrainRows = List.of();
+    private List<StatsReport.Cell> memoryRows = List.of();
+    private List<StatsReport.Cell> machineRows = List.of();
+    private List<Diagnosis.Finding> findings = List.of();
 
     private static final RouteId DEVELOPER = RouteId.parse("developer");
 
@@ -431,43 +422,43 @@ public final class NavPresenter {
         return DEVELOPER_STATS.equals(stack.current());
     }
 
-    public List<net.vulkanmod.config.ui.settings.SystemReport.Row> infoRows() {
+    public List<SystemReport.Row> infoRows() {
         return infoRows;
     }
 
-    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> fingerprint() {
+    public List<StatsReport.Cell> fingerprint() {
         return fingerprint;
     }
 
-    public List<net.vulkanmod.config.ui.settings.Diagnosis.Finding> findings() {
+    public List<Diagnosis.Finding> findings() {
         return findings;
     }
 
-    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> sceneRows() {
+    public List<StatsReport.Cell> sceneRows() {
         return sceneRows;
     }
 
-    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> terrainRows() {
+    public List<StatsReport.Cell> terrainRows() {
         return terrainRows;
     }
 
-    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> memoryRows() {
+    public List<StatsReport.Cell> memoryRows() {
         return memoryRows;
     }
 
-    public List<net.vulkanmod.config.ui.settings.StatsReport.Cell> machineRows() {
+    public List<StatsReport.Cell> machineRows() {
         return machineRows;
     }
 
-    public List<net.vulkanmod.config.ui.core.FrameHistory.Bucket> columns() {
+    public List<FrameHistory.Bucket> columns() {
         return columns;
     }
 
-    public List<net.vulkanmod.config.ui.core.FrameHistory.Bucket> stutters() {
+    public List<FrameHistory.Bucket> stutters() {
         return stutters;
     }
 
-    public List<net.vulkanmod.render.profiling.StackSampler.Frame> stutterProfile() {
+    public List<StackSampler.Frame> stutterProfile() {
         return stutterProfile;
     }
 
@@ -475,7 +466,7 @@ public final class NavPresenter {
         return stutterSamples;
     }
 
-    public List<net.vulkanmod.render.profiling.StackSampler.Frame> allocators() {
+    public List<StackSampler.Frame> allocators() {
         return allocators;
     }
 
@@ -512,30 +503,32 @@ public final class NavPresenter {
 
     public void rebuildWorld() {
         try {
-            net.vulkanmod.render.chunk.WorldRenderer.getInstance().allChanged();
+            WorldRenderer.getInstance().allChanged();
         } catch (Throwable unavailable) {
-            net.vulkanmod.Initializer.LOGGER.warn("Could not rebuild the world from the menu");
+            Initializer.LOGGER.warn("Could not rebuild the world from the menu");
         }
     }
 
     public void resetHistory() {
-        net.vulkanmod.vulkan.SessionSamples.history().clear();
-        net.vulkanmod.render.profiling.StackSampler.clear();
+        SessionSamples.history().clear();
+        StackSampler.clear();
+
         this.columns = List.of();
         this.stutters = List.of();
         this.stutterProfile = List.of();
+
         this.stutterSamples = 0;
         this.historyMedian = -1.0f;
     }
 
     public String report() {
-        return net.vulkanmod.config.ui.settings.DiagnosticsReport.build(
-                new net.vulkanmod.config.ui.settings.DiagnosticsReport.Input(
+        return DiagnosticsReport.build(
+                new DiagnosticsReport.Input(
                         fingerprint, sceneRows, terrainRows, memoryRows, machineRows,
-                        net.vulkanmod.config.ui.settings.SystemReport.rows(), findings, stutters,
-                        allocators, playSummary, net.vulkanmod.vulkan.SessionSamples.history(),
+                        SystemReport.rows(), findings, stutters,
+                        allocators, playSummary, SessionSamples.history(),
                         captureEndMs,
-                        net.vulkanmod.config.ui.settings.OverviewSignals.stickyVerdict().messageKey()));
+                        OverviewSignals.stickyVerdict().messageKey()));
     }
 
     public FrameSamples.Summary playSummary() {
@@ -544,51 +537,56 @@ public final class NavPresenter {
 
     public void refreshDiagnostics(int wantedColumns) {
         if (isDeveloperInfo()) {
-            this.infoRows = net.vulkanmod.config.ui.settings.SystemReport.rows();
+            this.infoRows = SystemReport.rows();
             return;
         }
+
         if (isDeveloperStats()) {
-            net.vulkanmod.render.profiling.StackSampler.setRunning(true);
-            net.vulkanmod.render.profiling.Telemetry.setUnifiedDie(
-                    net.vulkanmod.config.ui.settings.StatsReport.unifiedDie());
-            net.vulkanmod.render.profiling.Telemetry.setRunning(true);
-            net.vulkanmod.config.ui.core.FrameHistory history =
-                    net.vulkanmod.vulkan.SessionSamples.history();
-            this.fingerprint = net.vulkanmod.config.ui.settings.StatsReport.fingerprint();
-            this.sceneRows = net.vulkanmod.config.ui.settings.StatsReport.scene();
-            this.terrainRows = net.vulkanmod.config.ui.settings.StatsReport.terrain();
-            this.memoryRows = net.vulkanmod.config.ui.settings.StatsReport.memory(
-                    history.allocationRateMbPerSecond());
-            this.machineRows = net.vulkanmod.config.ui.settings.StatsReport.machine();
+            StackSampler.setRunning(true);
+            Telemetry.setUnifiedDie(
+                    StatsReport.unifiedDie());
+
+            Telemetry.setRunning(true);
+            FrameHistory history = SessionSamples.history();
+
+            this.fingerprint = StatsReport.fingerprint();
+            this.sceneRows = StatsReport.scene();
+            this.terrainRows = StatsReport.terrain();
+            this.memoryRows = StatsReport.memory(history.allocationRateMbPerSecond());
+            this.machineRows = StatsReport.machine();
+
             this.columns = history.columns(Math.max(1, wantedColumns));
             this.historyMedian = history.medianAverage();
             this.stutters = history.worst(5, FrameSamples.spikeFloor(historyMedian));
             this.captureEndMs = history.size() == 0 ? System.currentTimeMillis()
-                    : history.at(history.size() - 1).startMs() + net.vulkanmod.config.ui.core.FrameHistory.BUCKET_MS;
-            if (selectedStutter >= stutters.size()) {
+                    : history.at(history.size() - 1).startMs() + FrameHistory.BUCKET_MS;
+
+            if (selectedStutter >= stutters.size())
                 this.selectedStutter = 0;
-            }
+
             this.playSummary = net.vulkanmod.vulkan.SessionSamples.samples().summary();
+
             refreshStutterProfile();
             refreshAllocators(history);
-            this.findings = net.vulkanmod.config.ui.settings.Diagnosis.of(history, playSummary,
+
+            this.findings = Diagnosis.of(history, playSummary,
                     stutters, terrainRows, memoryRows, machineRows);
         }
     }
 
-    private void refreshAllocators(net.vulkanmod.config.ui.core.FrameHistory history) {
-        net.vulkanmod.config.ui.core.FrameHistory.Bucket busiest = history.busiestAllocator();
-        List<net.vulkanmod.render.profiling.StackSampler.Frame> hot = List.of();
-        if (busiest != null) {
-            hot = net.vulkanmod.render.profiling.StackSampler.profile(busiest.startMs(),
-                    busiest.startMs() + net.vulkanmod.config.ui.core.FrameHistory.BUCKET_MS);
-        }
-        if (hot.isEmpty() && captureEndMs > 0L) {
-            hot = net.vulkanmod.render.profiling.StackSampler.profile(captureEndMs - 30_000L,
+    private void refreshAllocators(FrameHistory history) {
+        FrameHistory.Bucket busiest = history.busiestAllocator();
+        List<StackSampler.Frame> hot = List.of();
+        if (busiest != null)
+            hot = StackSampler.profile(busiest.startMs(),
+                    busiest.startMs() + FrameHistory.BUCKET_MS);
+
+        if (hot.isEmpty() && captureEndMs > 0L)
+            hot = StackSampler.profile(captureEndMs - 30_000L,
                     captureEndMs);
-        }
+
         this.allocators = hot;
-        this.allocatorSamples = net.vulkanmod.render.profiling.StackSampler.recorded();
+        this.allocatorSamples = StackSampler.recorded();
     }
 
     private void refreshStutterProfile() {
@@ -597,28 +595,29 @@ public final class NavPresenter {
             this.stutterSamples = 0;
             return;
         }
-        net.vulkanmod.config.ui.core.FrameHistory.Bucket worst =
-                stutters.get(Math.max(0, Math.min(selectedStutter, stutters.size() - 1)));
-        long span = Math.max(net.vulkanmod.config.ui.core.FrameHistory.BUCKET_MS,
+
+        FrameHistory.Bucket worst = stutters.get(Math.clamp(selectedStutter, 0, stutters.size() - 1));
+        long span = Math.max(FrameHistory.BUCKET_MS,
                 Math.round(worst.max()));
         long from = worst.startMs() - span;
         long to = worst.startMs() + span;
-        this.stutterProfile = net.vulkanmod.render.profiling.StackSampler.profile(from, to);
-        this.stutterSamples = net.vulkanmod.render.profiling.StackSampler.samplesIn(from, to);
+
+        this.stutterProfile = StackSampler.profile(from, to);
+        this.stutterSamples = StackSampler.samplesIn(from, to);
     }
 
     public boolean[] infoSections() {
         boolean[] sections = new boolean[infoRows.size()];
-        for (int index = 0; index < sections.length; index++) {
+        for (int index = 0; index < sections.length; index++)
             sections[index] = infoRows.get(index).section();
-        }
+
         return sections;
     }
 
     public int contentRowCount() {
-        if (isDeveloperInfo()) {
+        if (isDeveloperInfo())
             return infoRows.size();
-        }
+
         return isOverview() ? presetCards().size() : contentRows().size();
     }
 
@@ -634,26 +633,31 @@ public final class NavPresenter {
     public List<ContentRow> contentRows() {
         List<ContentRow> rows = new ArrayList<>();
         List<SettingMeta> all = settings();
+
         for (int index = 0; index < all.size(); index++) {
             SettingMeta meta = all.get(index);
             String group = meta.groupKey();
+
             if (group == null) {
                 rows.add(new SettingRow(meta));
                 continue;
             }
+
             int end = index;
-            while (end < all.size() && group.equals(all.get(end).groupKey())) {
+
+            while (end < all.size() && group.equals(all.get(end).groupKey()))
                 end++;
-            }
+
             boolean folded = groupCollapsed(group);
             rows.add(new GroupRow(group, folded, end - index));
-            if (!folded) {
-                for (int member = index; member < end; member++) {
+
+            if (!folded)
+                for (int member = index; member < end; member++)
                     rows.add(new SettingRow(all.get(member)));
-                }
-            }
+
             index = end - 1;
         }
+
         return List.copyOf(rows);
     }
 
@@ -665,26 +669,19 @@ public final class NavPresenter {
     }
 
     public void toggleGroup(String groupKey) {
-        if (groupKey == null || groupKey.isBlank()) {
+        if (groupKey == null || groupKey.isBlank())
             throw new IllegalArgumentException("groupKey must not be blank");
-        }
+
         ensureCollapsedLoaded();
         String marker = EXPANDED + groupKey;
-        if (!collapsed.remove(marker)) {
+        if (!collapsed.remove(marker))
             collapsed.add(marker);
-        }
+
         UiState.save(UiState.PATH, favorites(), collapsed);
     }
 
     public boolean isOverview() {
         return OVERVIEW_ROUTE.equals(stack().current());
-    }
-
-    private void applyPlugins() {
-        for (net.vulkanmod.api.MenuPlugin plugin
-                : net.vulkanmod.config.ui.settings.MenuPlugins.discover()) {
-            net.vulkanmod.config.ui.settings.MenuPlugins.applyTo(plugin);
-        }
     }
 
     public void apply() {
@@ -704,40 +701,45 @@ public final class NavPresenter {
         } finally {
             catalog.endBatch();
         }
-        if (touchedPlugin[0]) {
-            applyPlugins();
-        }
+
         Initializer.CONFIG.write();
+
+        //TODO: call update hooks
     }
 
     public void discard() {
         this.presetCards = null;
+
         deferred.clear();
         pending.clear();
     }
 
     public List<PresetCardModel.Card> presetCards() {
         if (presetCards == null) {
-            net.vulkanmod.config.ui.settings.OverviewSignals.harvest(playingProfileKey());
+            OverviewSignals.harvest(playingProfileKey());
+
             this.presetCards = PresetCardModel.cards(changeableProfiles(), committedValues(), changeableValues(),
                     PerformancePreset.CUSTOM.translationKey,
-                    net.vulkanmod.config.ui.settings.OverviewSignals.suggestedPresetKey(playingProfileKey()));
+                    OverviewSignals.suggestedPresetKey(playingProfileKey()));
         }
+
         return presetCards;
     }
 
     public boolean applyProfile(String profileKey) {
-        if (profileKey == null) {
+        if (profileKey == null)
             throw new IllegalArgumentException("profileKey must not be null");
-        }
+
         Map<SettingId, Object> values = catalog.profileValues().get(profileKey);
-        if (values == null) {
+
+        if (values == null)
             return false;
-        }
+
         boolean changed = false;
-        for (Map.Entry<SettingId, Object> entry : values.entrySet()) {
+
+        for (Map.Entry<SettingId, Object> entry : values.entrySet())
             changed |= set(catalog.registry().get(entry.getKey()), entry.getValue());
-        }
+
         return changed;
     }
 
