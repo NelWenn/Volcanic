@@ -9,9 +9,11 @@ import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.ResourceLocation;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
+import net.vulkanmod.config.plugin.PluginTargetType;
 import net.vulkanmod.gui.debug.DebugOverlay;
 import net.vulkanmod.gui.HudHandler;
 import net.vulkanmod.plugin.PluginEntry;
+import net.vulkanmod.plugin.PluginRegistry;
 import org.lwjgl.glfw.GLFW;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.particle.ParticleToggles;
@@ -47,16 +49,7 @@ import net.vulkanmod.config.video.VideoModeSet;
 import net.vulkanmod.config.video.WindowMode;
 import net.vulkanmod.render.sodium.SodiumShaderBridge;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.ServiceLoader;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 
 // Choice labels are translation keys; Minecraft renders an unknown key as itself, so plain
@@ -1031,7 +1024,7 @@ public final class SettingsCatalog {
                 () -> Minecraft.getInstance().options.cloudStatus().get().getKey(),
                 value -> Minecraft.getInstance().options.cloudStatus().set(cloudStatusFor(label(value))),
                 () -> Arrays.stream(CloudStatus.values()).map(CloudStatus::getKey).toList())
-                .withDefault(() -> CloudStatus.FANCY.getKey()));
+                .withDefault(CloudStatus.FANCY::getKey));
 
         bindings.put(SettingsDefinitions.WEATHER_RENDERING, SettingBinding.of(
                 () -> Initializer.CONFIG.weatherRendering,
@@ -1475,11 +1468,21 @@ public final class SettingsCatalog {
     private static List<String> availableShaders() {
         List<String> ids = new ArrayList<>();
         ids.add("off");
-        ids.addAll(discoveredPluginIds());
+
+        ids.addAll(PluginRegistry.getPlugins()
+                .values()
+                    .stream()
+                    .filter(Objects::nonNull)
+                    .filter(pl -> pl.getPlugin()
+                            .type() == PluginTargetType.SHADERS)
+                    .map(pl -> pl.getPlugin().id())
+                    .toList());
+
         String selected = Initializer.CONFIG.selectedShader;
-        if (selected != null && !ids.contains(selected)) {
+
+        if (selected != null && !ids.contains(selected))
             ids.add(selected);
-        }
+
         return List.copyOf(ids);
     }
 

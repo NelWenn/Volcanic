@@ -18,7 +18,8 @@ final class ApiClassLoader extends ClassLoader {
             "net.vulkanmod.vulkan.util",
             "net.vulkanmod.vulkan.memory",
             "net.vulkanmod.vulkan.device",
-            "net.vulkanmod.plugin"
+            "net.vulkanmod.plugin",
+            "net.vulkanmod.config.plugin"
     };
 
     private static final String[] EXACT_CLASSES = {

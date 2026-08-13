@@ -6,14 +6,15 @@ import net.minecraft.network.chat.Component;
 import net.vulkanmod.config.ui.core.BreadcrumbModel;
 import net.vulkanmod.config.ui.core.FocusHandoff;
 import net.vulkanmod.config.ui.core.KeyAction;
-import net.vulkanmod.config.ui.core.FrameGraphLayout;
 import net.vulkanmod.config.ui.core.InfoRowLayout;
 import net.vulkanmod.config.ui.core.PluginPageLayout;
 import net.vulkanmod.config.ui.core.PluginShowcase;
+import net.vulkanmod.config.ui.settings.MenuCompat;
 import net.vulkanmod.config.ui.settings.PluginSettings;
 import net.vulkanmod.config.ui.core.PresetCardLayout;
 import net.vulkanmod.config.ui.core.PresetCardModel;
 import net.vulkanmod.config.ui.core.Glide;
+import net.vulkanmod.render.profiling.StackSampler;
 import net.vulkanmod.sound.UiSounds;
 import net.vulkanmod.config.ui.core.Rect;
 import net.vulkanmod.config.ui.core.RouteId;
@@ -69,10 +70,10 @@ public class VolcanicScreen extends Screen {
 
     @Override
     protected void init() {
-        net.vulkanmod.config.ui.settings.MenuCompat.invalidate();
+        MenuCompat.invalidate();
         this.layout = ShellLayout.of(this.width, this.height, presenter.isDeveloper());
         if (presenter.isDeveloper()) {
-            net.vulkanmod.render.profiling.StackSampler.setRunning(true);
+            StackSampler.setRunning(true);
         }
         if (!layout.hasDrawer()) {
             this.drawerOpen = false;
@@ -233,9 +234,8 @@ public class VolcanicScreen extends Screen {
         }
 
         int direction = (int) Math.signum(scrollY);
-        if (direction == 0) {
+        if (direction == 0)
             return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        }
 
         Rect nav = layout.sidebarOrDrawer(drawerOpen);
         if (nav.contains((int) mouseX, (int) mouseY)) {
@@ -243,12 +243,13 @@ public class VolcanicScreen extends Screen {
                     .clampScroll(this.sidebarScrollTarget - direction * SIDEBAR_SCROLL_STEP, nav.height());
             return true;
         }
+
         if (!drawerOpen && layout.content().contains((int) mouseX, (int) mouseY)) {
-            this.contentScrollTarget = Math.min(
-                    Math.max(0, this.contentScrollTarget - direction * CONTENT_SCROLL_STEP),
+            this.contentScrollTarget = Math.clamp(this.contentScrollTarget - (long) direction * CONTENT_SCROLL_STEP, 0,
                     maxContentScroll());
             return true;
         }
+
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
@@ -766,7 +767,7 @@ public class VolcanicScreen extends Screen {
             this.contentGlide.jumpTo(0.0f);
             this.contentScroll = 0;
         }
-        this.contentScrollTarget = Math.max(0, Math.min(this.contentScrollTarget, maxContentScroll()));
+        this.contentScrollTarget = Math.clamp(this.contentScrollTarget, 0, maxContentScroll());
     }
 
     private Rect navViewport() {
