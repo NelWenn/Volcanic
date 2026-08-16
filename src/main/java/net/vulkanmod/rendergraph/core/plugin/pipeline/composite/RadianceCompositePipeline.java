@@ -1,0 +1,27 @@
+package net.vulkanmod.rendergraph.core.plugin.pipeline.composite;
+
+import net.vulkanmod.vulkan.shader.pipeline.*;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+
+@GfxPipeline(basePath = "radiance_composite", vertex = "radiance_composite", fragment = "radiance_composite", vertexFormat = VertexFormatRef.NONE)
+public final class RadianceCompositePipeline implements PipelineDefinition {
+    @Ubo(stage = Stage.FRAGMENT, binding = 0)
+    static class FragUbo {
+        Matrix4f FogInvMVPMat;
+        Vector3f FogSunDir;
+        float FogShadowIntensity;
+        Vector3f FogShadowSplits;
+        float PbrDebug;
+    }
+
+    @Sampler(binding = 1) int Sampler0;
+    @Sampler(binding = 2) int Sampler1;
+    @Sampler(binding = 3) int Sampler2;
+    @Sampler(binding = 4) int Sampler3;
+    @Sampler(binding = 5) int Sampler4;
+    @Sampler(binding = 6) int Sampler5;
+    @Sampler(binding = 7) int Sampler6;
+    @Sampler(binding = 8) int Sampler7;
+    @Sampler(binding = 9) int Sampler8;
+}

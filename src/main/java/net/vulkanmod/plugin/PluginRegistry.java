@@ -1,6 +1,7 @@
 package net.vulkanmod.plugin;
 
 import net.vulkanmod.io.plugin.PluginJarLoader;
+import net.vulkanmod.rendergraph.core.plugin.CorePipelinePlugin;
 import net.vulkanmod.rendergraph.radiance.RadiancePipelinePlugin;
 import net.vulkanmod.vulkan.shader.PipelineManager;
 import net.vulkanmod.vulkan.shader.RenderPipelineProvider;
@@ -76,8 +77,8 @@ public final class PluginRegistry {
 
         bootstrapped = true;
 
-        registerPlugin(new RadiancePipelinePlugin());
+        registerPlugin(new CorePipelinePlugin());
         PluginJarLoader.loadAll();
-        setActiveShader("radiance");
+        setActiveShader("core");
     }
 }

@@ -9,6 +9,9 @@ import org.jetbrains.annotations.TestOnly;
 public class RadianceRenderSettings {
 
     // TODO: remplace hardcoded names by translation keys
-    @SettingsField(nameKey = "Shadow Quality", descriptionKey = "Quality of the shadow rendering")
+    @SettingsField(nameKey = "Shadow Texture Size", descriptionKey = "Quality of the shadow texture")
     public int shadowQuality = 4096;
+
+    @SettingsField(nameKey = "Reflection Quality", descriptionKey = "Quality of the reflection rendering")
+    public int reflectionQuality = 2;
 }

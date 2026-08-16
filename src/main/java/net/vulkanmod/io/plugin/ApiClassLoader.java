@@ -4,7 +4,10 @@ package net.vulkanmod.io.plugin;
  * Restricts a plugin jar's classloader to the JDK, the graphics libraries the engine itself uses
  * (LWJGL/JOML/fastutil), and the mod's public rendering API. Everything else resolves to
  * {@link ClassNotFoundException}, so a pipeline can only be written against the same surface
- * Radiance uses internally — it cannot reach into unrelated engine or game internals.
+ * It is basic protection against malicious code. Do NOT use plugins that are not trusted.
+ * 
+ * The entry point is {@link #loadClass(String, boolean)}, this class is not used directly.
+ * It's used by {@link PluginJarLoader} to create a child classloader for each pipeline jar.
  */
 final class ApiClassLoader extends ClassLoader {
     private static final String[] PACKAGE_PREFIXES = {

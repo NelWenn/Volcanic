@@ -6,6 +6,7 @@ import net.vulkanmod.render.chunk.RenderSection;
 import net.vulkanmod.render.chunk.build.UploadBuffer;
 import net.vulkanmod.render.chunk.util.StaticQueue;
 import net.vulkanmod.render.culling.DepthOcclusion;
+import net.vulkanmod.render.profiling.RenderCounters;
 import net.vulkanmod.render.vertex.CustomVertexFormat;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.Renderer;
@@ -248,7 +249,7 @@ public class DrawBuffers {
         if (drawParameters.indexCount <= 0)
             return;
         final int firstIndex = drawParameters.firstIndex == -1 ? 0 : drawParameters.firstIndex;
-        net.vulkanmod.render.profiling.RenderCounters.terrainDraw(1);
+        RenderCounters.terrainDraw(1);
         vkCmdDrawIndexed(Renderer.getCommandBuffer(), drawParameters.indexCount, 1, firstIndex,
                 drawParameters.vertexOffset, drawParameters.baseInstance);
     }

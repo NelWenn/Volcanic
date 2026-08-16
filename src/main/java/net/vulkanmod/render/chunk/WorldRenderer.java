@@ -588,7 +588,7 @@ public class WorldRenderer {
         if (indirectDraw)
             shadowIndirect.reset();
 
-        final java.util.List<RenderSection> cascadeSections = shadowSectionsForCascade(cascade, cascadeRadius);
+        final List<RenderSection> cascadeSections = shadowSectionsForCascade(cascade, cascadeRadius);
 
         try (RenderStateSnapshot snapshot = RenderStateSnapshot.capture()) {
             for (TerrainRenderType terrainRenderType : types) {
@@ -945,7 +945,7 @@ public class WorldRenderer {
         MultiBufferSource.BufferSource src = shadowBufferSource();
         ShadowCasterBufferSource filtered = new ShadowCasterBufferSource(src);
 
-        final float range = net.vulkanmod.vulkan.pass.ShadowMap.shadowRange();
+        final float range = ShadowMap.shadowRange();
         final float rangeSq = range * range;
 
         for (RenderSection renderSection : this.sectionGraph.getBlockEntitiesSections()) {
