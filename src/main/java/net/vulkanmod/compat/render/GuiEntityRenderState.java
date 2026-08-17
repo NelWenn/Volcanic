@@ -6,7 +6,6 @@ import net.vulkanmod.vulkan.VRenderSystem;
 import org.lwjgl.opengl.GL11;
 
 public final class GuiEntityRenderState {
-    public static final int FULL_BRIGHT_LIGHT = 15728880;
     private static final ThreadLocal<RenderStateSnapshot> DEFERRED_DRAW_STATE = new ThreadLocal<>();
     private static final ThreadLocal<Integer> HUD_ENTITY_PREVIEW_DEPTH = ThreadLocal.withInitial(() -> 0);
 
@@ -24,7 +23,7 @@ public final class GuiEntityRenderState {
     public static void endHudEntityPreview() {
         int depth = HUD_ENTITY_PREVIEW_DEPTH.get();
         if (depth <= 1) {
-            HUD_ENTITY_PREVIEW_DEPTH.remove();
+            HUD_ENTITY_PREVIEW_DEPTH.set(null);
             return;
         }
 
@@ -60,7 +59,7 @@ public final class GuiEntityRenderState {
 
     public static void restoreDeferredDrawState() {
         RenderStateSnapshot snapshot = DEFERRED_DRAW_STATE.get();
-        DEFERRED_DRAW_STATE.remove();
+        DEFERRED_DRAW_STATE.set(null);
 
         if (snapshot != null) {
             snapshot.restore();

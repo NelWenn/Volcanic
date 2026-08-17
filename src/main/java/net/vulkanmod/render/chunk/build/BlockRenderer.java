@@ -32,9 +32,14 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import net.neoforged.neoforge.common.util.TriState;
+import net.vulkanmod.compat.PolytoneCompat;
 import net.vulkanmod.render.chunk.build.light.LightPipeline;
 import net.vulkanmod.render.chunk.build.light.data.QuadLightData;
 import net.vulkanmod.render.chunk.build.thread.BuilderResources;
+import net.vulkanmod.render.ctm.Ctm;
+import net.vulkanmod.render.ctm.CtmOverlayEmitter;
+import net.vulkanmod.render.ctm.CtmResult;
+import net.vulkanmod.render.ctm.CtmUvQuad;
 import net.vulkanmod.render.model.quad.QuadUtils;
 import net.vulkanmod.render.model.quad.QuadView;
 import net.vulkanmod.render.vertex.TerrainBufferBuilder;
@@ -42,7 +47,9 @@ import net.vulkanmod.render.vertex.VertexUtil;
 import net.vulkanmod.vulkan.util.ColorUtil;
 import org.joml.Vector3f;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BlockRenderer {
 
@@ -54,6 +61,10 @@ public class BlockRenderer {
     Vector3f pos;
     BlockPos blockPos;
     BlockPos.MutableBlockPos mutableBlockPos = new BlockPos.MutableBlockPos();
+
+    final Map<BlockState, List<BakedQuad>[]> quadCache = new HashMap<>(); // indexed by ordinal()
+
+    final Map<BlockState, Boolean> cacheableMap = new HashMap<>();
 
     BuilderResources resources;
 
@@ -113,10 +124,62 @@ public class BlockRenderer {
         tessellateBlock(model, modelData, renderType, bufferBuilder, seed);
     }
 
+    private boolean quadsEqual(List<BakedQuad> a, List<BakedQuad> b) {
+        if (a.size() != b.size())
+            return false;
+
+        for (int i = 0; i < a.size(); i++)
+            if (!a.get(i).equals(b.get(i)))
+                return false;
+
+        return true;
+    }
+
+    private boolean isCacheable(BlockState state, ModelData modelData, BakedModel model, Direction dir, RenderType type) {
+        if (!modelData.getProperties().isEmpty()) return false;
+
+        Boolean known = cacheableMap.get(state);
+        if (known != null)
+            return known;
+
+        // test two seeds
+        randomSource.setSeed(42L);
+        List<BakedQuad> a = model.getQuads(state, dir, randomSource, modelData, type);
+
+        randomSource.setSeed(1337L);
+        List<BakedQuad> b = model.getQuads(state, dir, randomSource, modelData, type);
+
+        boolean cacheable = quadsEqual(a, b);
+        cacheableMap.put(state, cacheable);
+        return cacheable;
+    }
+
+    // adding some cache 0_0
+    private List<BakedQuad> getOrComp(BakedModel model, BlockState state, ModelData modelData, long seed, Direction dir, RenderType type) {
+        if (!isCacheable(state, modelData, model, dir, type)) {
+            randomSource.setSeed(seed);
+            return model.getQuads(state, dir, randomSource, modelData, type);
+        }
+
+        // Unchecked but it's fine
+        @SuppressWarnings("unchecked")
+        List<BakedQuad>[] perDir = quadCache.computeIfAbsent(state, s -> new List[DIRECTIONS.length + 1]);
+        int index = dir != null ? dir.ordinal() : DIRECTIONS.length;
+
+        List<BakedQuad> cached = perDir[index];
+        if (cached != null)
+            return cached;
+
+        randomSource.setSeed(seed);
+        List<BakedQuad> comp = model.getQuads(state, dir, randomSource, modelData, type);
+        perDir[index] = comp;
+        return comp;
+    }
+
     public void tessellateBlock(BakedModel bakedModel, ModelData modelData, RenderType renderType,
                                 TerrainBufferBuilder bufferBuilder, long seed) {
         Vec3 offset = blockState.getOffset(resources.region, blockPos);
-        offset = net.vulkanmod.compat.PolytoneCompat.modifyOffset(offset, blockState, resources.region, blockPos);
+        offset = PolytoneCompat.modifyOffset(offset, blockState, resources.region, blockPos);
 
         pos.add((float) offset.x, (float) offset.y, (float) offset.z);
 
@@ -126,29 +189,35 @@ public class BlockRenderer {
                 && blockState.getValue(DoublePlantBlock.HALF) == DoubleBlockHalf.UPPER;
 
         TriState ambientOcclusion = bakedModel.useAmbientOcclusion(blockState, modelData, renderType);
+
         boolean modelUsesAO = ambientOcclusion.isDefault() ? bakedModel.useAmbientOcclusion() : ambientOcclusion.isTrue();
         boolean useAO = Minecraft.useAmbientOcclusion() && blockState.getLightEmission() == 0 && modelUsesAO;
+
         LightPipeline lightPipeline = useAO ? resources.smoothLightPipeline : resources.flatLightPipeline;
 
         for (int i = 0; i < DIRECTIONS.length; ++i) {
             Direction direction = DIRECTIONS[i];
 
-            randomSource.setSeed(seed);
-            List<BakedQuad> quads = bakedModel.getQuads(blockState, direction, randomSource, modelData, renderType);
+            // fix, get quads method was called before checking occlusion. GetQuads contain internal iterators
+            // which create an extreme heap allocation, the garbage collector will be overwhelmed
+            // which creates huge froze loading chunks
+            mutableBlockPos.setWithOffset(blockPos, direction);
+            if (!shouldRenderFace(blockState, direction, mutableBlockPos))
+                continue;
 
-            if (!quads.isEmpty()) {
-                mutableBlockPos.setWithOffset(blockPos, direction);
-                if (shouldRenderFace(blockState, direction, mutableBlockPos)) {
-                    renderModelFace(bufferBuilder, quads, lightPipeline, direction);
-                }
-            }
+            randomSource.setSeed(seed);
+            List<BakedQuad> quads = getOrComp(bakedModel, blockState, modelData, seed, direction, renderType);
+
+            if (!quads.isEmpty())
+                renderModelFace(bufferBuilder, quads, lightPipeline, direction);
         }
 
         randomSource.setSeed(seed);
+
         List<BakedQuad> quads = bakedModel.getQuads(blockState, null, randomSource, modelData, renderType);
-        if (!quads.isEmpty()) {
+
+        if (!quads.isEmpty())
             renderModelFace(bufferBuilder, quads, lightPipeline, null);
-        }
     }
 
     private void renderModelFace(TerrainBufferBuilder bufferBuilder, List<BakedQuad> quads, LightPipeline lightPipeline, Direction cullFace) {
@@ -156,37 +225,41 @@ public class BlockRenderer {
 
         for (int i = 0; i < quads.size(); ++i) {
             BakedQuad bakedQuad = quads.get(i);
-            bakedQuad = net.vulkanmod.compat.PolytoneCompat.maybeModifyQuad(bakedQuad, resources.region, blockState, blockPos);
+
+            bakedQuad = PolytoneCompat.maybeModifyQuad(bakedQuad, resources.region, blockState, blockPos);
             QuadView quadView = (QuadView) bakedQuad;
-            net.vulkanmod.render.ctm.CtmResult ctm = net.vulkanmod.render.ctm.CtmResult.none();
+            CtmResult ctm = CtmResult.none();
+
             try {
-                if (net.vulkanmod.render.ctm.Ctm.isActive()) {
-                    ctm = net.vulkanmod.render.ctm.Ctm.resolve(bakedQuad.getSprite(), blockState, blockPos, bakedQuad.getDirection(), resources.region);
-                    if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.SWAP) {
-                        quadView = new net.vulkanmod.render.ctm.CtmUvQuad(quadView, bakedQuad.getSprite(), ctm.sprite());
+                if (Ctm.isActive()) {
+                    ctm = Ctm.resolve(bakedQuad.getSprite(), blockState, blockPos, bakedQuad.getDirection(), resources.region);
+                    if (ctm.kind() == CtmResult.Kind.SWAP) {
+                        quadView = new CtmUvQuad(quadView, bakedQuad.getSprite(), ctm.sprite());
                     }
                 }
             } catch (Throwable t) {
-                ctm = net.vulkanmod.render.ctm.CtmResult.none();
-                quadView = (QuadView) bakedQuad;
+                ctm = CtmResult.none();
             }
+
             lightPipeline.calculate(quadView, blockPos, quadLightData, cullFace, bakedQuad.getDirection(), bakedQuad.isShade());
             putQuadData(bufferBuilder, quadView, quadLightData);
-            if (ctm.kind() == net.vulkanmod.render.ctm.CtmResult.Kind.OVERLAY) {
+
+            if (ctm.kind() == CtmResult.Kind.OVERLAY) {
                 try {
-                    net.vulkanmod.render.vertex.TerrainBufferBuilder overlayBuffer = resources.builderPack.builder(ctm.layer());
-                    net.vulkanmod.render.ctm.CtmUvQuad overlayQuad = new net.vulkanmod.render.ctm.CtmUvQuad((QuadView) bakedQuad, bakedQuad.getSprite(), ctm.sprite());
-                    net.vulkanmod.render.ctm.CtmOverlayEmitter.emit(overlayBuffer, overlayQuad, quadLightData, this.pos, this.waveCode, this.blockBaseY, this.upperHalf, ctm.tintIndex(), blockState, resources.region, blockPos);
-                } catch (Throwable t) {
-                }
+                    TerrainBufferBuilder overlayBuffer = resources.builderPack.builder(ctm.layer());
+                    CtmUvQuad overlayQuad = new CtmUvQuad((QuadView) bakedQuad, bakedQuad.getSprite(), ctm.sprite());
+                    CtmOverlayEmitter.emit(overlayBuffer, overlayQuad, quadLightData, this.pos, this.waveCode, this.blockBaseY, this.upperHalf, ctm.tintIndex(), blockState, resources.region, blockPos);
+                } catch (Throwable ignored) {}
             }
         }
     }
 
     private void putQuadData(TerrainBufferBuilder bufferBuilder, QuadView quadView, QuadLightData quadLightData) {
         float r, g, b;
+
         if (quadView.isTinted()) {
             int color = blockColors.getColor(blockState, resources.region, blockPos, quadView.getColorIndex());
+
             r = ColorUtil.ARGB.unpackR(color);
             g = ColorUtil.ARGB.unpackG(color);
             b = ColorUtil.ARGB.unpackB(color);
@@ -215,11 +288,13 @@ public class BlockRenderer {
         bufferBuilder.ensureCapacity();
 
         float minU = quad.getU(0), maxU = minU, minV = quad.getV(0), maxV = minV;
+
         for (int k = 1; k < 4; ++k) {
             float qu = quad.getU(k), qv = quad.getV(k);
             minU = Math.min(minU, qu); maxU = Math.max(maxU, qu);
             minV = Math.min(minV, qv); maxV = Math.max(maxV, qv);
         }
+
         bufferBuilder.setQuadMidUV((minU + maxU) * 0.5f, (minV + maxV) * 0.5f);
 
         for (byte i = 0; i < 4; ++i) {
@@ -242,12 +317,14 @@ public class BlockRenderer {
 
             final int color = ColorUtil.RGBA.pack(r, g, b, 1.0f);
             int light = (lights[idx] & ~0xF) | waveCode;
+
             if (waveCode != 0) {
                 float localHeight = y - blockBaseY;
                 float weight = upperHalf ? (1.0f + localHeight) * 0.5f : localHeight;
                 weight = weight < 0.0f ? 0.0f : (weight > 1.0f ? 1.0f : weight);
                 light = (light & ~0xF0000) | (Math.round(weight * 15.0f) << 16);
             }
+
             final float u = quad.getU(idx);
             final float v = quad.getV(idx);
 
@@ -263,8 +340,8 @@ public class BlockRenderer {
         BlockState adjBlockState = blockGetter.getBlockState(adjPos);
 
         if (net.vulkanmod.Initializer.CONFIG.leavesQuality > 0
-                && blockState.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock
-                && adjBlockState.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock) {
+                && blockState.getBlock() instanceof LeavesBlock
+                && adjBlockState.getBlock() instanceof LeavesBlock) {
             return false;
         }
 

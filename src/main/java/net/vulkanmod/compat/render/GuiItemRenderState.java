@@ -31,7 +31,7 @@ public final class GuiItemRenderState {
         int depth = TOOLTIP_OVERLAY_DEPTH.get();
 
         if (depth <= 1) {
-            TOOLTIP_OVERLAY_DEPTH.remove();
+            TOOLTIP_OVERLAY_DEPTH.set(0); // using remove() is a good practice, but it causes many allocations
         } else {
             TOOLTIP_OVERLAY_DEPTH.set(depth - 1);
         }
@@ -43,7 +43,7 @@ public final class GuiItemRenderState {
 
     public static void restoreDeferredDrawState() {
         RenderStateSnapshot snapshot = DEFERRED_DRAW_STATE.get();
-        DEFERRED_DRAW_STATE.remove();
+        DEFERRED_DRAW_STATE.set(null);
 
         if (snapshot != null) {
             snapshot.restore();

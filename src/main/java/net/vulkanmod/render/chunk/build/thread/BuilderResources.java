@@ -1,5 +1,6 @@
 package net.vulkanmod.render.chunk.build.thread;
 
+import net.minecraft.util.RandomSource;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.render.chunk.RenderSection;
 import net.vulkanmod.render.chunk.build.BlockRenderer;
@@ -28,6 +29,8 @@ public class BuilderResources {
 
     public final LightPipeline smoothLightPipeline;
     public final LightPipeline flatLightPipeline;
+
+    public final RandomSource randomSource = RandomSource.createNewThreadLocalInstance();
 
     private int totalBuildTime = 0, buildCount = 0;
 

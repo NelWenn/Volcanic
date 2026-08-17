@@ -7,7 +7,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.chunk.VisGraph;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -34,7 +33,7 @@ public class BuildTask extends ChunkTask {
     @Nullable
     protected RenderRegion region;
 
-    public BuildTask(RenderSection renderSection, RenderRegion renderRegion, boolean highPriority) {
+    public BuildTask(RenderSection renderSection, @Nullable RenderRegion renderRegion, boolean highPriority) {
         super(renderSection);
         this.region = renderRegion;
         this.highPriority = highPriority;
@@ -54,6 +53,7 @@ public class BuildTask extends ChunkTask {
 
         try {
             Vec3 vec3 = WorldRenderer.getCameraPos();
+
             float x = (float) vec3.x;
             float y = (float) vec3.y;
             float z = (float) vec3.z;
@@ -145,9 +145,8 @@ public class BuildTask extends ChunkTask {
                     if (blockState.getRenderShape() == RenderShape.MODEL) {
                         BakedModel model = Minecraft.getInstance().getBlockRenderer().getBlockModel(blockState);
                         ModelData modelData = getModelData(blockPos, blockState, model);
-                        RandomSource randomSource = RandomSource.create();
-                        randomSource.setSeed(blockState.getSeed(blockPos));
-                        ChunkRenderTypeSet renderTypes = model.getRenderTypes(blockState, randomSource, modelData);
+                        builderResources.randomSource.setSeed(blockState.getSeed(blockPos));
+                        ChunkRenderTypeSet renderTypes = model.getRenderTypes(blockState, builderResources.randomSource, modelData);
 
                         for (RenderType chunkRenderType : renderTypes) {
                             renderType = TerrainRenderType.get(chunkRenderType);

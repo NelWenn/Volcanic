@@ -1,6 +1,7 @@
 package net.vulkanmod.vulkan.pass;
 
 import net.minecraft.client.Minecraft;
+import net.vulkanmod.Initializer;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -24,8 +25,8 @@ public class ShadowMap {
     private static final float[] NEAR_RADIUS = { 24.0f, 72.0f };
 
     public static int cascadeResolution() {
-        int q = net.vulkanmod.Initializer.CONFIG.shadowQuality;
-        return CASCADE_RES[Math.max(0, Math.min(CASCADE_RES.length - 1, q))];
+        int q = Initializer.CONFIG.shadowQuality;
+        return CASCADE_RES[Math.clamp(q, 0, CASCADE_RES.length - 1)];
     }
 
     public static int currentResolution() {
@@ -36,7 +37,7 @@ public class ShadowMap {
     private static final float HALF_DEPTH = 120.0f;
 
     public static float farRadius() {
-        return Math.max(16, net.vulkanmod.Initializer.CONFIG.shadowDistance);
+        return Math.max(16, Initializer.CONFIG.shadowDistance);
     }
 
     public static float cascadeRadius(int i) {
