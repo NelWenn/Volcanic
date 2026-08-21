@@ -1,11 +1,15 @@
 package net.vulkanmod.vulkan.pass;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 public final class PipelineCapabilities {
     private ShadowProvider shadowProvider;
     private MaterialProvider materialProvider;
     private DepthCaptureProvider depthCaptureProvider;
+
+    private Map<Class<? extends PipelineFeature>, PipelineFeature> customCapabilities = new HashMap<>();
 
     public void setShadowProvider(ShadowProvider provider) {
         this.shadowProvider = provider;

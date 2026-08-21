@@ -23,7 +23,12 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.Config;
+import net.vulkanmod.plugin.HookRegistry;
+import net.vulkanmod.plugin.hooks.events.render.WorldRenderSectionEndEvent;
+import net.vulkanmod.plugin.hooks.events.render.WorldSectionRenderBeginEvent;
 import net.vulkanmod.render.chunk.util.StaticQueue;
+import net.vulkanmod.render.context.RenderContext;
+import net.vulkanmod.render.context.RenderContextProvider;
 import net.vulkanmod.render.material.PbrAtlas;
 import net.vulkanmod.render.pipeline.RenderPipeline;
 import net.vulkanmod.render.pipeline.RenderStateSnapshot;
@@ -34,6 +39,7 @@ import net.vulkanmod.render.chunk.build.RenderRegionBuilder;
 import net.vulkanmod.render.chunk.build.TaskDispatcher;
 import net.vulkanmod.render.chunk.build.task.ChunkTask;
 import net.vulkanmod.render.chunk.graph.SectionGraph;
+import net.vulkanmod.render.sodium.SodiumShaderBridge;
 import net.vulkanmod.render.vertex.TerrainRenderType;
 import net.vulkanmod.vulkan.Renderer;
 import net.vulkanmod.vulkan.VRenderSystem;
@@ -92,7 +98,7 @@ public class WorldRenderer {
 
     private final List<Runnable> onAllChangedCallbacks = new ObjectArrayList<>();
 
-    private PipelineManager pipelineManager;
+    private final PipelineManager pipelineManager;
 
     private WorldRenderer(RenderBuffers renderBuffers) {
         this.minecraft = Minecraft.getInstance();
@@ -148,10 +154,7 @@ public class WorldRenderer {
     }
 
     public static WorldRenderer init(RenderBuffers renderBuffers) {
-        if (INSTANCE != null)
-            return INSTANCE;
-        else
-            return INSTANCE = new WorldRenderer(renderBuffers);
+        return Objects.requireNonNullElseGet(INSTANCE, () -> INSTANCE = new WorldRenderer(renderBuffers));
     }
 
     public static WorldRenderer getInstance() {
@@ -236,7 +239,6 @@ public class WorldRenderer {
                 this.scheduleGraphUpdate();
             }
         } catch (Exception e) {
-
             Initializer.LOGGER.error("Failed to upload chunk sections; resetting renderer", e);
             allChanged();
         }
@@ -338,7 +340,13 @@ public class WorldRenderer {
         final boolean indirectDraw = Initializer.CONFIG.indirectDraw && DeviceManager.supportsFastIndirectDraw();
         final long fadeNow = System.nanoTime();
         final boolean fadeSplit = !isTranslucent && RenderSection.anyFading(fadeNow)
-                && !net.vulkanmod.render.sodium.SodiumShaderBridge.isActive();
+                && !SodiumShaderBridge.isActive();
+
+        HookRegistry.post(new WorldSectionRenderBeginEvent() {
+            @Override public long                   when()          { return System.currentTimeMillis(); }
+            @Override public RenderContext          context()       { return RenderContextProvider.getInstance().getOrCreate(); }
+            @Override public Iterator<ChunkArea>    chunkAreas()    { return sectionGraph.getChunkAreaQueue().iterator(isTranslucent); }
+        });
 
         VRenderSystem.applyMVP(modelView, projection);
         VRenderSystem.setPrimitiveTopology(VertexFormat.Mode.TRIANGLES);
@@ -413,6 +421,11 @@ public class WorldRenderer {
                     }
                 }
             }
+
+            HookRegistry.post(new WorldRenderSectionEndEvent() {
+                @Override public long           when()      { return System.currentTimeMillis(); }
+                @Override public RenderContext  context()   { return RenderContextProvider.getInstance().getOrCreate(); }
+            });
         }
 
         if (terrainRenderType == TerrainRenderType.CUTOUT || terrainRenderType == TerrainRenderType.TRIPWIRE) {

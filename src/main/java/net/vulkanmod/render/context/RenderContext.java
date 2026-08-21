@@ -1,4 +1,4 @@
-package net.vulkanmod.render;
+package net.vulkanmod.render.context;
 
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
@@ -14,6 +14,4 @@ public interface RenderContext {
     LocalPlayer player();
     Camera      camera();
     ClientLevel level();
-    float       partialTick();
-    long        frameIndex();
 }

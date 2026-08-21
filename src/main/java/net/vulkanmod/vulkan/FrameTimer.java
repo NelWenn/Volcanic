@@ -1,7 +1,12 @@
 package net.vulkanmod.vulkan;
 
 import net.vulkanmod.Initializer;
+import net.vulkanmod.render.profiling.RenderCounters;
+import net.vulkanmod.render.vsr.Vsr;
 import net.vulkanmod.vulkan.device.DeviceManager;
+import net.vulkanmod.vulkan.framebuffer.RenderPass;
+import net.vulkanmod.vulkan.pass.DefaultMainPass;
+import net.vulkanmod.vulkan.shader.GraphicsPipeline;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.vulkan.VkQueryPoolCreateInfo;
 
@@ -231,11 +236,11 @@ public final class FrameTimer {
         if (now - lastReportNanos < REPORT_INTERVAL_NS || samples < 1) return;
 
         if (!this.logging) {
-            net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuilds();
-            net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuildMs();
-            net.vulkanmod.vulkan.framebuffer.RenderPass.consumeCreations();
-            net.vulkanmod.vulkan.pass.DefaultMainPass.consumeTargetSwitches();
-            net.vulkanmod.render.vsr.Vsr.consumePasses();
+            GraphicsPipeline.consumeBuilds();
+            GraphicsPipeline.consumeBuildMs();
+            RenderPass.consumeCreations();
+            DefaultMainPass.consumeTargetSwitches();
+            Vsr.consumePasses();
 
             accWallMs = accCpuMs = accGpuMs = accCpuBusyMs = 0;
             accUploadMs = accTerrainMs = accSetupMs = 0;
@@ -281,16 +286,16 @@ public final class FrameTimer {
                 upload, setup, terrain, renderOther, gcMsPerFrame));
         Initializer.LOGGER.info(String.format(
                 "  terrain: visibleSections=%d  draws=%d  meshQueue=%d  uploadQueue=%d  builders=%d/%d",
-                net.vulkanmod.render.profiling.RenderCounters.visibleSections(),
-                net.vulkanmod.render.profiling.RenderCounters.terrainDraws(),
-                net.vulkanmod.render.profiling.RenderCounters.meshQueue(),
-                net.vulkanmod.render.profiling.RenderCounters.uploadQueue(),
-                net.vulkanmod.render.profiling.RenderCounters.idleBuilders(),
-                net.vulkanmod.render.profiling.RenderCounters.builders()));
+                RenderCounters.visibleSections(),
+                RenderCounters.terrainDraws(),
+                RenderCounters.meshQueue(),
+                RenderCounters.uploadQueue(),
+                RenderCounters.idleBuilders(),
+                RenderCounters.builders()));
 
-        int pipelineBuilds = net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuilds();
-        double pipelineBuildMs = net.vulkanmod.vulkan.shader.GraphicsPipeline.consumeBuildMs();
-        int renderPassCreations = net.vulkanmod.vulkan.framebuffer.RenderPass.consumeCreations();
+        int pipelineBuilds = GraphicsPipeline.consumeBuilds();
+        double pipelineBuildMs = GraphicsPipeline.consumeBuildMs();
+        int renderPassCreations = RenderPass.consumeCreations();
 
         Initializer.LOGGER.info(String.format(
                 "  pipelines: builds=%.1f/frame  buildTime=%.2fms/frame  liveVariants=%d  renderPassCreations=%.1f/frame",

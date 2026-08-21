@@ -9,6 +9,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.vulkanmod.config.Config;
+import net.vulkanmod.config.PerformancePreset;
 import net.vulkanmod.config.Platform;
 import net.vulkanmod.config.UpdateChecker;
 import net.vulkanmod.config.ui.shell.VolcanicScreen;
@@ -47,7 +48,7 @@ public class Initializer {
 			CONFIG = new Config();
 		} finally {
 			// set MoltenVK config before its dylib loads
-			net.vulkanmod.vulkan.MoltenVKConfig.apply();
+			MoltenVKConfig.apply();
 		}
 	}
 
@@ -87,7 +88,7 @@ public class Initializer {
 
 		if (config == null) {
 			config = new Config();
-			config.performancePreset = net.vulkanmod.config.PerformancePreset.QUALITY.id;
+			config.performancePreset = PerformancePreset.QUALITY.id;
 			config.write();
 			firstRun = true;
 		}

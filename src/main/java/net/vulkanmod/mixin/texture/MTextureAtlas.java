@@ -3,6 +3,7 @@ package net.vulkanmod.mixin.texture;
 import net.minecraft.client.renderer.texture.SpriteLoader;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
+import net.vulkanmod.render.ctm.CtmPackLoader;
 import net.vulkanmod.render.material.PbrAtlas;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,8 +20,8 @@ public abstract class MTextureAtlas {
     @Inject(method = "upload", at = @At("TAIL"))
     private void volcanic$buildPbrAtlas(SpriteLoader.Preparations preparations, CallbackInfo ci) {
         PbrAtlas.build(this.location, preparations);
-        if (net.minecraft.client.renderer.texture.TextureAtlas.LOCATION_BLOCKS.equals(this.location)) {
-            net.vulkanmod.render.ctm.CtmPackLoader.buildStore((net.minecraft.client.renderer.texture.TextureAtlas)(Object)this);
+        if (TextureAtlas.LOCATION_BLOCKS.equals(this.location)) {
+            CtmPackLoader.buildStore((TextureAtlas)(Object)this);
         }
     }
 }

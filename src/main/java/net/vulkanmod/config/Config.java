@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import net.vulkanmod.Initializer;
 import net.vulkanmod.config.video.VideoModeManager;
 import net.vulkanmod.config.video.VideoModeSet;
+import net.vulkanmod.render.sodium.SodiumShaderBridge;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -12,7 +13,9 @@ import java.lang.reflect.Modifier;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 public class Config {
     public int configVersion = ConfigVersion.CURRENT;
@@ -68,7 +71,7 @@ public class Config {
     public String selectedShader = "off";
 
     public boolean isCamille() {
-        return "radiance".equals(selectedShader) && !net.vulkanmod.render.sodium.SodiumShaderBridge.isActive();
+        return "radiance".equals(selectedShader) && !SodiumShaderBridge.isActive();
     }
 
     public boolean shadowsEnabled = true;
@@ -117,7 +120,7 @@ public class Config {
         }
     }
 
-    public java.util.List<String> disabledParticles = new java.util.ArrayList<>();
+    public List<String> disabledParticles = new ArrayList<>();
     public int chunkBuilderThreads = 0;
     public boolean showFpsCounter = false;
     public boolean showCoordinates = false;

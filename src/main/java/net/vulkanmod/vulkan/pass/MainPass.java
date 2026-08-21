@@ -69,7 +69,7 @@ public interface MainPass {
 
     default String renderScaleStatus() { return "n/a"; }
 
-    default int getColorAttachmentGlId() { return -1; }
-
     default int getDepthAttachmentGlId() { return -1; }
+
+    default int getColorAttachmentGlId() { return -1; }
 }

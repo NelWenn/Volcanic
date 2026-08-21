@@ -198,4 +198,9 @@ public final class RadianceMaterialProvider implements MaterialProvider {
             this.materialFramebuffer = null;
         }
     }
+
+    @Override
+    public boolean isReady() {
+        return true;
+    }
 }

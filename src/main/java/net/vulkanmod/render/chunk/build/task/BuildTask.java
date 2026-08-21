@@ -15,6 +15,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.ChunkRenderTypeSet;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import net.vulkanmod.Initializer;
+import net.vulkanmod.plugin.HookRegistry;
+import net.vulkanmod.plugin.hooks.events.compile.PreChunkCompileEvent;
 import net.vulkanmod.render.chunk.RenderSection;
 import net.vulkanmod.render.chunk.WorldRenderer;
 import net.vulkanmod.render.chunk.build.BlockRenderer;
@@ -102,6 +104,18 @@ public class BuildTask extends ChunkTask {
         this.region.loadBlockStates();
         this.region.initTintCache(builderResources.tintCache);
 
+        // pre compile Event
+
+        if (HookRegistry.post(new PreChunkCompileEvent() {
+            @Override public long when()                { return System.currentTimeMillis(); }
+
+            @Override public int chunkX()               { return section.xOffset(); }
+            @Override public int chunkZ()               { return section.zOffset(); }
+
+            @Override public RenderRegion region()      { return region; }
+            @Override public RenderSection section()    { return section; }
+        })) return compileResult;
+
         builderResources.update(this.region, this.section);
 
         BlockRenderer blockRenderer = builderResources.blockRenderer;
@@ -169,6 +183,8 @@ public class BuildTask extends ChunkTask {
             compileResult.transparencyState = translucentBufferBuilder.getSortState();
         }
 
+        // on compile event
+
         for (TerrainRenderType renderType : TerrainRenderType.VALUES) {
             TerrainBufferBuilder.RenderedBuffer renderedBuffer = bufferBuilders.builder(renderType).end();
             if (renderedBuffer != null) {
@@ -177,6 +193,8 @@ public class BuildTask extends ChunkTask {
                 renderedBuffer.release();
             }
         }
+
+        // post compile event
 
         compileResult.visibilitySet = visGraph.resolve();
         return compileResult;

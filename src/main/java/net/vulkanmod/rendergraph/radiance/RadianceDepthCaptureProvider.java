@@ -169,4 +169,9 @@ public final class RadianceDepthCaptureProvider implements DepthCaptureProvider 
         if (this.capturedForegroundDepth != null) { this.capturedForegroundDepth.free(); this.capturedForegroundDepth = null; }
         if (this.coloredShadowDepth != null) { this.coloredShadowDepth.free(); this.coloredShadowDepth = null; }
     }
+
+    @Override
+    public boolean isReady() {
+        return true;
+    }
 }

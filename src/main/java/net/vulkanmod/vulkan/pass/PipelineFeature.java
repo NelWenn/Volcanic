@@ -6,6 +6,7 @@ package net.vulkanmod.vulkan.pass;
 public interface PipelineFeature {
 
     default void initialize(EngineContext context) {}
-
     default void cleanup() {}
+
+    boolean isReady();
 }
