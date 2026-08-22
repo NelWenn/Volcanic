@@ -115,8 +115,6 @@ public class Renderer {
     public MainPass mainPass;
     public PipelineManager pipelineManager;
 
-    public static RenderContext ctx;
-
     public Renderer() {
         device = Vulkan.getVkDevice();
         framesNum = Initializer.CONFIG.frameQueueSize;
@@ -124,7 +122,6 @@ public class Renderer {
 
         mainPass = DefaultMainPass.create();
         pipelineManager = PluginRegistry.activeShader().pipelineManager().get();
-        ctx = RenderContextProvider.getInstance().getOrCreate();
     }
 
     public static void setLineWidth(float width) {
